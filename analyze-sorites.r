@@ -41,7 +41,7 @@ data <- data.frame(subj=subjs, #worker id
                    item=item, #headphones, coffee maker, watch, sweater, laptop
                    response=as.numeric(response)) #1 (disagree) to 9 (agree)
 
-graph.df <- function(df, label, range) {
+graph.df <- function(df, label, range, save=F, file.names=c("",""), item.label="") {
   
   avg.data <- aggregate(response ~ sigs + qtype, data=df, FUN=mean)
   nsubj <- length(unique(data$subj))
@@ -58,14 +58,20 @@ graph.df <- function(df, label, range) {
   val.y <- avg.data$response[avg.data$qtype=="val"]
   val.low <- conf.data$response[avg.data$qtype=="val",1]
   val.high <- conf.data$response[avg.data$qtype=="val",2]
-  
+  if (is.na(label)) {
+    inductive.label <- item.label#paste("I", item.label)
+    concrete.label <- ""#paste("C", item.label)
+  } else {
+    inductive.label <- paste(c("Sorites Expt - Inductive Premise Falloff", label), collapse="")
+    concrete.label <- paste(c("Sorites Expt - Concrete Premise Prior", label), collapse="")
+  }
   inductive <- plot(epsilons, eps.y, ylim=range, type="l", ylab="goodness of inductive premise",
                     xlab="epsilons (in standard deviations)",
-                    main=paste(c("Sorites Expt - Inductive Premise Falloff", label), collapse=""))
+                    main=inductive.label)
   arrows(epsilons, eps.high, epsilons, eps.low, angle=90, code=3, length=0.1)
   concrete <- plot(values, val.y, ylim=range, type="l", ylab="goodness of concrete premise",
                    xlab="values (in standard deviations above the mean)",
-                   main=paste(c("Sorites Expt - Concrete Premise Prior", label), collapse=""))
+                   main=concrete.label)
   arrows(values, val.high, values, val.low, angle=90, code=3, length=0.1)
 }
 
@@ -106,6 +112,16 @@ z.data <- data.frame(subj=z.subj, qnum=z.qnum, qtype=z.qtype, dollars=z.dollars,
 # 
 graph.df(data, "", c(1,9))
 graph.df(z.data, " (z-scored)", c(-1.5,1.5))
+# par(mfcol=c(2,5))
+# sapply(unique(as.character(data$item)), function(lalala) {
+#   graph.df(subset(z.data, z.data$item==lalala), label=NA,
+#            range=c(-1.5,1.5), item.label=lalala)
+# })
+par(mfcol=c(2,5))
+sapply(unique(as.character(data$item)), function(lalala) {
+  graph.df(subset(data, data$item==lalala), label=NA,
+           range=c(1,9), item.label=lalala)
+})
 
 
 # data <- data.frame(subj=subjs, #worker id
