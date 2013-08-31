@@ -218,3 +218,23 @@ sapply(item.names, function(cat){
        lwd=3)
 })
 dev.off()
+
+
+eps <- c(0.01, 0.1, 0.5, 1, 2, 3)
+model.judgements <- sapply(item.names, function(cat) {
+  model.y <- allcat[[cat]]$y
+  return(sapply(eps, function(e) {
+    eps.scaled <- e*sd(examples[[cat]])
+    return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
+  }))
+})
+source("analyze-sorites.r")
+people.judgements <- sapply(item.names, function(cat) {
+  df <- subset(data, data$item==cat & qtype=="eps")
+  return(aggregate(response ~ sigs + qtype, data=df, FUN=mean)$response)
+})
+x <- c(people.judgements)
+y <- c(model.judgements)
+png("scatterplot", 1000, 800, pointsize=32)
+plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment")
+dev.off()
