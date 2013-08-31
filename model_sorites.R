@@ -17,18 +17,6 @@ examples <- lapply(examples, function(exs){
   return(exs/max(exs))
 })
 
-# down.examples <- c(0.04583, 0.003231, 0.07391, 0.01884, 0.00003024, 0.04158,
-#                    0.09081, 0.06746, 0.01949, 0.1007, 0.1633, 0.1441, 0.1655,
-#                    0.2697, 0.2161)
-# mid.examples <- c(0.31404, 0.30456, 0.39520, 0.56064, 0.49728, 0.53187, 0.55993,
-#                   0.47519, 0.54332, 0.48362, 0.51678, 0.44763, 0.68272, 0.61375,
-#                   0.69832)
-# unif.examples <- c(0.9730805, 0.0589135, 0.1332413, 0.5568001, 0.6201130, 0.4243146,
-#                    0.4176713, 0.2215742, 0.6778150, 0.6834636, 0.8716204, 0.5641932,
-#                    0.3503760, 0.9606276, 0.0048311)
-# examples <- list(down.examples, mid.examples, unif.examples)
-# names(examples) <- c("down", "mid", "unif")
-
 possible.utterances = c('no-utt', 'pos') 
 utterance.lengths = c(0,1)
 utterance.polarities = c(0,+1)
@@ -75,7 +63,7 @@ listener0 = function(utterance.idx, thetas.idx, degree.idx, pdf, cdf) {
     cache.misses <<- cache.misses + 1
     if (utterance.idx == 1) { #assume the null utterance
       L0.cache[degree.idx,thetas.idx[1],utterance.idx] <<- pdf[degree.idx]
-    }	else if(utterance.polarities[utterance.idx] == +1) {
+    }  else if(utterance.polarities[utterance.idx] == +1) {
       theta.idx = thetas.idx[utterance.idx-1]
       utt.true = grid[degree.idx] >= grid[theta.idx]  
       true.norm = if(theta.idx==1){1} else {1-cdf[theta.idx-1]}
@@ -91,7 +79,7 @@ listener0 = function(utterance.idx, thetas.idx, degree.idx, pdf, cdf) {
 }
 
 speaker1 = function(thetas.idx, degree.idx, utterance.idx, alpha, utt.cost, pdf, cdf, thetaGtr) {
- 
+  
   if(is.na(S1.cache[degree.idx,thetas.idx[1],utterance.idx])) {
     cache.misses <<- cache.misses + 1
     utt.probs = array(0,dim=c(length(possible.utterances)))
@@ -100,9 +88,9 @@ speaker1 = function(thetas.idx, degree.idx, utterance.idx, alpha, utt.cost, pdf,
       utt.probs[i] <- (l0^alpha) * exp(-alpha * utt.cost *  utterance.lengths[i])
     }
     S1.cache[degree.idx,thetas.idx[1],] <<- utt.probs/sum(utt.probs)
-	}
+  }
   
-	return(S1.cache[degree.idx,thetas.idx[1],utterance.idx])
+  return(S1.cache[degree.idx,thetas.idx[1],utterance.idx])
 }
 
 listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
@@ -113,13 +101,13 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   kernel.est <- est.kernel(dist, band.width)
   pdf <- make.pdf.cache(kernel.est)
   cdf <- make.cdf.cache(kernel.est)
-    
+  
   dim1 <- paste('samp', 1:n.samples, sep='')
   dim2 <- c('degree', paste('theta.', possible.utterances[-1], sep=''))
   dimnames <- list(dim1, dim2)
-	samples = matrix(NA, nrow=n.samples, ncol=length(possible.utterances), dimnames=dimnames)
+  samples = matrix(NA, nrow=n.samples, ncol=length(possible.utterances), dimnames=dimnames)
   
-    
+  
   #scoring function, to compute (unormalized) probability of state. (should be in log domain?)
   prob.unnormed = function(state) {
     #check bounds:
@@ -152,8 +140,8 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   #run mcmc chain:
   print("running mcmc")
   n.proposals.accepted = 0
-	for (i in 2:n.samples) {
-		proposal = make.proposal(state)
+  for (i in 2:n.samples) {
+    proposal = make.proposal(state)
     proposal.prob = prob.unnormed(proposal)
     #MH acceptance, assumes proposal is symmetric:
     if(runif(1,0,1) <= min(1, proposal.prob/state.prob)) {
@@ -161,19 +149,19 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
       state = proposal
       state.prob = proposal.prob
     }
-		samples[i,] = state
-	}
+    samples[i,] = state
+  }
   
   print("acceptance rate:")
   print(n.proposals.accepted/(n.samples-1))
   print("misses since last cache clear:")
   print(cache.misses)
   
-	return(list(samples=samples, prop.accepted=n.proposals.accepted/(n.samples-1)))
+  return(list(samples=samples, prop.accepted=n.proposals.accepted/(n.samples-1)))
 }
 
 model.sorites <- function(cat) {
-  n.true.samples <- 3000#30000 #number of samples to keep
+  n.true.samples <- 30000 #number of samples to keep
   lag <- 5 #number of samples to skip over
   burn.in <- 10
   n.samples <- n.true.samples * lag + burn.in
@@ -185,13 +173,13 @@ model.sorites <- function(cat) {
   
   clear.cache()
   samples = listener1('pos', alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
-              step.size=step.size, dist=cat, band.width="SJ", thetaGtr=F)
+                      step.size=step.size, dist=cat, band.width="SJ", thetaGtr=F)
   
   #want to check what fraction of thetas are below degree - epsilon
   prem <- sapply(epsilons, function(eps) {
     return(sum(samples$samples[,2]<=samples$samples[,1]-eps)/length(samples$samples[,1]))
   })
-    
+  
   ret <- list(epsilons,prem)
   names(ret) <- c("x","y")
   
@@ -199,6 +187,12 @@ model.sorites <- function(cat) {
   
   return(ret)
 }
+
+# allcat <- lapply(names(examples), model.sorites)
+# names(allcat) <- names(examples)
+# par(mfrow=c(2,3))
+# sapply(names(allcat), function(cat){
+#   plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
 
 item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
 allcat <- lapply(names(examples), model.sorites)
@@ -213,7 +207,7 @@ sapply(item.names, function(cat){
     xlab = ""
     ylab = ""
   }
-  plot(allcat[[cat]]$x/sd(examples[[cat]]),
+  plot(allcat[[cat]]$x,
        allcat[[cat]]$y,
        type="l",
        main=cat,
@@ -224,83 +218,3 @@ sapply(item.names, function(cat){
        lwd=3)
 })
 dev.off()
-
-
-
-# #run model with these values of parameters
-# model <- function(alpha, utt.cost, thetaGtr, label) {
-#   n.true.samples <- 30000 #number of samples to keep
-#   lag <- 5 #number of samples to skip over
-#   burn.in <- 10
-#   n.samples <- n.true.samples * lag + burn.in
-#   step.size <- 0.03 #note this may not be appropriate for all conditions.
-#   dists <- c("down", "mid", "unif")
-#   
-#   model.runs <- lapply(dists, function(dist) {
-#     clear.cache()
-#     return(lapply(possible.utterances, function(utterance) {
-#       listener1(utterance, alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
-#                 step.size=step.size, dist=dist, band.width="SJ", thetaGtr=thetaGtr)
-#     }))
-#   })
-#   model.runs <- lapply(model.runs, function(run) {
-#     names(run) <- possible.utterances
-#     return(run)
-#   })
-#   names(model.runs) <- dists
-#   
-#   myapply <- function(f) {
-#     c(sapply(dists, function(dist) {
-#       return(c(sapply(possible.utterances, function(utterance) {
-#         return(f(dist, utterance))
-#       })))
-#     }))
-#   }
-#   
-#   graph.dist <- myapply(function(d,u){return(d)})
-#   graph.utterance <- myapply(function(d,u){return(u)})
-#   graph.means <- myapply(function(d,u){
-#     du.name <- paste(c(label, "-", d, "-", u, ".data"), collapse="")
-#     du.frame <- model.runs[[d]][[u]]
-#     #save all data
-#     write.table(du.frame, du.name)
-#     return(mean(du.frame[["samples"]][,"degree"]))
-#   })
-#   write.table(graph.means, paste(c(label, "-means.data"), collapse=""))
-#   graph.data <- (matrix(data=graph.means, nrow=3, ncol=3,
-#                         dimnames=list(c("none", "adj", "very"),
-#                                       c("peakedDown", "peakedMid", "uniform"))))
-#   png(paste(c(label, ".png"), collapse=""))
-#   novel.adj.bar <- barplot(as.matrix(graph.data), main="alpha=1, cost=2, very>pos",
-#                            ylab="feppiness", beside=TRUE, col=rainbow(3), ylim=c(0,1))
-#   legend("topleft", c("wug", "feppy wug", "very feppy wug"), cex=0.6, bty="n", fill=rainbow(3));
-#   dev.off()
-# }
-# 
-# timestamp <- as.character(unclass(Sys.time()))
-# 
-# mainDir <- "~/morphs-analysis/"
-# subDir <- paste(c("output", timestamp), collapse="")
-# 
-# if (!(file.exists(subDir))) {
-#   dir.create(file.path(mainDir, subDir))
-# }
-# 
-# time.label <- function(identifier) {
-#   return(paste(c("output", timestamp, "/", identifier), collapse=""))
-# }
-# 
-# #run the model with different values of free parameters
-# 
-# model(alpha=1, utt.cost=2, thetaGtr=T, label=time.label("alpha1cost2Gtr"))
-
-
-#model(alpha=1, utt.cost=2, thetaGtr=T, label="output/alpha1cost2thetaGtr")
-#model(alpha=1, utt.cost=2, thetaGtr=F, label="output/alpha1cost2")
-# model(alpha=1, utt.cost=2, thetaGtr=F, label="output/alpha1cost5")
-# model(alpha=2, utt.cost=2, thetaGtr=T, label="output/alpha2cost2thetaGtr")
-# model(alpha=2, utt.cost=2, thetaGtr=F, label="output/alpha2cost2")
-# model(alpha=2, utt.cost=2, thetaGtr=F, label="output/alpha2cost5")
-# model(alpha=4, utt.cost=2, thetaGtr=T, label="output/alpha4cost2thetaGtr")
-# model(alpha=4, utt.cost=2, thetaGtr=F, label="output/alpha4cost2")
-# model(alpha=4, utt.cost=2, thetaGtr=F, label="output/alpha4cost5")
