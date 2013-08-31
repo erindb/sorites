@@ -181,7 +181,7 @@ model.sorites <- function(cat) {
   utt.cost <- 1
   alpha<-5
   
-  epsilons <- seq(0,3*sd(examples[[cat]]/max(examples[[cat]])),length.out=100)
+  epsilons <- seq(0,3*sd(examples[[cat]]),length.out=100)
   
   clear.cache()
   samples = listener1('pos', alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
@@ -218,7 +218,7 @@ sapply(item.names, function(cat){
        type="l",
        main=cat,
        ylim=c(0,1),
-       xlim=c(0,3),
+       #xlim=c(0,3),
        xlab=xlab,
        ylab=ylab,
        lwd=3)
