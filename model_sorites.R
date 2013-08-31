@@ -197,6 +197,12 @@ model.sorites <- function(cat) {
 item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
 allcat <- lapply(names(examples), model.sorites)
 names(allcat) <- names(examples)
+
+#par(mfrow=c(2,3))
+#sapply(names(allcat), function(cat){
+#  plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
+
+
 png("sorites-model.png", 2200, 450, pointsize=32)
 par(mfrow=c(1,5))
 sapply(item.names, function(cat){
