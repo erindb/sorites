@@ -1,7 +1,7 @@
 library(rjson)
 
 ################# reading and cleaning data for all pieces
-setwd("~/Code/cocolab/analyzing_experiments/sorites-analysis/")
+setwd("~/sorites-analysis/")
 rd <- read.table("sorites.results", sep="\t", quote='"', header=TRUE)
 
 subjects <- rd$workerid

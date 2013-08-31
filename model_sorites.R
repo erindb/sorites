@@ -2,6 +2,7 @@ setwd("~/sorites-analysis/")  ###change this to actual location of repo
 
 library(stats)
 library(rjson)
+library(logspline)
 
 #for speaker1 discretization:
 grid.steps = 64
@@ -13,6 +14,7 @@ cache.index = function(v) {
 #load human priors:
 examples <- fromJSON(readLines("human-priors.JSON")[[1]])
 #scale to max 1:
+examples.scale <- lapply(examples, max)
 examples <- lapply(examples, function(exs){
   return(exs/max(exs))
 })
@@ -22,10 +24,18 @@ utterance.lengths = c(0,1)
 utterance.polarities = c(0,+1)
 
 #using r function density to find kernal density, so it's not actually continuous
-kernel.granularity <- grid.steps #2^12 #how many points are calculated for the kernel density estimate
-est.kernel <- function(dist, bw) {
-  return(density(examples[[dist]], from=0, to=1, n=kernel.granularity,
-                 kernel="gaussian", bw=bw, adjust=1))
+# kernel.granularity <- grid.steps #2^12 #how many points are calculated for the kernel density estimate
+# est.kernel <- function(dist, bw) {
+#   return(density(examples[[dist]], from=0, to=1, n=kernel.granularity,
+#                  kernel="gaussian", bw=bw, adjust=1))
+# }
+est.kernel <- function(dist,bw) {
+  e <- examples[[dist]]
+  es <- examples.scale[[dist]]
+  k <- list()
+  k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space?
+  k$x <- grid
+    return(k)
 }
 
 #norms the kernel density
@@ -241,6 +251,6 @@ people.judgements <- sapply(item.names, function(cat) {
 })
 x <- c(people.judgements)
 y <- c(model.judgements)
-png("scatterplot", 1000, 800, pointsize=32)
-plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment")
+png("scatterplot.png", 1000, 800, pointsize=32)
+plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=20)
 dev.off()

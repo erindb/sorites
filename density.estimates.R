@@ -1,5 +1,6 @@
 library(rjson)
-setwd("~/Code/cocolab/analyzing_experiments/sorites-analysis/")
+
+setwd("~/sorites-analysis/")
 
 
 
@@ -73,10 +74,16 @@ conf.data <- aggregate(response ~ sigs + qtype + item, data=data, FUN=function(v
 png("sorites-priors.png", 2500, 400, pointsize=28)
 par(mfrow=c(1,5))
 sapply(1:length(item.names), function(i) {
-item <- item.names[[i]]
+  item <- item.names[[i]]
   samples <- items[[item]]
   par(mai=c(1,1.8,1,1.5))
-  f <- density(samples, kernel="gaussian", bw="sj")
+#   f <- density(samples, kernel="gaussian", bw="sj")
+  ms <- max(samples)
+  f <- list()
+  f$x <- seq(0,ms,length.out=512)
+  f$y <- dlogspline(f$x, logspline(samples, lbound=0))#,ubound=1))
+#   f$x <- ms*f$x 
+#   f$y <- ms*f$y
   plot(f$x, f$y, type="l", ylab="", xlab="price in dollars",
        main=item, font.main=32, lwd=2, xlim=c(0,max(f$x)), yaxt='n')
   axis(4)
@@ -86,12 +93,13 @@ item <- item.names[[i]]
   val.y <- avg.data$response[indices]
   val.low <- conf.data$response[indices,1]
   val.high <- conf.data$response[indices,2]
+  ylab <- if(item=="laptop"){"goodness of concrete premise (1-9)"} else {""}
   concrete <- plot(values, val.y, type="l", xlab="",#conc.xlab,
                    font.main=32,
                    ylim=c(1,9),
                    #main=concrete.label,
                    lwd=3,
-                   ylab="goodness of concrete premise (1-9)",
+                   ylab = ylab,
                    xlim=c(0,max(f$x)))#conc.ylab
   arrows(values, val.high, values, val.low, angle=90, code=3, length=0.1, lwd=3)
 })
