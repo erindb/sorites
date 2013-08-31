@@ -213,7 +213,7 @@ sapply(item.names, function(cat){
     xlab = ""
     ylab = ""
   }
-  plot(allcat[[cat]]$x/sd(examples[[cat]])/max(examples[[cat]]),
+  plot(allcat[[cat]]$x/sd(examples[[cat]]),
        allcat[[cat]]$y,
        type="l",
        main=cat,
