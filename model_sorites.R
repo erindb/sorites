@@ -17,18 +17,6 @@ examples <- lapply(examples, function(exs){
   return(exs/max(exs))
 })
 
-# down.examples <- c(0.04583, 0.003231, 0.07391, 0.01884, 0.00003024, 0.04158,
-#                    0.09081, 0.06746, 0.01949, 0.1007, 0.1633, 0.1441, 0.1655,
-#                    0.2697, 0.2161)
-# mid.examples <- c(0.31404, 0.30456, 0.39520, 0.56064, 0.49728, 0.53187, 0.55993,
-#                   0.47519, 0.54332, 0.48362, 0.51678, 0.44763, 0.68272, 0.61375,
-#                   0.69832)
-# unif.examples <- c(0.9730805, 0.0589135, 0.1332413, 0.5568001, 0.6201130, 0.4243146,
-#                    0.4176713, 0.2215742, 0.6778150, 0.6834636, 0.8716204, 0.5641932,
-#                    0.3503760, 0.9606276, 0.0048311)
-# examples <- list(down.examples, mid.examples, unif.examples)
-# names(examples) <- c("down", "mid", "unif")
-
 possible.utterances = c('no-utt', 'pos') 
 utterance.lengths = c(0,1)
 utterance.polarities = c(0,+1)
@@ -75,7 +63,7 @@ listener0 = function(utterance.idx, thetas.idx, degree.idx, pdf, cdf) {
     cache.misses <<- cache.misses + 1
     if (utterance.idx == 1) { #assume the null utterance
       L0.cache[degree.idx,thetas.idx[1],utterance.idx] <<- pdf[degree.idx]
-    }	else if(utterance.polarities[utterance.idx] == +1) {
+    }  else if(utterance.polarities[utterance.idx] == +1) {
       theta.idx = thetas.idx[utterance.idx-1]
       utt.true = grid[degree.idx] >= grid[theta.idx]  
       true.norm = if(theta.idx==1){1} else {1-cdf[theta.idx-1]}
@@ -91,7 +79,7 @@ listener0 = function(utterance.idx, thetas.idx, degree.idx, pdf, cdf) {
 }
 
 speaker1 = function(thetas.idx, degree.idx, utterance.idx, alpha, utt.cost, pdf, cdf, thetaGtr) {
- 
+  
   if(is.na(S1.cache[degree.idx,thetas.idx[1],utterance.idx])) {
     cache.misses <<- cache.misses + 1
     utt.probs = array(0,dim=c(length(possible.utterances)))
@@ -100,9 +88,9 @@ speaker1 = function(thetas.idx, degree.idx, utterance.idx, alpha, utt.cost, pdf,
       utt.probs[i] <- (l0^alpha) * exp(-alpha * utt.cost *  utterance.lengths[i])
     }
     S1.cache[degree.idx,thetas.idx[1],] <<- utt.probs/sum(utt.probs)
-	}
+  }
   
-	return(S1.cache[degree.idx,thetas.idx[1],utterance.idx])
+  return(S1.cache[degree.idx,thetas.idx[1],utterance.idx])
 }
 
 listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
@@ -113,13 +101,13 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   kernel.est <- est.kernel(dist, band.width)
   pdf <- make.pdf.cache(kernel.est)
   cdf <- make.cdf.cache(kernel.est)
-    
+  
   dim1 <- paste('samp', 1:n.samples, sep='')
   dim2 <- c('degree', paste('theta.', possible.utterances[-1], sep=''))
   dimnames <- list(dim1, dim2)
-	samples = matrix(NA, nrow=n.samples, ncol=length(possible.utterances), dimnames=dimnames)
+  samples = matrix(NA, nrow=n.samples, ncol=length(possible.utterances), dimnames=dimnames)
   
-    
+  
   #scoring function, to compute (unormalized) probability of state. (should be in log domain?)
   prob.unnormed = function(state) {
     #check bounds:
@@ -152,8 +140,8 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   #run mcmc chain:
   print("running mcmc")
   n.proposals.accepted = 0
-	for (i in 2:n.samples) {
-		proposal = make.proposal(state)
+  for (i in 2:n.samples) {
+    proposal = make.proposal(state)
     proposal.prob = prob.unnormed(proposal)
     #MH acceptance, assumes proposal is symmetric:
     if(runif(1,0,1) <= min(1, proposal.prob/state.prob)) {
@@ -161,15 +149,15 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
       state = proposal
       state.prob = proposal.prob
     }
-		samples[i,] = state
-	}
+    samples[i,] = state
+  }
   
   print("acceptance rate:")
   print(n.proposals.accepted/(n.samples-1))
   print("misses since last cache clear:")
   print(cache.misses)
   
-	return(list(samples=samples, prop.accepted=n.proposals.accepted/(n.samples-1)))
+  return(list(samples=samples, prop.accepted=n.proposals.accepted/(n.samples-1)))
 }
 
 model.sorites <- function(cat) {
@@ -185,13 +173,13 @@ model.sorites <- function(cat) {
   
   clear.cache()
   samples = listener1('pos', alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
-              step.size=step.size, dist=cat, band.width="SJ", thetaGtr=F)
+                      step.size=step.size, dist=cat, band.width="SJ", thetaGtr=F)
   
   #want to check what fraction of thetas are below degree - epsilon
   prem <- sapply(epsilons, function(eps) {
     return(sum(samples$samples[,2]<=samples$samples[,1]-eps)/length(samples$samples[,1]))
   })
-    
+  
   ret <- list(epsilons,prem)
   names(ret) <- c("x","y")
   
@@ -200,12 +188,59 @@ model.sorites <- function(cat) {
   return(ret)
 }
 
+# allcat <- lapply(names(examples), model.sorites)
+# names(allcat) <- names(examples)
+# par(mfrow=c(2,3))
+# sapply(names(allcat), function(cat){
+#   plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
+
+item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
 allcat <- lapply(names(examples), model.sorites)
 names(allcat) <- names(examples)
-par(mfrow=c(2,3))
-sapply(names(allcat), function(cat){
-  plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
+
+#par(mfrow=c(2,3))
+#sapply(names(allcat), function(cat){
+#  plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
 
 
+png("sorites-model.png", 2200, 450, pointsize=32)
+par(mfrow=c(1,5))
+sapply(item.names, function(cat){
+  if (cat == "laptop") {
+    xlab = "epsilon (in standard deviations)"
+    ylab = "probability inductive premise is true"
+  } else {
+    xlab = ""
+    ylab = ""
+  }
+  plot(allcat[[cat]]$x,
+       allcat[[cat]]$y,
+       type="l",
+       main=cat,
+       ylim=c(0,1),
+       #xlim=c(0,3),
+       xlab=xlab,
+       ylab=ylab,
+       lwd=3)
+})
+dev.off()
 
 
+eps <- c(0.01, 0.1, 0.5, 1, 2, 3)
+model.judgements <- sapply(item.names, function(cat) {
+  model.y <- allcat[[cat]]$y
+  return(sapply(eps, function(e) {
+    eps.scaled <- e*sd(examples[[cat]])
+    return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
+  }))
+})
+source("analyze-sorites.r")
+people.judgements <- sapply(item.names, function(cat) {
+  df <- subset(data, data$item==cat & qtype=="eps")
+  return(aggregate(response ~ sigs + qtype, data=df, FUN=mean)$response)
+})
+x <- c(people.judgements)
+y <- c(model.judgements)
+png("scatterplot", 1000, 800, pointsize=32)
+plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment")
+dev.off()
