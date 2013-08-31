@@ -173,7 +173,7 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
 }
 
 model.sorites <- function(cat) {
-  n.true.samples <- 30000 #number of samples to keep
+  n.true.samples <- 3000#30000 #number of samples to keep
   lag <- 5 #number of samples to skip over
   burn.in <- 10
   n.samples <- n.true.samples * lag + burn.in
@@ -181,7 +181,7 @@ model.sorites <- function(cat) {
   utt.cost <- 1
   alpha<-5
   
-  epsilons <- seq(0,3*sd(examples[[cat]]),length.out=100)
+  epsilons <- seq(0,3*sd(examples[[cat]]/max(examples[[cat]])),length.out=100)
   
   clear.cache()
   samples = listener1('pos', alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
@@ -200,78 +200,99 @@ model.sorites <- function(cat) {
   return(ret)
 }
 
+item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
 allcat <- lapply(names(examples), model.sorites)
 names(allcat) <- names(examples)
-par(mfrow=c(2,3))
-sapply(names(allcat), function(cat){
-  plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
-
-#run model with these values of parameters
-model <- function(alpha, utt.cost, thetaGtr, label) {
-  n.true.samples <- 30000 #number of samples to keep
-  lag <- 5 #number of samples to skip over
-  burn.in <- 10
-  n.samples <- n.true.samples * lag + burn.in
-  step.size <- 0.03 #note this may not be appropriate for all conditions.
-  dists <- c("down", "mid", "unif")
-  
-  model.runs <- lapply(dists, function(dist) {
-    clear.cache()
-    return(lapply(possible.utterances, function(utterance) {
-      listener1(utterance, alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
-                step.size=step.size, dist=dist, band.width="SJ", thetaGtr=thetaGtr)
-    }))
-  })
-  model.runs <- lapply(model.runs, function(run) {
-    names(run) <- possible.utterances
-    return(run)
-  })
-  names(model.runs) <- dists
-  
-  myapply <- function(f) {
-    c(sapply(dists, function(dist) {
-      return(c(sapply(possible.utterances, function(utterance) {
-        return(f(dist, utterance))
-      })))
-    }))
+png("sorites-model.png", 2200, 450, pointsize=32)
+par(mfrow=c(1,5))
+sapply(item.names, function(cat){
+  if (cat == "laptop") {
+    xlab = "epsilon (in standard deviations)"
+    ylab = "probability inductive premise is true"
+  } else {
+    xlab = ""
+    ylab = ""
   }
-  
-  graph.dist <- myapply(function(d,u){return(d)})
-  graph.utterance <- myapply(function(d,u){return(u)})
-  graph.means <- myapply(function(d,u){
-    du.name <- paste(c(label, "-", d, "-", u, ".data"), collapse="")
-    du.frame <- model.runs[[d]][[u]]
-    #save all data
-    write.table(du.frame, du.name)
-    return(mean(du.frame[["samples"]][,"degree"]))
-  })
-  write.table(graph.means, paste(c(label, "-means.data"), collapse=""))
-  graph.data <- (matrix(data=graph.means, nrow=3, ncol=3,
-                        dimnames=list(c("none", "adj", "very"),
-                                      c("peakedDown", "peakedMid", "uniform"))))
-  png(paste(c(label, ".png"), collapse=""))
-  novel.adj.bar <- barplot(as.matrix(graph.data), main="alpha=1, cost=2, very>pos",
-                           ylab="feppiness", beside=TRUE, col=rainbow(3), ylim=c(0,1))
-  legend("topleft", c("wug", "feppy wug", "very feppy wug"), cex=0.6, bty="n", fill=rainbow(3));
-  dev.off()
-}
+  plot(allcat[[cat]]$x/sd(examples[[cat]])/max(examples[[cat]]),
+       allcat[[cat]]$y,
+       type="l",
+       main=cat,
+       ylim=c(0,1),
+       xlim=c(0,3),
+       xlab=xlab,
+       ylab=ylab,
+       lwd=3)
+})
+dev.off()
 
-timestamp <- as.character(unclass(Sys.time()))
 
-mainDir <- "~/morphs-analysis/"
-subDir <- paste(c("output", timestamp), collapse="")
 
-if (!(file.exists(subDir))) {
-  dir.create(file.path(mainDir, subDir))
-}
-
-time.label <- function(identifier) {
-  return(paste(c("output", timestamp, "/", identifier), collapse=""))
-}
-
-#run the model with different values of free parameters
-
-model(alpha=1, utt.cost=2, thetaGtr=T, label=time.label("alpha1cost2Gtr"))
+# #run model with these values of parameters
+# model <- function(alpha, utt.cost, thetaGtr, label) {
+#   n.true.samples <- 30000 #number of samples to keep
+#   lag <- 5 #number of samples to skip over
+#   burn.in <- 10
+#   n.samples <- n.true.samples * lag + burn.in
+#   step.size <- 0.03 #note this may not be appropriate for all conditions.
+#   dists <- c("down", "mid", "unif")
+#   
+#   model.runs <- lapply(dists, function(dist) {
+#     clear.cache()
+#     return(lapply(possible.utterances, function(utterance) {
+#       listener1(utterance, alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
+#                 step.size=step.size, dist=dist, band.width="SJ", thetaGtr=thetaGtr)
+#     }))
+#   })
+#   model.runs <- lapply(model.runs, function(run) {
+#     names(run) <- possible.utterances
+#     return(run)
+#   })
+#   names(model.runs) <- dists
+#   
+#   myapply <- function(f) {
+#     c(sapply(dists, function(dist) {
+#       return(c(sapply(possible.utterances, function(utterance) {
+#         return(f(dist, utterance))
+#       })))
+#     }))
+#   }
+#   
+#   graph.dist <- myapply(function(d,u){return(d)})
+#   graph.utterance <- myapply(function(d,u){return(u)})
+#   graph.means <- myapply(function(d,u){
+#     du.name <- paste(c(label, "-", d, "-", u, ".data"), collapse="")
+#     du.frame <- model.runs[[d]][[u]]
+#     #save all data
+#     write.table(du.frame, du.name)
+#     return(mean(du.frame[["samples"]][,"degree"]))
+#   })
+#   write.table(graph.means, paste(c(label, "-means.data"), collapse=""))
+#   graph.data <- (matrix(data=graph.means, nrow=3, ncol=3,
+#                         dimnames=list(c("none", "adj", "very"),
+#                                       c("peakedDown", "peakedMid", "uniform"))))
+#   png(paste(c(label, ".png"), collapse=""))
+#   novel.adj.bar <- barplot(as.matrix(graph.data), main="alpha=1, cost=2, very>pos",
+#                            ylab="feppiness", beside=TRUE, col=rainbow(3), ylim=c(0,1))
+#   legend("topleft", c("wug", "feppy wug", "very feppy wug"), cex=0.6, bty="n", fill=rainbow(3));
+#   dev.off()
+# }
+# 
+# timestamp <- as.character(unclass(Sys.time()))
+# 
+# mainDir <- "~/morphs-analysis/"
+# subDir <- paste(c("output", timestamp), collapse="")
+# 
+# if (!(file.exists(subDir))) {
+#   dir.create(file.path(mainDir, subDir))
+# }
+# 
+# time.label <- function(identifier) {
+#   return(paste(c("output", timestamp, "/", identifier), collapse=""))
+# }
+# 
+# #run the model with different values of free parameters
+# 
+# model(alpha=1, utt.cost=2, thetaGtr=T, label=time.label("alpha1cost2Gtr"))
 
 
 #model(alpha=1, utt.cost=2, thetaGtr=T, label="output/alpha1cost2thetaGtr")
