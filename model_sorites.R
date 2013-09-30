@@ -33,7 +33,7 @@ est.kernel <- function(dist,bw) {
   e <- examples[[dist]]
   es <- examples.scale[[dist]]
   k <- list()
-  k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space?
+  k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space
   k$x <- grid
     return(k)
 }
@@ -180,6 +180,7 @@ model.sorites <- function(cat) {
   alpha<-5
   
   epsilons <- seq(0,3*sd(examples[[cat]]),length.out=100)
+  epsilons.instdevs <-seq(0,3,length.out=100)
   
   clear.cache()
   samples = listener1('pos', alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
@@ -187,11 +188,11 @@ model.sorites <- function(cat) {
   
   #want to check what fraction of thetas are below degree - epsilon
   prem <- sapply(epsilons, function(eps) {
-    return(sum(samples$samples[,2]<=samples$samples[,1]-eps)/length(samples$samples[,1]))
+    return(sum(samples$samples[,2]<=(samples$samples[,1]-eps))/length(samples$samples[,1]))
   })
   
-  ret <- list(epsilons,prem)
-  names(ret) <- c("x","y")
+  ret <- list(epsilons,prem,epsilons.instdevs)
+  names(ret) <- c("x","y","x.instdevs")
   
   #plot(epsilons,ind.prem)
   
@@ -223,7 +224,7 @@ sapply(item.names, function(cat){
     xlab = ""
     ylab = ""
   }
-  plot(allcat[[cat]]$x,
+  plot(allcat[[cat]]$x.instdevs, #allcat[[cat]]$x, #seq(0,3,length.out=100),
        allcat[[cat]]$y,
        type="l",
        main=cat,
@@ -241,7 +242,27 @@ model.judgements <- sapply(item.names, function(cat) {
   model.y <- allcat[[cat]]$y
   return(sapply(eps, function(e) {
     eps.scaled <- e*sd(examples[[cat]])
-    return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
+    #return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
+    return(model.y[[round((e/3)*(length(model.y)-1))+1]])
+  }))
+})
+cat.to.colors <- function(cat) {
+  col <- if(cat=="laptop") {
+    "red"
+  } else if(cat=="sweater") {
+    "green"
+  } else if(cat=="watch") {
+    "blue"
+  } else if(cat=="headphones") {
+    "yellow"
+  } else if(cat=="coffee maker") {
+    "cyan"
+  }
+  return(col)
+}
+model.cols <- sapply(item.names, function(cat) {
+  return(sapply(eps, function(e) {
+     return(cat.to.colors(cat))
   }))
 })
 source("analyze-sorites.r")
@@ -251,6 +272,8 @@ people.judgements <- sapply(item.names, function(cat) {
 })
 x <- c(people.judgements)
 y <- c(model.judgements)
+cols <- c(model.cols)
 png("scatterplot.png", 1000, 800, pointsize=32)
-plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=20)
+plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=20,col=cols)
+legend("topleft", legend=item.names, fill=sapply(item.names,cat.to.colors))
 dev.off()
