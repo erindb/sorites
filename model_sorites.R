@@ -1,3 +1,7 @@
+# setwd("~/CoCoLab/prior-elicitation/")
+# source('prior-elicitation.R')
+# examples = getExamples()
+
 setwd("~/sorites-analysis/")  ###change this to actual location of repo
 
 library(stats)
@@ -215,8 +219,10 @@ names(allcat) <- names(examples)
 
 
 png("sorites-model.png", 2200, 450, pointsize=32)
+print("png open")
 par(mfrow=c(1,5))
 sapply(item.names, function(cat){
+  print("in item loop")
   if (cat == "laptop") {
     xlab = "epsilon (in standard deviations)"
     ylab = "probability inductive premise is true"
@@ -224,19 +230,21 @@ sapply(item.names, function(cat){
     xlab = ""
     ylab = ""
   }
+  print('about to plot')
   plot(allcat[[cat]]$x.instdevs, #allcat[[cat]]$x, #seq(0,3,length.out=100),
        allcat[[cat]]$y,
        type="l",
        main=cat,
        ylim=c(0,1),
-       #xlim=c(0,3),
+       xlim=c(0,3),
        xlab=xlab,
        ylab=ylab,
        lwd=3)
+  print("plotted")
 })
 dev.off()
 
-
+print('done with sorites-model.png')
 eps <- c(0.01, 0.1, 0.5, 1, 2, 3)
 model.judgements <- sapply(item.names, function(cat) {
   model.y <- allcat[[cat]]$y
