@@ -17,6 +17,16 @@ cache.index = function(v) {
 
 #load human priors:
 examples <- fromJSON(readLines("human-priors.JSON")[[1]])
+examples[["watch"]] = read.table("watch.txt")$V1
+examples[["coffee maker"]] = read.table("coffee-maker.txt")$V1
+examples[["laptop"]] = read.table("laptop.txt")$V1
+examples[["headphones"]] = as.numeric(read.table("headphones.txt")$V1)
+examples[["sweater"]] = as.numeric(read.table("sweater.txt")$V1)
+# normsample = rnorm(100,1,1)
+# lnormsample = rlnorm(100)
+# hist(normsample, main="normal", ylab="", xlab="")
+# hist(lnormsample, main="lognormal", ylab="", xlab="")
+# examples <- list("lognormal"=lnormsample, "normal"=normsample[normsample>0])
 #scale to max 1:
 examples.scale <- lapply(examples, max)
 examples <- lapply(examples, function(exs){
@@ -142,6 +152,7 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   while(state.prob==0) {
     state = runif(length(possible.utterances), 0, 1) #a degree val, and a theta for all but "no-utt"
     state.prob = prob.unnormed(state)
+    print(state.prob)
   }
   samples[1,] = state
   
@@ -168,8 +179,8 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   
   print("acceptance rate:")
   print(n.proposals.accepted/(n.samples-1))
-  print("misses since last cache clear:")
-  print(cache.misses)
+  #print("misses since last cache clear:")
+  #print(cache.misses)
   
   return(list(samples=samples, prop.accepted=n.proposals.accepted/(n.samples-1)))
 }
@@ -187,6 +198,7 @@ model.sorites <- function(cat) {
   epsilons.instdevs <-seq(0,3,length.out=100)
   
   clear.cache()
+  print(cat)
   samples = listener1('pos', alpha=alpha, utt.cost=utt.cost, n.samples=n.samples,
                       step.size=step.size, dist=cat, band.width="SJ", thetaGtr=F)
   
@@ -217,6 +229,28 @@ names(allcat) <- names(examples)
 #sapply(names(allcat), function(cat){
 #  plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
 
+# png("sorites-lognorm-vs-norm.png", 880, 450, pointsize=24)
+# par(mfrow=c(1,2))
+# dists = c("lognormal", "normal")
+# sapply(dists, function(cat){
+#   if (cat == "laptop") {
+#     xlab = "epsilon (in standard deviations)"
+#     ylab = "probability inductive premise is true"
+#   } else {
+#     xlab = ""
+#     ylab = ""
+#   }
+#   plot(allcat[[cat]]$x.instdevs, #allcat[[cat]]$x, #seq(0,3,length.out=100),
+#        allcat[[cat]]$y,
+#        type="l",
+#        main=cat,
+#        ylim=c(0,1),
+#        xlim=c(0,3),
+#        xlab=xlab,
+#        ylab=ylab,
+#        lwd=3)
+# })
+# dev.off()
 
 png("sorites-model.png", 2200, 450, pointsize=32)
 print("png open")
@@ -244,7 +278,6 @@ sapply(item.names, function(cat){
 })
 dev.off()
 
-print('done with sorites-model.png')
 eps <- c(0.01, 0.1, 0.5, 1, 2, 3)
 model.judgements <- sapply(item.names, function(cat) {
   model.y <- allcat[[cat]]$y
