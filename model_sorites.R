@@ -15,14 +15,17 @@ cache.index = function(v) {
   return(1+round(v*(grid.steps-1)))
 }
 
-#load human priors:
-unscaled.examples <- fromJSON(readLines("human-priors.JSON")[[1]])
-sds = lapply(unscaled.examples, function(exs) {
-  return(sd(exs))
-})
-means = lapply(unscaled.examples, function(exs) {
-  return(mean(exs))
-})
+# #rough data from amazon
+# #http://www.amazon.com/s/ref=sr_ex_p_36_0?rh=n%3A377110011&bbn=377110011&ie=UTF8&qid=1382134494
+# sizes = c(173430, 60977, 52537, 36543, 10227, 5600, 4918, 2212, 901, 53, 3)
+# mins = c(0, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 50000, 100000)
+# maxes = c(50, 100, 200, 500, 1000, 2000, 5000, 10000, 50000, 100000, 300000)
+# w = unlist(sapply(1:length(sizes), function(i) {
+#   return(runif(round(sizes[i]/100), mins[i], maxes[i]))
+# }))
+# hist(w, breaks=300)
+# unscaled.examples[["watch"]] = w
+unscaled.examples = list()
 unscaled.examples[["watch"]] = read.table("watch.txt")$V1
 unscaled.examples[["coffee maker"]] = read.table("coffee-maker.txt")$V1
 unscaled.examples[["laptop"]] = read.table("laptop.txt")$V1
@@ -38,16 +41,26 @@ examples.scale <- lapply(unscaled.examples, max)
 examples <- lapply(unscaled.examples, function(exs){
   return(exs/max(exs))
 })
-sds = lapply(names(examples), function(cat) {
-  s = sds[[cat]]
-  return(s/examples.scale[[cat]])
-})
-means = lapply(names(examples), function(cat) {
-  m = means[[cat]]
-  return(m/examples.scale[[cat]])
-})
-names(sds) = names(examples)
-names(means) = names(examples)
+
+
+
+get.human.parameters = function(examples.scale) {
+  #load human priors:
+  human.priors <- fromJSON(readLines("human-priors.JSON")[[1]])
+  unscaled.sds = lapply(names(examples.scale), function(cat) {
+    return(sd(human.priors[[cat]])/examples.scale[[cat]])
+  })
+  unscaled.means = lapply(names(examples.scale), function(cat) {
+    return(mean(human.priors[[cat]])/examples.scale[[cat]])
+  })
+  names(unscaled.sds) = names(examples.scale)
+  names(unscaled.means) = names(examples.scale)
+  return(list(sds=unscaled.sds, means=unscaled.means))
+}
+human.params = get.human.parameters(examples.scale)
+scaled.expt.sds = human.params[["sds"]]
+scaled.expt.means = human.params[["means"]]
+
 possible.utterances = c('no-utt', 'pos') 
 utterance.lengths = c(0,1)
 utterance.polarities = c(0,+1)
@@ -61,10 +74,12 @@ utterance.polarities = c(0,+1)
 est.kernel <- function(dist,bw) {
   e <- examples[[dist]]
   es <- examples.scale[[dist]]
-  k <- list()
-  k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space
-  k$x <- grid
-    return(k)
+#   k <- list()
+#   k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space
+#   k$x <- grid
+  k = as.list(density(es*e, bw=bw, kernel="epanechnikov"))
+  k$x = grid
+  return(k)
 }
 
 #norms the kernel density
@@ -209,7 +224,7 @@ model.sorites <- function(cat) {
   utt.cost <- 1
   alpha<-5
   
-  epsilons <- seq(0,3*sds[[cat]],length.out=100)
+  epsilons <- seq(0,3*scaled.expt.sds[[cat]],length.out=100)
   epsilons.instdevs <-seq(0,3,length.out=100)
   
   clear.cache()
@@ -222,11 +237,11 @@ model.sorites <- function(cat) {
     return(sum(samples$samples[,2]<=(samples$samples[,1]-eps))/length(samples$samples[,1]))
   })
   
-  values = seq(0,4*sds[[cat]],length.out=100)
+  values = seq(0,4*scaled.expt.sds[[cat]],length.out=100)
   values.instdevs = seq(0,4,length.out=100)
   #want to check what fraction of thetas are below mean + value
   concrete.prem <- sapply(values, function(val) {
-    return(sum(samples$samples[,2]<=(means[[cat]]+val))/length(samples$samples[,1]))
+    return(sum(samples$samples[,2]<=(scaled.expt.means[[cat]]+val))/length(samples$samples[,1]))
   })
   
   ret <- list(epsilons, inductive.prem, epsilons.instdevs,
@@ -330,9 +345,9 @@ eps <- c(0.01, 0.1, 0.5, 1, 2, 3)
 model.judgements <- sapply(item.names, function(cat) {
   model.y <- allcat[[cat]]$y
   return(sapply(eps, function(e) {
-    eps.scaled <- e*sds[[cat]]
-    #return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
-    return(model.y[[round((e/3)*(length(model.y)-1))+1]])
+    eps.scaled <- e*scaled.expt.sds[[cat]]
+    return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
+    #return(model.y[[round((e/3)*(length(model.y)-1))+1]])
   }))
 })
 cat.to.colors <- function(cat) {
@@ -374,9 +389,9 @@ vals = c(0, 1, 2, 3, 4)
 model.concrete <- sapply(item.names, function(cat) {
   model.c <- allcat[[cat]]$c
   return(sapply(vals, function(v) {
-    vals.scaled <- v*sds[[cat]] + means[[cat]]
+    val.scaled <- v*scaled.expt.sds[[cat]] + scaled.expt.means[[cat]]
     #return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
-    return(model.c[[round((v/4)*(length(model.c)-1))+1]])
+    return(model.c[[round((val.scaled/4)*(length(model.c)-1))+1]])
   }))
 })
 people.concrete <- sapply(item.names, function(cat) {
@@ -390,4 +405,12 @@ plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=
 legend("topleft", legend=item.names, fill=sapply(item.names,cat.to.colors))
 dev.off()
 
-print(paste("concrete correlation: ", cor(x,y)))
+print(paste("concrete correlation:", cor(x,y)))
+
+print(paste("watch:", cor(model.judgements[,"watch"], people.judgements[,"watch"])))
+print(paste("laptop:", cor(model.judgements[,"laptop"], people.judgements[,"laptop"])))
+print(paste("sweater:", cor(model.judgements[,"sweater"], people.judgements[,"sweater"])))
+print(paste("headphones:", cor(model.judgements[,"headphones"], people.judgements[,"headphones"])))
+print(paste("coffee maker:", cor(model.judgements[,"coffee maker"], people.judgements[,"coffee maker"])))
+
+cor(c(model.judgements[,c("laptop", "sweater", "headphones", "coffee maker")]), c(people.judgements[, c("laptop", "sweater", "headphones", "coffee maker")]))
