@@ -16,23 +16,38 @@ cache.index = function(v) {
 }
 
 #load human priors:
-examples <- fromJSON(readLines("human-priors.JSON")[[1]])
-examples[["watch"]] = read.table("watch.txt")$V1
-examples[["coffee maker"]] = read.table("coffee-maker.txt")$V1
-examples[["laptop"]] = read.table("laptop.txt")$V1
-examples[["headphones"]] = as.numeric(read.table("headphones.txt")$V1)
-examples[["sweater"]] = as.numeric(read.table("sweater.txt")$V1)
-# normsample = rnorm(100,1,1)
-# lnormsample = rlnorm(100)
-# hist(normsample, main="normal", ylab="", xlab="")
-# hist(lnormsample, main="lognormal", ylab="", xlab="")
-# examples <- list("lognormal"=lnormsample, "normal"=normsample[normsample>0])
-#scale to max 1:
-examples.scale <- lapply(examples, max)
-examples <- lapply(examples, function(exs){
+unscaled.examples <- fromJSON(readLines("human-priors.JSON")[[1]])
+sds = lapply(unscaled.examples, function(exs) {
+  return(sd(exs))
+})
+means = lapply(unscaled.examples, function(exs) {
+  return(mean(exs))
+})
+unscaled.examples[["watch"]] = read.table("watch.txt")$V1
+unscaled.examples[["coffee maker"]] = read.table("coffee-maker.txt")$V1
+unscaled.examples[["laptop"]] = read.table("laptop.txt")$V1
+unscaled.examples[["headphones"]] = as.numeric(read.table("headphones.txt")$V1)
+unscaled.examples[["sweater"]] = as.numeric(read.table("sweater.txt")$V1)
+# # normsample = rnorm(100,1,1)
+# # lnormsample = rlnorm(100)
+# # hist(normsample, main="normal", ylab="", xlab="")
+# # hist(lnormsample, main="lognormal", ylab="", xlab="")
+# # examples <- list("lognormal"=lnormsample, "normal"=normsample[normsample>0])
+# #scale to max 1:
+examples.scale <- lapply(unscaled.examples, max)
+examples <- lapply(unscaled.examples, function(exs){
   return(exs/max(exs))
 })
-
+sds = lapply(names(examples), function(cat) {
+  s = sds[[cat]]
+  return(s/examples.scale[[cat]])
+})
+means = lapply(names(examples), function(cat) {
+  m = means[[cat]]
+  return(m/examples.scale[[cat]])
+})
+names(sds) = names(examples)
+names(means) = names(examples)
 possible.utterances = c('no-utt', 'pos') 
 utterance.lengths = c(0,1)
 utterance.polarities = c(0,+1)
@@ -194,7 +209,7 @@ model.sorites <- function(cat) {
   utt.cost <- 1
   alpha<-5
   
-  epsilons <- seq(0,3*sd(examples[[cat]]),length.out=100)
+  epsilons <- seq(0,3*sds[[cat]],length.out=100)
   epsilons.instdevs <-seq(0,3,length.out=100)
   
   clear.cache()
@@ -203,12 +218,20 @@ model.sorites <- function(cat) {
                       step.size=step.size, dist=cat, band.width="SJ", thetaGtr=F)
   
   #want to check what fraction of thetas are below degree - epsilon
-  prem <- sapply(epsilons, function(eps) {
+  inductive.prem <- sapply(epsilons, function(eps) {
     return(sum(samples$samples[,2]<=(samples$samples[,1]-eps))/length(samples$samples[,1]))
   })
   
-  ret <- list(epsilons,prem,epsilons.instdevs)
-  names(ret) <- c("x","y","x.instdevs")
+  values = seq(0,4*sds[[cat]],length.out=100)
+  values.instdevs = seq(0,4,length.out=100)
+  #want to check what fraction of thetas are below mean + value
+  concrete.prem <- sapply(values, function(val) {
+    return(sum(samples$samples[,2]<=(means[[cat]]+val))/length(samples$samples[,1]))
+  })
+  
+  ret <- list(epsilons, inductive.prem, epsilons.instdevs,
+              values, concrete.prem, values.instdevs)
+  names(ret) <- c("x","y","x.instdevs", "val", "c", "val.instdevs")
   
   #plot(epsilons,ind.prem)
   
@@ -278,11 +301,36 @@ sapply(item.names, function(cat){
 })
 dev.off()
 
+png("sorites-concrete.png", 2200, 450, pointsize=32)
+par(mfrow=c(1,5))
+sapply(item.names, function(cat){
+  if (cat == "laptop") {
+    xlab = "values (in standard deviations)"
+    ylab = "probability concrete premise is true"
+  } else {
+    xlab = ""
+    ylab = ""
+  }
+  print('about to plot')
+  plot(allcat[[cat]]$val.instdevs, #allcat[[cat]]$x, #seq(0,3,length.out=100),
+       allcat[[cat]]$c,
+       type="l",
+       main=cat,
+       ylim=c(0,1),
+       xlim=c(0,4),
+       xlab=xlab,
+       ylab=ylab,
+       lwd=3)
+  print("plotted")
+})
+dev.off()
+
+##############inductive scatterplot
 eps <- c(0.01, 0.1, 0.5, 1, 2, 3)
 model.judgements <- sapply(item.names, function(cat) {
   model.y <- allcat[[cat]]$y
   return(sapply(eps, function(e) {
-    eps.scaled <- e*sd(examples[[cat]])
+    eps.scaled <- e*sds[[cat]]
     #return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
     return(model.y[[round((e/3)*(length(model.y)-1))+1]])
   }))
@@ -318,3 +366,28 @@ png("scatterplot.png", 1000, 800, pointsize=32)
 plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=20,col=cols)
 legend("topleft", legend=item.names, fill=sapply(item.names,cat.to.colors))
 dev.off()
+
+print(paste("inductive correlation:", cor(x,y)))
+
+###########concrete scatterplot
+vals = c(0, 1, 2, 3, 4)
+model.concrete <- sapply(item.names, function(cat) {
+  model.c <- allcat[[cat]]$c
+  return(sapply(vals, function(v) {
+    vals.scaled <- v*sds[[cat]] + means[[cat]]
+    #return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
+    return(model.c[[round((v/4)*(length(model.c)-1))+1]])
+  }))
+})
+people.concrete <- sapply(item.names, function(cat) {
+  df <- subset(data, data$item==cat & qtype=="val")
+  return(aggregate(response ~ sigs + qtype, data=df, FUN=mean)$response)
+})
+x <- c(people.concrete)
+y <- c(model.concrete)
+png("scatterplot-concrete.png", 1000, 800, pointsize=32)
+plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=20,col=cols)
+legend("topleft", legend=item.names, fill=sapply(item.names,cat.to.colors))
+dev.off()
+
+print(paste("concrete correlation: ", cor(x,y)))
