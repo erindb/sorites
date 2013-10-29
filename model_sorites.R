@@ -169,7 +169,7 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   while(state.prob==0) {
     state = runif(length(possible.utterances), 0, 1) #a degree val, and a theta for all but "no-utt"
     state.prob = prob.unnormed(state)
-    print(state.prob)
+    #print(state.prob)
   }
   samples[1,] = state
   
