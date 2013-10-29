@@ -15,4 +15,5 @@ z-inductive-items.zip
 z-inductive-items/
 z-inductive.png
 z-item-graphs.png
-
+*.png
+*/ERRORS*
