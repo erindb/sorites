@@ -9,57 +9,43 @@ library(rjson)
 library(logspline)
 
 #for speaker1 discretization:
-grid.steps = 64
+grid.steps = 256
 grid = seq(0,1,length.out=grid.steps)
 cache.index = function(v) {
   return(1+round(v*(grid.steps-1)))
 }
 
-# #rough data from amazon
-# #http://www.amazon.com/s/ref=sr_ex_p_36_0?rh=n%3A377110011&bbn=377110011&ie=UTF8&qid=1382134494
-# sizes = c(173430, 60977, 52537, 36543, 10227, 5600, 4918, 2212, 901, 53, 3)
-# mins = c(0, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 50000, 100000)
-# maxes = c(50, 100, 200, 500, 1000, 2000, 5000, 10000, 50000, 100000, 300000)
-# w = unlist(sapply(1:length(sizes), function(i) {
-#   return(runif(round(sizes[i]/100), mins[i], maxes[i]))
-# }))
-# hist(w, breaks=300)
-# unscaled.examples[["watch"]] = w
-unscaled.examples = list()
-unscaled.examples[["watch"]] = read.table("watch.txt")$V1
-unscaled.examples[["coffee maker"]] = read.table("coffee-maker.txt")$V1
-unscaled.examples[["laptop"]] = read.table("laptop.txt")$V1
-unscaled.examples[["headphones"]] = as.numeric(read.table("headphones.txt")$V1)
-unscaled.examples[["sweater"]] = as.numeric(read.table("sweater.txt")$V1)
-# # normsample = rnorm(100,1,1)
-# # lnormsample = rlnorm(100)
-# # hist(normsample, main="normal", ylab="", xlab="")
-# # hist(lnormsample, main="lognormal", ylab="", xlab="")
-# # examples <- list("lognormal"=lnormsample, "normal"=normsample[normsample>0])
-# #scale to max 1:
+item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
+
+#priors on prices from ebay:
+unscaled.examples <- list()
+w = read.table("~/CoCoLab/price-priors/ebay/watch-in-watches.txt")$V1
+unscaled.examples[["watch"]] = w
+unscaled.examples[["laptop"]] = read.table("~/CoCoLab/price-priors/ebay/laptop.txt")$V1
+unscaled.examples[["headphones"]] = read.table("~/CoCoLab/price-priors/ebay/headphones.txt")$V1
+unscaled.examples[["sweater"]] = read.table("~/CoCoLab/price-priors/ebay/sweater.txt")$V1
+unscaled.examples[["coffee maker"]] = read.table("~/CoCoLab/price-priors/ebay/coffee-maker.txt")$V1
+# unscaled.examples = fromJSON(readLines("~/CoCoLab/price-priors/justine-orig/scraped-priors.JSON")[[1]])
+# unscaled.examples[["watch"]] = unscaled.examples[["watch"]][1:(length(unscaled.examples[["watch"]])-1)]
+
+#scale to max 1:
 examples.scale <- lapply(unscaled.examples, max)
-examples <- lapply(unscaled.examples, function(exs){
+examples <- lapply(item.names, function(item){
+  exs = unscaled.examples[[item]]
   return(exs/max(exs))
 })
+names(examples) = item.names
 
-
-
-get.human.parameters = function(examples.scale) {
-  #load human priors:
-  human.priors <- fromJSON(readLines("human-priors.JSON")[[1]])
-  unscaled.sds = lapply(names(examples.scale), function(cat) {
-    return(sd(human.priors[[cat]])/examples.scale[[cat]])
-  })
-  unscaled.means = lapply(names(examples.scale), function(cat) {
-    return(mean(human.priors[[cat]])/examples.scale[[cat]])
-  })
-  names(unscaled.sds) = names(examples.scale)
-  names(unscaled.means) = names(examples.scale)
-  return(list(sds=unscaled.sds, means=unscaled.means))
-}
-human.params = get.human.parameters(examples.scale)
-scaled.expt.sds = human.params[["sds"]]
-scaled.expt.means = human.params[["means"]]
+#the data given to the model might have a different standard deviation from 
+human.priors = fromJSON(readLines("~/CoCoLab/price-priors/justine-orig/human-priors.JSON")[[1]])
+expt.sds = lapply(item.names, function(item) {
+  sd(human.priors[[item]])/examples.scale[[item]]
+})
+expt.means = lapply(item.names, function(item) {
+  mean(human.priors[[item]])/examples.scale[[item]]
+})
+names(expt.sds) = item.names
+names(expt.means) = item.names
 
 possible.utterances = c('no-utt', 'pos') 
 utterance.lengths = c(0,1)
@@ -74,18 +60,19 @@ utterance.polarities = c(0,+1)
 est.kernel <- function(dist,bw) {
   e <- examples[[dist]]
   es <- examples.scale[[dist]]
-#   k <- list()
-#   k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space
-#   k$x <- grid
-  k = as.list(density(es*e, bw=bw, kernel="epanechnikov"))
-  k$x = grid
+  k <- list()
+  k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space
+  k$x <- grid
   return(k)
 }
 
 #norms the kernel density
 #takes in all the points where kernel density is estimated
 make.pdf.cache <- function(kernel.est) {
-  k = kernel.est$y + 0.00001
+  k = kernel.est$y + 10^(-15) #i tested different values for this number in the
+                              #folder "is something weird happening when we add
+                              #a small constant to all probabilities?" it seems
+                              #to converge after 10^(-15) for all items.
   area <- sum(k) 
   normed.dens <- k/area
   return(normed.dens)
@@ -224,7 +211,7 @@ model.sorites <- function(cat) {
   utt.cost <- 1
   alpha<-5
   
-  epsilons <- seq(0,3*scaled.expt.sds[[cat]],length.out=100)
+  epsilons <- seq(0,3*expt.sds[[cat]],length.out=100)
   epsilons.instdevs <-seq(0,3,length.out=100)
   
   clear.cache()
@@ -237,16 +224,8 @@ model.sorites <- function(cat) {
     return(sum(samples$samples[,2]<=(samples$samples[,1]-eps))/length(samples$samples[,1]))
   })
   
-  values = seq(0,4*scaled.expt.sds[[cat]],length.out=100)
-  values.instdevs = seq(0,4,length.out=100)
-  #want to check what fraction of thetas are below mean + value
-  concrete.prem <- sapply(values, function(val) {
-    return(sum(samples$samples[,2]<=(scaled.expt.means[[cat]]+val))/length(samples$samples[,1]))
-  })
-  
-  ret <- list(epsilons, inductive.prem, epsilons.instdevs,
-              values, concrete.prem, values.instdevs)
-  names(ret) <- c("x","y","x.instdevs", "val", "c", "val.instdevs")
+  ret <- list(epsilons, inductive.prem, epsilons.instdevs)
+  names(ret) <- c("x","y","x.instdevs")
   
   #plot(epsilons,ind.prem)
   
@@ -259,9 +238,9 @@ model.sorites <- function(cat) {
 # sapply(names(allcat), function(cat){
 #   plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
 
-item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
-allcat <- lapply(names(examples), model.sorites)
-names(allcat) <- names(examples)
+# item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
+allcat <- lapply(item.names, model.sorites)
+names(allcat) <- item.names
 
 #par(mfrow=c(2,3))
 #sapply(names(allcat), function(cat){
@@ -291,10 +270,8 @@ names(allcat) <- names(examples)
 # dev.off()
 
 png("sorites-model.png", 2200, 450, pointsize=32)
-print("png open")
 par(mfrow=c(1,5))
 sapply(item.names, function(cat){
-  print("in item loop")
   if (cat == "laptop") {
     xlab = "epsilon (in standard deviations)"
     ylab = "probability inductive premise is true"
@@ -302,7 +279,6 @@ sapply(item.names, function(cat){
     xlab = ""
     ylab = ""
   }
-  print('about to plot')
   plot(allcat[[cat]]$x.instdevs, #allcat[[cat]]$x, #seq(0,3,length.out=100),
        allcat[[cat]]$y,
        type="l",
@@ -312,7 +288,6 @@ sapply(item.names, function(cat){
        xlab=xlab,
        ylab=ylab,
        lwd=3)
-  print("plotted")
 })
 dev.off()
 
@@ -326,7 +301,6 @@ sapply(item.names, function(cat){
     xlab = ""
     ylab = ""
   }
-  print('about to plot')
   plot(allcat[[cat]]$val.instdevs, #allcat[[cat]]$x, #seq(0,3,length.out=100),
        allcat[[cat]]$c,
        type="l",
@@ -336,7 +310,6 @@ sapply(item.names, function(cat){
        xlab=xlab,
        ylab=ylab,
        lwd=3)
-  print("plotted")
 })
 dev.off()
 
@@ -345,9 +318,10 @@ eps <- c(0.01, 0.1, 0.5, 1, 2, 3)
 model.judgements <- sapply(item.names, function(cat) {
   model.y <- allcat[[cat]]$y
   return(sapply(eps, function(e) {
-    eps.scaled <- e*scaled.expt.sds[[cat]]
-    return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
-    #return(model.y[[round((e/3)*(length(model.y)-1))+1]])
+    #eps.scaled <- e*expt.sds[[cat]]
+    #return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
+    #range of model.x is from 0 to 3*sd(category), so can just index into correct model.y
+    return(model.y[[round((e/3)*(length(model.y)-1))+1]])
   }))
 })
 cat.to.colors <- function(cat) {
@@ -382,35 +356,5 @@ plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=
 legend("topleft", legend=item.names, fill=sapply(item.names,cat.to.colors))
 dev.off()
 
-print(paste("inductive correlation:", cor(x,y)))
-
-###########concrete scatterplot
-vals = c(0, 1, 2, 3, 4)
-model.concrete <- sapply(item.names, function(cat) {
-  model.c <- allcat[[cat]]$c
-  return(sapply(vals, function(v) {
-    val.scaled <- v*scaled.expt.sds[[cat]] + scaled.expt.means[[cat]]
-    #return(model.y[[round(eps.scaled/3*(length(model.y)-1))+1]])
-    return(model.c[[round((val.scaled/4)*(length(model.c)-1))+1]])
-  }))
-})
-people.concrete <- sapply(item.names, function(cat) {
-  df <- subset(data, data$item==cat & qtype=="val")
-  return(aggregate(response ~ sigs + qtype, data=df, FUN=mean)$response)
-})
-x <- c(people.concrete)
-y <- c(model.concrete)
-png("scatterplot-concrete.png", 1000, 800, pointsize=32)
-plot(x,y,xlim=c(1,9), ylim=c(0,1), ylab="model", xlab="experiment",type="p",pch=20,col=cols)
-legend("topleft", legend=item.names, fill=sapply(item.names,cat.to.colors))
-dev.off()
-
-print(paste("concrete correlation:", cor(x,y)))
-
-print(paste("watch:", cor(model.judgements[,"watch"], people.judgements[,"watch"])))
-print(paste("laptop:", cor(model.judgements[,"laptop"], people.judgements[,"laptop"])))
-print(paste("sweater:", cor(model.judgements[,"sweater"], people.judgements[,"sweater"])))
-print(paste("headphones:", cor(model.judgements[,"headphones"], people.judgements[,"headphones"])))
-print(paste("coffee maker:", cor(model.judgements[,"coffee maker"], people.judgements[,"coffee maker"])))
-
-cor(c(model.judgements[,c("laptop", "sweater", "headphones", "coffee maker")]), c(people.judgements[, c("laptop", "sweater", "headphones", "coffee maker")]))
+#print(cor(c(model.judgements[,not.watch]), c(people.judgements[,not.watch])))
+print(cor(x,y))
