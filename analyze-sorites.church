@@ -1,0 +1,132 @@
+(define (last lst)
+  (first (fold (lambda (a lst) (append (list a) lst)) '() lst)))
+
+(define unsmoothed-bins
+  (mem
+   (lambda (prior-type item)
+          (case prior-type
+           (('ebay) (case item
+                          (('watch) '((199.9595 599.8785 999.7975 1399.7165 1799.6355 2199.5545 2599.4735 2999.3925 3399.3115 3799.2305 4199.1495 4599.0685 4998.9875 5398.9065 5798.8255 6198.7445 6598.6635 6998.5825 7398.5015 7798.4205 8198.3395 8598.2585 8998.1775 9398.0965 9798.0155 10197.9345 10597.8535 10997.7725 11397.6915 11797.6105 12197.5295 12597.4485 12997.3675 13397.2865 13797.2055 14197.1245 14597.0435 14996.9625 15396.8815 15796.8005 16196.7195 16596.6385 16996.5575 17396.4765 17796.3955 18196.3145 18596.2335 18996.1525 19396.0715 19795.9905)
+                                      (1000 269 80 57 45 26 18 13 15 17 10 4 9 4 7 5 9 5 4 1 0 0 2 1 2 1 1 0 0 0 3 0 1 0 1 0 0 2 0 0 0 1 0 0 0 0 1 0 0 2)))
+                          (('laptop) '((36.4999 109.4997 182.4995 255.4993 328.4991 401.4989 474.4987 547.4985 620.4983 693.4981 766.4979 839.4977 912.4975 985.4973 1058.4971 1131.4969 1204.4967 1277.4965 1350.4963 1423.4961 1496.4959 1569.4957 1642.4955 1715.4953 1788.4951 1861.4949 1934.4947 2007.4945 2080.4943 2153.4941 2226.4939 2299.4937 2372.4935 2445.4933 2518.4931 2591.4929 2664.4927 2737.4925 2810.4923 2883.4921 2956.4919 3029.4917 3102.4915 3175.4913 3248.4911 3321.4909 3394.4907 3467.4905 3540.4903 3613.4901)
+                                       (740 595 449 259 202 144 110 78 63 66 48 33 31 30 7 9 12 14 7 7 7 5 2 1 2 0 1 5 0 1 7 4 2 0 2 1 1 0 0 2 0 0 0 1 0 0 0 0 0 2)))
+                          (('coffee-maker) '((5.9895 17.9685 29.9475 41.9265 53.9055 65.8845 77.8635 89.8425 101.8215 113.8005 125.7795 137.7585 149.7375 161.7165 173.6955 185.6745 197.6535 209.6325 221.6115 233.5905 245.5695 257.5485 269.5275 281.5065 293.4855 305.4645 317.4435 329.4225 341.4015 353.3805 365.3595 377.3385 389.3175 401.2965 413.2755 425.2545 437.2335 449.2125 461.1915 473.1705 485.1495 497.1285 509.1075 521.0865 533.0655 545.0445 557.0235 569.0025 580.9815 592.9605)
+                                             (1424 1502 1625 1112 519 764 308 218 259 176 254 46 1 170 1 42 43 1 0 1 43 0 2 0 0 0 0 43 0 1 1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0 0 42)))
+                          (('headphones) '((30 90 150 210 270 330 390 450 510 570 630 690 750 810 870 930 990 1050 1110 1170 1230 1290 1350 1410 1470 1530 1590 1650 1710 1770 1830 1890 1950 2010 2070 2130 2190 2250 2310 2370 2430 2490 2550 2610 2670 2730 2790 2850 2910 2970)
+                                           (700 400 924 479 258 66 26 6 10 9 4 6 2 2 4 2 2 2 1 1 0 1 0 0 1 0 0 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1)))
+                          (('sweater) '((1.9049 5.7147 9.5245 13.3343 17.1441 20.9539 24.7637 28.5735 32.3833 36.1931 40.0029 43.8127 47.6225 51.4323 55.2421 59.0519 62.8617 66.6715 70.4813 74.2911 78.1009 81.9107 85.7205 89.5303 93.3401 97.1499 100.9597 104.7695 108.5793 112.3891 116.1989 120.0087 123.8185 127.6283 131.4381 135.2479 139.0577 142.8675 146.6773 150.4871 154.2969 158.1067 161.9165 165.7263 169.5361 173.3459 177.1557 180.9655 184.7753 188.5851)
+                                        (509 779 783 417 592 412 277 185 140 47 183 2 92 90 90 3 90 92 47 1 0 0 45 45 0 0 0 0 0 0 45 0 0 0 0 0 0 0 0 0 0 0 0 0 0 45 0 0 0 46)))))))))
+
+(define bins
+  (mem
+   (lambda (prior-type item)
+     (define bin (unsmoothed-bins prior-type item))
+     (list (first bin) (map (lambda (x) (+ x 1)) (second bin))))))
+
+(define (prior prior-type item) (apply multinomial (bins prior-type item)))
+(define (theta-prior prior-type item) (uniform-draw (first (bins prior-type item))))
+
+(define (utterance-prior) (multinomial '(expensive no-utt) '(0.1 0.9)))
+
+(define pragmatic-listener
+  (mem (lambda (utterance prior-type item)
+  ;query price and theta given speaker would have said that
+  (mh-query 30000 5
+  ;(enumeration-query
+            (define price (apply multinomial (bins prior-type item)))
+            (define theta (theta-prior prior-type item))
+            (list price theta)
+            (eq? (apply multinomial (speaker price theta prior-type item)) utterance)))))
+
+(define speaker
+  (mem (lambda (price theta prior-type item)
+  ;query utterance given literal listener would guess price given theta
+  (enumeration-query
+   (define u (utterance-prior))
+   u
+   (eq? (apply multinomial (literal-listener u theta prior-type item)) price)))))
+
+(define literal-listener
+  (mem (lambda (u theta prior-type item)
+         (define bin (bins prior-type item))
+         (define (post-utterance)
+           (define bin-pairs (map list
+                                  (first bin)
+                                  (second bin)))
+           (define filtered-bin-pairs (fold
+                                       (lambda (a lst) (if (>= (first a) theta)
+                                                           (pair a lst)
+                                                           lst))
+                                       '()
+                                       bin-pairs))
+           (list (map first filtered-bin-pairs) (map second filtered-bin-pairs)))
+         (if (eq? u 'expensive)
+             (post-utterance)
+             bin))))
+
+(define sorites-model (mem (lambda (prior-type item)
+  ;human data for comparison
+  (define people (case item
+                       (('watch) '(8.308824 8.454545 7.652778 6.826667 6.255319 5.750000))
+                       (('laptop) '(8.394366 8.337838 7.179104 5.214286 4.550000 3.536585))
+                       (('coffee-maker) '(8.554054 7.746269 6.613333 6.171875 5.150000 4.414634))
+                       (('headphones) '(8.460526 7.985075 5.936508 5.337500 4.352941 4.045455))
+                       (('sweater) '(8.655738 7.973684 7.027397 6.377049 5.179487 4.000000))))
+  ;human standard deviations from experiment
+  (define epsilons (map (lambda (e) (* e (case item
+                                               (('watch) 15.28736)
+                                               (('laptop) 254.2707)
+                                               (('coffee-maker) 22.31799)
+                                               (('headphones) 31.54902)
+                                               (('sweater) 15.28736))))
+                        '(0.01 0.10 0.50 1.00 2.00 3.00)))
+  ;results of model-
+  (define samples (pragmatic-listener 'expensive prior-type item))
+  (define prices (map first samples))
+  (define thetas (map second samples))
+                             
+  ;inductive premise
+  (define (inductive e)
+    (define lst (map (lambda (p t) (if (>= (- p e) t) 1 0)) prices thetas))
+    ;get mean value of inductive premise
+    (/ (apply + lst) (length lst)))
+                             
+  (define model-judgements (map inductive epsilons))
+  ;comparison: people to model
+  (define people-vs-model (map pair
+                               people
+                               (map inductive epsilons)))
+  (list people-vs-model
+        model-judgements))))
+
+(define items '(watch
+                laptop
+                coffee-maker
+                headphones
+                sweater))
+
+(define pt 'ebay)
+
+(define ppl-vs-mod (fold
+                   append
+                   '()
+                    (map (lambda (item) (first (sorites-model pt item))) items)))
+
+(multiviz
+ ppl-vs-mod
+ (scatter ppl-vs-mod "all items")
+ 'watch
+ (first (sorites-model pt 'watch))
+ (second (sorites-model pt 'watch))
+ 'laptop
+ (first (sorites-model pt 'laptop))
+ (second (sorites-model pt 'laptop))
+ 'coffee-maker
+ (first (sorites-model pt 'coffee-maker))
+ (second (sorites-model pt 'coffee-maker))
+ 'headphones
+ (first (sorites-model pt 'headphones))
+ (second (sorites-model pt 'headphones))
+ 'sweater
+ (first (sorites-model pt 'sweater))
+ (second (sorites-model pt 'sweater)))
