@@ -43,25 +43,25 @@ data <- data.frame(subj=subjs, #worker id
 data$dollars = as.numeric(substr(as.character(data$dollars), 2, length(as.character(data$dollars))))
 concrete.data = aggregate(response ~ dollars + item, data=data[data$qtype == "val",], FUN=mean)
 
-# unscaled.examples <- list()
-# unscaled.examples[["watch"]] = read.table("~/CoCoLab/price-priors/ebay/watch-in-watches.txt")$V1
-# unscaled.examples[["laptop"]] = read.table("~/CoCoLab/price-priors/ebay/laptop.txt")$V1
-# unscaled.examples[["headphones"]] = read.table("~/CoCoLab/price-priors/ebay/headphones.txt")$V1
-# unscaled.examples[["sweater"]] = read.table("~/CoCoLab/price-priors/ebay/sweater.txt")$V1
-# unscaled.examples[["coffee maker"]] = read.table("~/CoCoLab/price-priors/ebay/coffee-maker.txt")$V1
-# maxes = lapply(unscaled.examples, max)
-
-# #i picked these by looking at where the interval graph reached very close to zero
-# #(sometimes it picks back up, but this method wouldn't be able to capture that)
-maxes = list(watch=3000, headphones=1000, laptop=5000, sweater=400)
-maxes[["coffee maker"]] = 400
-#nbins = 50
-maxbinwidth = 10000
-#maxresponse=8.4
-
 #################cumulants: 1-exp(alpha*x)
 
+
 #################cumulants: linear
+# # unscaled.examples <- list()
+# # unscaled.examples[["watch"]] = read.table("~/CoCoLab/price-priors/ebay/watch-in-watches.txt")$V1
+# # unscaled.examples[["laptop"]] = read.table("~/CoCoLab/price-priors/ebay/laptop.txt")$V1
+# # unscaled.examples[["headphones"]] = read.table("~/CoCoLab/price-priors/ebay/headphones.txt")$V1
+# # unscaled.examples[["sweater"]] = read.table("~/CoCoLab/price-priors/ebay/sweater.txt")$V1
+# # unscaled.examples[["coffee maker"]] = read.table("~/CoCoLab/price-priors/ebay/coffee-maker.txt")$V1
+# # maxes = lapply(unscaled.examples, max)
+# 
+# # #i picked these by looking at where the interval graph reached very close to zero
+# # #(sometimes it picks back up, but this method wouldn't be able to capture that)
+# maxes = list(watch=3000, headphones=1000, laptop=5000, sweater=400)
+# maxes[["coffee maker"]] = 400
+# #nbins = 50
+# maxbinwidth = 10000
+# #maxresponse=8.4
 # get.prior.bins = function(item) {
 #   item.data = concrete.data[concrete.data$item == item,]
 #   vals = sort(item.data$dollars)
@@ -168,6 +168,7 @@ maxbinwidth = 10000
 # 
 # smoothed.priors = lapply(items, get.smoothed.prior)
 # 
+
 expt.pdf = lapply(c("laptop", "watch"), function(item) {
     
   })

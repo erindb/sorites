@@ -62,11 +62,13 @@ get.bins = function(item) {
   seps = sapply(1:length(vals), function(i) {
     return(vals[i] - get.lower(i, vals))
   })
-  sep = min(seps)/4 ###can change from 2 to some larger number for more bins
+  sep = min(seps)/30 ###can change from 2 to some larger number for more bins
   
   ##plot original points:
   xlim = c(0, 2*max(vals))
   ylim = c(0, 9)
+  
+  png(paste(c(item, "-priors.png"), collapse=""))
   plot(vals, responses, main=item, ylim=ylim, xlim=xlim)
   
   ##fit exponential cdf:
@@ -132,14 +134,18 @@ get.bins = function(item) {
   })
   
   #plot pdf:
-  #par(new=T)
-  plot(bin.mids, bin.props, ylim=c(0,max(bin.props)), main=item, type="l",
-       #col="blue",
+  par(new=T)
+  plot(bin.mids, bin.props, ylim=c(0,max(bin.props)), main=item, #type="l",
+       col="blue",#
        ylab="", xlab="",
-       #yaxt="n", xlim=xlim
+       yaxt="n", xlim=xlim#
        )
-  #par(new=F)
+  par(new=F)
+  dev.off()
+  
+  #return value:
   bin = list(mids=bin.mids, props=bin.props)
+  return(bin)
 }
 
 bins = lapply(items, get.bins)
