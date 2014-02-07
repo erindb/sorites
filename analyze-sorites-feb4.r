@@ -2,7 +2,11 @@ library(rjson)
 
 ################# reading and cleaning data for all pieces
 setwd("~/sorites-analysis/")
+
 rd <- read.table("../sorites-experiment/sorites.results", sep="\t", quote='"', header=TRUE)
+if (phrasing == '"relative"') {
+  rd = rd[rd$Answer.phrasing != '"conditional"',]#'"relative"',]
+}
 rd = rd[rd$Answer.phrasing == phrasing,]#'"relative"',]
 rd$workerid = factor(rd$workerid)
 

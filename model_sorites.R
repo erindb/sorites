@@ -25,8 +25,6 @@ unscaled.examples[["laptop"]] = read.table("~/CoCoLab/price-priors/ebay/laptop.t
 unscaled.examples[["headphones"]] = read.table("~/CoCoLab/price-priors/ebay/headphones.txt")$V1
 unscaled.examples[["sweater"]] = read.table("~/CoCoLab/price-priors/ebay/sweater.txt")$V1
 unscaled.examples[["coffee maker"]] = read.table("~/CoCoLab/price-priors/ebay/coffee-maker.txt")$V1
-# unscaled.examples = fromJSON(readLines("~/CoCoLab/price-priors/justine-orig/scraped-priors.JSON")[[1]])
-# unscaled.examples[["watch"]] = unscaled.examples[["watch"]][1:(length(unscaled.examples[["watch"]])-1)]
 
 #scale to max 1:
 examples.scale <- lapply(unscaled.examples, max)
@@ -52,16 +50,11 @@ utterance.lengths = c(0,1)
 utterance.polarities = c(0,+1)
 
 #using r function density to find kernal density, so it's not actually continuous
-# kernel.granularity <- grid.steps #2^12 #how many points are calculated for the kernel density estimate
-# est.kernel <- function(dist, bw) {
-#   return(density(examples[[dist]], from=0, to=1, n=kernel.granularity,
-#                  kernel="gaussian", bw=bw, adjust=1))
-# }
 est.kernel <- function(dist,bw) {
   e <- examples[[dist]]
   es <- examples.scale[[dist]]
   k <- list()
-  k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#,ubound=1)) #do smoothing in original space
+  k$y <- dlogspline(grid*es, logspline(es*e, lbound=0))#do smoothing in original space
   k$x <- grid
   return(k)
 }
@@ -196,12 +189,11 @@ listener1 = function(utterance, alpha, utt.cost, n.samples, step.size,
   
   print("acceptance rate:")
   print(n.proposals.accepted/(n.samples-1))
-  #print("misses since last cache clear:")
-  #print(cache.misses)
   
   return(list(samples=samples, prop.accepted=n.proposals.accepted/(n.samples-1)))
 }
 
+##e.g. "A watch that costs $5 less than an expensive watch is expensive"
 model.sorites <- function(cat) {
   n.true.samples <- 30000 #number of samples to keep
   lag <- 5 #number of samples to skip over
@@ -227,47 +219,11 @@ model.sorites <- function(cat) {
   ret <- list(epsilons, inductive.prem, epsilons.instdevs)
   names(ret) <- c("x","y","x.instdevs")
   
-  #plot(epsilons,ind.prem)
-  
   return(ret)
 }
 
-# allcat <- lapply(names(examples), model.sorites)
-# names(allcat) <- names(examples)
-# par(mfrow=c(2,3))
-# sapply(names(allcat), function(cat){
-#   plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
-
-# item.names <- c("laptop", "sweater", "coffee maker", "watch", "headphones")
 allcat <- lapply(item.names, model.sorites)
 names(allcat) <- item.names
-
-#par(mfrow=c(2,3))
-#sapply(names(allcat), function(cat){
-#  plot(allcat[[cat]]$x,allcat[[cat]]$y,type="l",main=cat,ylim=c(0,1),xlim=c(0,0.5))})
-
-# png("sorites-lognorm-vs-norm.png", 880, 450, pointsize=24)
-# par(mfrow=c(1,2))
-# dists = c("lognormal", "normal")
-# sapply(dists, function(cat){
-#   if (cat == "laptop") {
-#     xlab = "epsilon (in standard deviations)"
-#     ylab = "probability inductive premise is true"
-#   } else {
-#     xlab = ""
-#     ylab = ""
-#   }
-#   plot(allcat[[cat]]$x.instdevs, #allcat[[cat]]$x, #seq(0,3,length.out=100),
-#        allcat[[cat]]$y,
-#        type="l",
-#        main=cat,
-#        ylim=c(0,1),
-#        xlim=c(0,3),
-#        xlab=xlab,
-#        ylab=ylab,
-#        lwd=3)
-# })
-# dev.off()
 
 png("sorites-model.png", 2200, 450, pointsize=32)
 par(mfrow=c(1,5))

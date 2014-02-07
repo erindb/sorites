@@ -308,7 +308,7 @@ for (k in 1:length(my.items)) {
   my.model = my.models[[k]]
   plot(people.judgements[,my.item], my.model, col=my.color,
        ylim=c(0,1), xlim=c(1,9), ylab="model", pch=20,
-       xlab="experiment", main="sorites - model vs people",
+       xlab="experiment", main="sorites - conditional vs original",
        xaxp=c(1,9,8))
   error.bar(people.judgements[,my.item], my.model, people.lower[,my.item],
             col=my.color, lw=2, people.higher[,my.item])
@@ -316,7 +316,7 @@ for (k in 1:length(my.items)) {
 }
 #abline(v=1)
 #abline(v=9)
-legend(x="topleft", legend=c("laptop", "headphones", "sweater", "coffee maker", "watch"), fill=c("red", "yellow", "green", "cyan", "blue"))
+#legend(x="topleft", legend=c("laptop", "headphones", "sweater", "coffee maker", "watch"), fill=c("red", "yellow", "green", "cyan", "blue"))
 # dev.off()
 
 # png("scatterplot.png", 1000, 800, pointsize=30)#32)
@@ -342,6 +342,7 @@ if (length(w)<1) {
 
 print(cor(c(people.judgements), church))
 }
+legend(x="topleft", legend=c("conditional (cor=0.91)", "original (cor=0.97)"), fill=c("blue", "red"))
 dev.off()
 
 # a = ""

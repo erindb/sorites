@@ -217,9 +217,32 @@ graph.df <- function(df, label, range, save=F, file.names=c("",""), item.label="
   inductive <- plot(epsilons, eps.y, ylim=range, type="l", ylab=ind.ylab,
                     xlab=ind.xlab, font.main=32,
                     main=inductive.label, lwd=lwd)
+  par(new=T)
+  inductive = list(
+    watch=c(0.9307333333333333, 0.9307333333333333, 0.9307333333333333, 0.9307333333333333, 0.9307333333333333, 0.9307333333333333),
+    laptop=c(0.9463666666666667, 0.9463666666666667, 0.8464, 0.7119666666666666, 0.5085333333333333, 0.3468333333333333),
+    `coffee maker`=c(0.96, 0.96, 0.8799666666666667, 0.7642333333333333, 0.5556666666666666, 0.4141),
+    headphones=c(0.9421333333333334, 0.9421333333333334, 0.8356333333333333, 0.6845333333333333, 0.4825333333333333, 0.33253333333333335),
+    sweater=c(0.9564, 0.9564, 0.8757, 0.7545, 0.5785333333333333, 0.4341333333333333)
+  )
+  plot(epsilons, (inductive[[item.label]]*(range[2]-range[1]) + range[1]), ylim=range, type="l", ylab="", xlab="", main="", lwd=lwd, col="blue")
+  par(new=F)
   arrows(epsilons, eps.high, epsilons, eps.low, angle=90, code=3, length=0.1, lwd=lwd)
+  print(item.label)
+  print(val.y)
   concrete <- plot(values, val.y, ylim=range, type="l", xlab=conc.xlab, font.main=32,
                    main=concrete.label, lwd=lwd, ylab=conc.ylab)
+  par(new=T)
+  concrete = list(
+    watch=c(0.03496666666666667, 0.03496666666666667, 0.03496666666666667, 0.07306666666666667, 0.07306666666666667),
+    laptop=c(0.3501, 0.4872666666666667, 0.6176333333333334, 0.7363, 0.8510666666666666),
+    `coffee maker`=c(0.24173333333333333, 0.3527, 0.4857, 0.6053666666666667, 0.6926666666666667),
+    headphones=c(0.16273333333333334, 0.32133333333333336, 0.4897, 0.6164, 0.7241333333333333),
+    sweater=c(0.25783333333333336, 0.3691333333333333, 0.47333333333333333, 0.5706333333333333, 0.6666)
+  )
+  
+  plot(values, concrete[[item.label]]*(range[2]-range[1] + range[1]), ylim=range, type="l", ylab="", xlab="", main="", lwd=lwd, col="blue")
+  par(new=F)
   arrows(values, val.high, values, val.low, angle=90, code=3, length=0.1, lwd=lwd)
 }
 
@@ -286,22 +309,22 @@ sapply(unique(as.character(data$item)), function(kind.of.item) {
 dev.off()
 
 
-png("sorites-z-items.png", 2000, 800, pointsize=28)
-par(mfcol=c(2,5))
-sapply(unique(as.character(z.data$item)), function(kind.of.item) {
-  if (kind.of.item == "laptop") {
-    ind.ylab <- "goodness of inductive premise"
-    ind.xlab <- "epsilons (standard deviations)"
-    conc.xlab <- "values (standard deviations above the mean)"
-    conc.ylab <- "goodness of concrete premise"
-  } else {
-    ind.ylab <- ""
-    ind.xlab <- ""
-    conc.xlab <- ""
-    conc.ylab <- ""
-  }
-  graph.df(subset(z.data, data$item==kind.of.item), label=NA,
-           range=c(-2,1.5), item.label=kind.of.item, ind.xlab=ind.xlab,
-           conc.xlab=conc.xlab, ind.ylab=ind.ylab, conc.ylab=conc.ylab)
-})
-dev.off()
+# png("sorites-z-items.png", 2000, 800, pointsize=28)
+# par(mfcol=c(2,5))
+# sapply(unique(as.character(z.data$item)), function(kind.of.item) {
+#   if (kind.of.item == "laptop") {
+#     ind.ylab <- "goodness of inductive premise"
+#     ind.xlab <- "epsilons (standard deviations)"
+#     conc.xlab <- "values (standard deviations above the mean)"
+#     conc.ylab <- "goodness of concrete premise"
+#   } else {
+#     ind.ylab <- ""
+#     ind.xlab <- ""
+#     conc.xlab <- ""
+#     conc.ylab <- ""
+#   }
+#   graph.df(subset(z.data, data$item==kind.of.item), label=NA,
+#            range=c(-2,1.5), item.label=kind.of.item, ind.xlab=ind.xlab,
+#            conc.xlab=conc.xlab, ind.ylab=ind.ylab, conc.ylab=conc.ylab)
+# })
+# dev.off()
