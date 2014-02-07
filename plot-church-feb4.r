@@ -19,6 +19,15 @@ error.bar <- function(x, y, upper, lower=upper, lw=2, col="black", length=0.1,..
   #segments(x, upper, x, lower, col=col, lw=lw, ...)
 }
 
+png("scatterplot-conditions.png", 1000, 800, pointsize=30)#32)
+for (phrasing in c('"relative"', '"conditional"')) {
+  
+  if (phrasing == '"relative"') {
+    condition.color = "red"
+  } else {
+    condition.color = "blue"
+  }
+
 #get results of experiment
 source("analyze-sorites-feb4.r")
 
@@ -289,9 +298,10 @@ s=c(0.9555333333333333, 0.9160666666666667, 0.6494333333333333, 0.41276666666666
 # s=c()
 
 my.items = c("laptop", "sweater", "coffee maker", "watch", "headphones")
-my.colors = c("red", "green", "cyan", "blue", "yellow")
+#my.colors = c("red", "green", "cyan", "blue", "yellow")
+my.colors = rep(condition.color, 5)
 my.models = list(l, s, c, w, h)
-png("scatterplot-errorbars.png", 1000, 800, pointsize=30)#32)
+# png("scatterplot-errorbars.png", 1000, 800, pointsize=30)#32)
 for (k in 1:length(my.items)) {
   my.item = my.items[k]
   my.color = my.colors[k]
@@ -307,20 +317,20 @@ for (k in 1:length(my.items)) {
 #abline(v=1)
 #abline(v=9)
 legend(x="topleft", legend=c("laptop", "headphones", "sweater", "coffee maker", "watch"), fill=c("red", "yellow", "green", "cyan", "blue"))
-dev.off()
+# dev.off()
 
-png("scatterplot.png", 1000, 800, pointsize=30)#32)
-for (k in 1:length(my.items)) {
-  my.item = my.items[k]
-  my.color = my.colors[k]
-  my.model = my.models[[k]]
-  plot(people.judgements[,my.item], my.model, col=my.color,
-       ylim=c(0,1), xlim=c(1,9), ylab="model", pch=20,
-       xlab="experiment", main="sorites - people vs model")
-  par(new=T)
-}
-legend(x="topleft", legend=c("laptop", "headphones", "sweater", "coffee maker", "watch"), fill=c("red", "yellow", "green", "cyan", "blue"))
-dev.off()
+# png("scatterplot.png", 1000, 800, pointsize=30)#32)
+# for (k in 1:length(my.items)) {
+#   my.item = my.items[k]
+#   my.color = my.colors[k]
+#   my.model = my.models[[k]]
+#   plot(people.judgements[,my.item], my.model, col=my.color,
+#        ylim=c(0,1), xlim=c(1,9), ylab="model", pch=20,
+#        xlab="experiment", main="sorites - people vs model")
+#   par(new=T)
+# }
+# legend(x="topleft", legend=c("laptop", "headphones", "sweater", "coffee maker", "watch"), fill=c("red", "yellow", "green", "cyan", "blue"))
+# dev.off()
 
 church = c(l, s, c, w, h)
 #r = as.vector(model.judgements)
@@ -331,7 +341,8 @@ if (length(w)<1) {
 }
 
 print(cor(c(people.judgements), church))
-
+}
+dev.off()
 
 # a = ""
 # import re
