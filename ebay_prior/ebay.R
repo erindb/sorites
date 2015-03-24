@@ -37,12 +37,12 @@ p = ggplot(data=d, aes(x=price, colour=item)) +
   scale_colour_brewer(type='qual', palette='Set1') +
   scale_fill_brewer(type='qual', palette='Set1')
 print(p)
-ggsave("ebay_priors.pdf", width=8.5, height=3)
+ggsave("ebay_priors_unnormed.pdf", width=8.5, height=3)
 
 get_density_pair = function(item) {
   fit = density(ebay[[item]])
-  fit_x = fit$x[fit$x > 0]
-  fit_y = fit$y[fit$x > 0]
+  fit_x = fit$x[fit$x > 0 & 1:length(fit$x) %% 6 == 0]
+  fit_y = fit$y[fit$x > 0 & 1:length(fit$x) %% 6 == 0]
   return(list(x=fit_x, y=fit_y))
 }
 
@@ -55,3 +55,40 @@ writeLines(
   toJSON(distributions),
   "ebay_prior.json"
 )
+
+d_sparse = data.frame(
+  item = c(
+    rep("laptop", length(distributions$laptop$x)),
+    rep("watch", length(distributions$watch$x)),
+    rep("headphones", length(distributions$headphones$x)),
+    rep("sweater", length(distributions$sweater$x)),
+    rep("coffee maker", length(distributions$`coffee maker`$x))
+  ),
+  price = c(
+    distributions$laptop$x,
+    distributions$watch$x,
+    distributions$headphones$x,
+    distributions$sweater$x,
+    distributions$`coffee maker`$x
+  ),
+  probability = c(
+    distributions$laptop$y/sum(distributions$laptop$y),
+    distributions$watch$y/sum(distributions$watch$y),
+    distributions$headphones$y/sum(distributions$headphones$y),
+    distributions$sweater$y/sum(distributions$sweater$y),
+    distributions$`coffee maker`$y/sum(distributions$`coffee maker`$y)
+  )
+)
+
+p = ggplot(data=d_sparse, aes(x=price, y=probability, colour=item)) +
+  geom_line() +
+  facet_grid(. ~ item, scale="free") +
+  ggtitle("Priors Scraped from Ebay") +
+  ylab("probability") +
+  xlab("price") +
+  theme_bw(9) +
+  theme(panel.grid=element_blank()) +
+  scale_colour_brewer(type='qual', palette='Set1') +
+  scale_fill_brewer(type='qual', palette='Set1')
+print(p)
+ggsave("ebay_priors.pdf", width=8.5, height=3)

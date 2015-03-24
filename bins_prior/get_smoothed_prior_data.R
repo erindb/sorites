@@ -47,28 +47,28 @@ v3_long = ddply(.data=v3, .variables = .(workerid, trial_num), .fun=function(sub
 })
 v3_long$item = factor(v3_long$item, levels = objects)
 
-ggplot(data=v3_long, aes(x=lowers, y=probability, colour=factor(workerid), group=workerid)) +
-  geom_line() +
-  facet_grid(. ~ item, scale="free") +
-  ggtitle("Prior elicitation version 3 (N=9)") +
-  ylab("probability (normalized slider response)") +
-  xlab("lower bound of interval") +
-  theme_bw(9) +
-  theme(panel.grid=element_blank())
-ggsave("v3_priors_by_worker.pdf", width=8.5, height=4)
-
-ggplot(data=v3_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
-  geom_smooth(method=loess) +
-  facet_grid(. ~ item, scale="free") +
-  geom_line(aes(x=lowers, y=0), colour="black") +
-  ggtitle("Prior elicitation version 3 (N=9)") +
-  ylab("probability (normalized slider response)") +
-  xlab("lower bound of interval") +
-  theme_bw(9) +
-  theme(panel.grid=element_blank()) +
-  scale_colour_brewer(type='qual', palette='Set1') +
-  scale_fill_brewer(type='qual', palette='Set1')
-ggsave("v3_priors.pdf", width=8.5, height=3)
+# ggplot(data=v3_long, aes(x=lowers, y=probability, colour=factor(workerid), group=workerid)) +
+#   geom_line() +
+#   facet_grid(. ~ item, scale="free") +
+#   ggtitle("Prior elicitation version 3 (N=9)") +
+#   ylab("probability (normalized slider response)") +
+#   xlab("lower bound of interval") +
+#   theme_bw(9) +
+#   theme(panel.grid=element_blank())
+# ggsave("v3_priors_by_worker.pdf", width=8.5, height=4)
+# 
+# ggplot(data=v3_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
+#   geom_smooth(method=loess) +
+#   facet_grid(. ~ item, scale="free") +
+#   geom_line(aes(x=lowers, y=0), colour="black") +
+#   ggtitle("Prior elicitation version 3 (N=9)") +
+#   ylab("probability (normalized slider response)") +
+#   xlab("lower bound of interval") +
+#   theme_bw(9) +
+#   theme(panel.grid=element_blank()) +
+#   scale_colour_brewer(type='qual', palette='Set1') +
+#   scale_fill_brewer(type='qual', palette='Set1')
+# ggsave("v3_priors.pdf", width=8.5, height=3)
 
 v3_smoothed = lapply(objects, function(object) {
   subd = subset(v3_long, item == object)
@@ -116,32 +116,32 @@ v4_long = ddply(.data=v4, .variables = .(workerid, trial_num), .fun=function(sub
 })
 v4_long$item = factor(v4_long$item, levels = objects)
 
-ggplot(data=v4_long, aes(x=lowers, y=probability, colour=factor(workerid), group=workerid)) +
-  geom_line() +
-  facet_grid(. ~ item, scale="free") +
-  ggtitle("Prior elicitation version 4 (N=10)") +
-  ylab("probability (normalized slider response)") +
-  xlab("lower bound of interval") +
-  theme_bw(9) +
-  theme(panel.grid=element_blank())
-ggsave("v4_priors_by_worker.pdf", width=8.5, height=4)
+# ggplot(data=v4_long, aes(x=lowers, y=probability, colour=factor(workerid), group=workerid)) +
+#   geom_line() +
+#   facet_grid(. ~ item, scale="free") +
+#   ggtitle("Prior elicitation version 4 (N=10)") +
+#   ylab("probability (normalized slider response)") +
+#   xlab("lower bound of interval") +
+#   theme_bw(9) +
+#   theme(panel.grid=element_blank())
+# ggsave("v4_priors_by_worker.pdf", width=8.5, height=4)
 
 v4_long$cutoff = sapply(v4_long$item, function(object) {
   return(max(subset(v3_long, item == object)$lowers))
 })
-ggplot(data=v4_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
-  geom_smooth(method=loess) +
-  facet_grid(. ~ item, scale="free") +
-  geom_line(aes(x=lowers, y=0), colour="black") +
-  geom_line(aes(x=cutoff)) +
-  ggtitle("Prior elicitation version 4 (N=10)") +
-  ylab("probability (normalized slider response)") +
-  xlab("lower bound of interval") +
-  theme_bw(9) +
-  theme(panel.grid=element_blank()) +
-  scale_colour_brewer(type='qual', palette='Set1') +
-  scale_fill_brewer(type='qual', palette='Set1')
-ggsave("v4_priors.pdf", width=8.5, height=3)
+# ggplot(data=v4_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
+#   geom_smooth(method=loess) +
+#   facet_grid(. ~ item, scale="free") +
+#   geom_line(aes(x=lowers, y=0), colour="black") +
+#   geom_line(aes(x=cutoff)) +
+#   ggtitle("Prior elicitation version 4 (N=10)") +
+#   ylab("probability (normalized slider response)") +
+#   xlab("lower bound of interval") +
+#   theme_bw(9) +
+#   theme(panel.grid=element_blank()) +
+#   scale_colour_brewer(type='qual', palette='Set1') +
+#   scale_fill_brewer(type='qual', palette='Set1')
+# ggsave("v4_priors.pdf", width=8.5, height=3)
 
 v4_smoothed = lapply(objects, function(object) {
   subd = subset(v4_long, item == object)
@@ -189,32 +189,32 @@ v6_long = ddply(.data=v6, .variables = .(workerid, trial_num), .fun=function(sub
 })
 v6_long$item = factor(v6_long$item, levels = objects)
 
-ggplot(data=v6_long, aes(x=lowers, y=probability, colour=workerid, group=workerid)) +
-  geom_line(alpha=1/2) +
-  facet_grid(. ~ item, scale="free") +
-  ggtitle("Prior elicitation version 6 (N=36)") +
-  ylab("probability (normalized slider response)") +
-  xlab("lower bound of interval") +
-  theme_bw(9) +
-  theme(panel.grid=element_blank())
-ggsave("v6_priors_by_worker.pdf", width=8.5, height=3)
+# ggplot(data=v6_long, aes(x=lowers, y=probability, colour=workerid, group=workerid)) +
+#   geom_line(alpha=1/2) +
+#   facet_grid(. ~ item, scale="free") +
+#   ggtitle("Prior elicitation version 6 (N=36)") +
+#   ylab("probability (normalized slider response)") +
+#   xlab("lower bound of interval") +
+#   theme_bw(9) +
+#   theme(panel.grid=element_blank())
+# ggsave("v6_priors_by_worker.pdf", width=8.5, height=3)
 
 v6_long$cutoff = sapply(v6_long$item, function(object) {
   return(max(subset(v3_long, item == object)$lowers))
 })
-ggplot(data=v6_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
-  geom_smooth(method=loess) +
-  facet_grid(. ~ item, scale="free") +
-  geom_line(aes(x=lowers, y=0), colour="black") +
-  geom_line(aes(x=cutoff)) +
-  ggtitle("Prior elicitation version 6 (N=36)") +
-  ylab("probability (normalized slider response)") +
-  xlab("lower bound of interval") +
-  theme_bw(9) +
-  theme(panel.grid=element_blank()) +
-  scale_colour_brewer(type='qual', palette='Set1') +
-  scale_fill_brewer(type='qual', palette='Set1')
-ggsave("v6_priors.pdf", width=8.5, height=3)
+# ggplot(data=v6_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
+#   geom_smooth(method=loess) +
+#   facet_grid(. ~ item, scale="free") +
+#   geom_line(aes(x=lowers, y=0), colour="black") +
+#   geom_line(aes(x=cutoff)) +
+#   ggtitle("Prior elicitation version 6 (N=36)") +
+#   ylab("probability (normalized slider response)") +
+#   xlab("lower bound of interval") +
+#   theme_bw(9) +
+#   theme(panel.grid=element_blank()) +
+#   scale_colour_brewer(type='qual', palette='Set1') +
+#   scale_fill_brewer(type='qual', palette='Set1')
+# ggsave("v6_priors.pdf", width=8.5, height=3)
 
 v6_smoothed = lapply(objects[1:3], function(object) {
   subd = subset(v6_long, item == object)
@@ -236,19 +236,19 @@ v3_long$version = rep("Version A", nrow(v3_long))
 v4_long$version = rep("Version B", nrow(v4_long))
 v6_long$version = rep("Version C", nrow(v6_long))
 all_long = rbind(v3_long, v4_long, v6_long)
-ggplot(data=all_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
-  geom_smooth(method=loess) +
-  facet_grid(version ~ item, scale="free") +
-  geom_line(aes(x=lowers, y=0), colour="black") +
-  geom_line(aes(x=cutoff)) +
-  ggtitle("Prior Elicitation Experiments") +
-  ylab("probability (normalized slider response)") +
-  xlab("lower bound of interval") +
-  theme_bw(9) +
-  theme(panel.grid=element_blank()) +
-  scale_colour_brewer(type='qual', palette='Set1') +
-  scale_fill_brewer(type='qual', palette='Set1')
-ggsave("all_bins_priors.pdf", width=8.5, height=4)
+# ggplot(data=all_long, aes(x=lowers, y=probability, colour=item, fill=item)) +
+#   geom_smooth(method=loess) +
+#   facet_grid(version ~ item, scale="free") +
+#   geom_line(aes(x=lowers, y=0), colour="black") +
+#   geom_line(aes(x=cutoff)) +
+#   ggtitle("Prior Elicitation Experiments") +
+#   ylab("probability (normalized slider response)") +
+#   xlab("lower bound of interval") +
+#   theme_bw(9) +
+#   theme(panel.grid=element_blank()) +
+#   scale_colour_brewer(type='qual', palette='Set1') +
+#   scale_fill_brewer(type='qual', palette='Set1')
+# ggsave("all_bins_priors.pdf", width=8.5, height=4)
 
 ## write priors.json
 writeLines(
