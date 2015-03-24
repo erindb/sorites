@@ -28,3 +28,4 @@ prior-feb12.csv
   varied by item.
 
 ** represents data that had good enough range and resolution to be worth analyzing
+For the model, I normalized and then smoothed and took bins the width of the smallest epsilon times 5 (so the last epsilon doesn't really have a chance).
