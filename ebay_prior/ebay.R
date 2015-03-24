@@ -47,7 +47,7 @@ get_density_pair = function(item) {
 }
 
 objects = c("coffee maker", "headphones", "laptop", "watch", "sweater")
-distributions = sapply(as.list(objects), get_density_pair)
+distributions = lapply(as.list(objects), get_density_pair)
 names(distributions) = objects
 
 ## write priors.json
