@@ -7,7 +7,7 @@ var_and_eps = read.table("vars_and_eps.csv", sep=",", header=T)
 d = read.table("all_model_output.csv", sep=",",
                col.names=c("prior_version", "item", "price", "theta", "probability",
                            "cost", "alpha"))
-d$probability = as.numeric(as.character(probability))
+d$probability = as.numeric(as.character(d$probability))
 model = rbind(var_and_eps, var_and_eps)
 model$prior_version = c(rep("v4", nrow(var_and_eps)), rep("ebay", nrow(var_and_eps)))
 model = ddply(.data=model, .(item, dollarAmt, qType, prior_version), .fun=function(subd) {
@@ -43,3 +43,5 @@ p = ggplot(data=model, aes(x=dollarAmt, y=model, colour=item, linetype=qType)) +
   scale_fill_brewer(type='qual', palette='Set1')
 print(p)
 ggsave("model.pdf", width=8.5, height=3)
+
+write.table(model, "model.csv", sep=",", row.names=F)
