@@ -3,12 +3,16 @@ library(rjson)
 library(ggplot2)
 source("~/opt/r_helper_scripts/bootsSummary.r")
 
+preferred_alpha = 1
+preferred_cost = 1
+
 chop = function(s) {
   a = strsplit(s, "")[[1]]
   return(paste(a[2:length(a)], collapse=""))
 }
 
-model = read.table("model_v4.csv", sep=",", header=T)
+model = read.table(paste("model_v4_alpha", preferred_alpha, "_cost",
+                         preferred_cost, ".csv", sep=""), sep=",", header=T)
 d = read.table("sorites-jan31.csv", sep=",", header=T)
 
 # d = d[d$Answer.version == "“jan31”",]
@@ -54,6 +58,21 @@ d_summary = ddply(d_summary, .(item, qType, dollarAmt), .fun=function(subd) {
   return(subd)
 })
 
+p = ggplot(data=d_summary, aes(x=model, y=response, colour=item, shape=qType)) +
+  geom_point() +
+  geom_errorbar(aes(x=model, ymin=bootsci_low, ymax=bootsci_high)) +
+  ylab("people's endorsement of premise") +
+  xlab("model's probability of premise") +
+  ggtitle("Sorites: Model vs Experiment") +
+  theme_bw(18) +
+  theme(panel.grid=element_blank()) +
+  scale_colour_brewer(type='qual', palette='Set1') +
+  scale_fill_brewer(type='qual', palette='Set1')
+print(p)
+ggsave(paste("sorites-model-vs-people_all_alpha", preferred_alpha,
+             "_cost", preferred_cost, ".pdf", sep=""), width=8.5, height=4)
+with(d_summary, print(cor.test(model, response)))
+
 p = ggplot(data=subset(d_summary, qType == "an X that's $E less is also expensive"),
            aes(x=model, y=response, colour=item)) +
   geom_point() +
@@ -66,8 +85,10 @@ p = ggplot(data=subset(d_summary, qType == "an X that's $E less is also expensiv
   scale_colour_brewer(type='qual', palette='Set1') +
   scale_fill_brewer(type='qual', palette='Set1')
 print(p)
-ggsave("sorites-model-vs-people.pdf", width=8.5, height=6)
-with(subset(d_summary, qType == "an X that's $E less is also expensive"), cor.test(model, response))
+ggsave(paste("sorites-model-vs-people_alpha", preferred_alpha,
+             "_cost", preferred_cost, ".pdf", sep=""), width=8.5, height=6)
+with(subset(d_summary, qType == "an X that's $E less is also expensive"),
+     print(cor.test(model, response)))
 
 p = ggplot(data=d_summary, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
   geom_line() +

@@ -1,0 +1,111 @@
+"dollarAmt","qType","item","probability"
+0.49,"eps","sweater",0.999999999999998
+0.49,"eps","sweater",0.999999999999998
+0.63,"eps","coffee maker",1
+0.63,"eps","coffee maker",1
+0.79,"eps","headphones",1
+0.79,"eps","headphones",1
+5,"eps","sweater",0.952471779891676
+5,"eps","sweater",0.952471779891676
+6,"eps","coffee maker",0.953265932921934
+6,"eps","coffee maker",0.953265932921934
+6,"eps","laptop",1
+6,"eps","laptop",1
+7,"eps","watch",1
+7,"eps","watch",1
+8,"eps","headphones",0.938867450796555
+8,"eps","headphones",0.938867450796555
+20,"eps","sweater",0.732146140745282
+20,"eps","sweater",0.732146140745282
+30,"eps","coffee maker",0.697270005297552
+30,"eps","coffee maker",0.697270005297552
+40,"eps","headphones",0.669352299771199
+40,"eps","headphones",0.669352299771199
+50,"eps","sweater",0.403654428423557
+50,"eps","sweater",0.403654428423557
+60,"eps","coffee maker",0.429399887979378
+60,"eps","coffee maker",0.429399887979378
+60,"eps","laptop",0.939214464173577
+60,"eps","laptop",0.939214464173577
+70,"eps","watch",0.923360451456549
+70,"eps","watch",0.923360451456549
+80,"eps","headphones",0.400491803326526
+80,"eps","headphones",0.400491803326526
+80,"val","sweater",0.638513184136615
+80,"val","sweater",0.638513184136615
+100,"eps","sweater",0.120995286048308
+100,"eps","sweater",0.120995286048308
+120,"val","coffee maker",0.692436962886957
+120,"val","coffee maker",0.692436962886957
+120,"val","headphones",0.604451693047352
+120,"val","headphones",0.604451693047352
+130,"eps","coffee maker",0.126951735629954
+130,"eps","coffee maker",0.126951735629954
+130,"val","sweater",0.873450348899193
+130,"val","sweater",0.873450348899193
+150,"eps","sweater",0.0277441391274995
+150,"eps","sweater",0.0277441391274995
+160,"eps","headphones",0.12744294889092
+160,"eps","headphones",0.12744294889092
+180,"val","coffee maker",0.894242824873284
+180,"val","coffee maker",0.894242824873284
+180,"val","sweater",0.971584378482832
+180,"val","sweater",0.971584378482832
+190,"eps","coffee maker",0.0295326134165328
+190,"eps","coffee maker",0.0295326134165328
+200,"val","headphones",0.872493400827355
+200,"val","headphones",0.872493400827355
+250,"eps","headphones",0.0152742652388666
+250,"eps","headphones",0.0152742652388666
+250,"val","coffee maker",0.996826138155949
+250,"val","coffee maker",0.996826138155949
+250,"val","sweater",0.999999999999998
+250,"val","sweater",0.999999999999998
+300,"eps","laptop",0.667586092493088
+300,"eps","laptop",0.667586092493088
+300,"val","coffee maker",1
+300,"val","coffee maker",1
+300,"val","headphones",0.996955628355282
+300,"val","headphones",0.996955628355282
+300,"val","sweater",0.999999999999998
+300,"val","sweater",0.999999999999998
+350,"eps","watch",0.573360959854219
+350,"eps","watch",0.573360959854219
+350,"val","coffee maker",1
+350,"val","coffee maker",1
+350,"val","headphones",1
+350,"val","headphones",1
+450,"val","headphones",1
+450,"val","headphones",1
+550,"eps","laptop",0.449627510950588
+550,"eps","laptop",0.449627510950588
+650,"eps","watch",0.358447295085391
+650,"eps","watch",0.358447295085391
+700,"val","watch",0.513843214567584
+700,"val","watch",0.513843214567584
+1150,"eps","laptop",0.140163463031454
+1150,"eps","laptop",0.140163463031454
+1200,"val","laptop",0.726223890322189
+1200,"val","laptop",0.726223890322189
+1300,"eps","watch",0.129796627159385
+1300,"eps","watch",0.129796627159385
+1400,"val","watch",0.795014420210883
+1400,"val","watch",0.795014420210883
+1700,"eps","laptop",0.034475181307714
+1700,"eps","laptop",0.034475181307714
+1800,"val","laptop",0.926785283832293
+1800,"val","laptop",0.926785283832293
+1950,"eps","watch",0.0364749607868447
+1950,"eps","watch",0.0364749607868447
+2050,"val","watch",0.931648519940415
+2050,"val","watch",0.931648519940415
+2350,"val","laptop",0.997757374890492
+2350,"val","laptop",0.997757374890492
+2700,"val","watch",0.993804691444718
+2700,"val","watch",0.993804691444718
+2900,"val","laptop",1
+2900,"val","laptop",1
+3350,"val","watch",1
+3350,"val","watch",1
+3450,"val","laptop",1
+3450,"val","laptop",1
