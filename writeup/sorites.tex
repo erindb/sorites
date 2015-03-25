@@ -32,7 +32,7 @@
   We explain people's reactions to these statements with a formal model of scalar adjective interpretation and show that their reactions are sensitive to the prior distribution on building heights and to the change in height $\epsilon$ given in the inductive premise (in this case, 1m).
   
 \section{model}
-  We use a model of scalar adjectives (e.g. ``tall'') in which a pragmatic listener must infer both the height that the speaker intended to communicate and also the threshold between ``tall'' and ``not tall'' that the speaker was using \cite{lassiter}. Because a speaker is likely to be communicating about things that are plausible in the world, but is unlikely to expend effort on uttering something uninformative, the pragmatic listener will infer that the threshold is high enough to be informative, but low enough for the communicated height to be plausible. This inference will depend on the speaker and listener's common ground on what plausible and likely heights are for a given category.
+  We use a model of scalar adjectives (e.g. ``tall'') in which a pragmatic listener must infer both the height that the speaker intended to communicate and also the threshold between ``tall'' and ``not tall'' that the speaker was using (Lassiter 2013). Because a speaker is likely to be communicating about things that are plausible in the world, but is unlikely to expend effort on uttering something uninformative, the pragmatic listener will infer that the threshold is high enough to be informative, but low enough for the communicated height to be plausible. This inference will depend on the speaker and listener's common ground on what plausible and likely heights are for a given category.
   
   \subsection{initial simulations of adjective model and effects of parameters}
     We can look at this model's inferences about the threshold $\theta$ and the degree $x$ (in the previous example, height) when the prior distribution is roughly gaussian with mean 50 and standard deviation 20. Different rationality parameters $\alpha$ and different costs $C$ for the scalar adjective utterance (e.g. ``tall'') result in different posterior distributions on $\theta$ and $x$.
@@ -85,24 +85,42 @@
 % %       \paragraph{individual bins}
 % %       \paragraph{cdf}
 % 
+
+\section{sorites experiment}
+
+In the sorites experiment, participants saw two different kinds of questions, one representing the concrete premise (e.g. ``Headphones that cost \$450.00 are expensive'') and one representing the inductive premise (e.g. ``Headphones that cost \$0.79 less than expensive headphones are also expensive'') and were asked to rate these on a 9-point Likert scale from ``Completely disagree'' (1) to ``Completely agree'' (9).
+
+\includegraphics[width=0.7\textwidth]{screenshot3.png}
+
+We varied the amount $\epsilon$ less expensive that the item in the inductive premise was, the price $V$ given in the concrete premise, and the category of item (we used headphones, laptop, watch, coffee maker, and sweater). As predicted, participants gave graded judgements that varied by the amounts $\epsilon$ and $V$ and by the category (different categories have different distributions over prices).
+
+\includegraphics[width=0.8\textwidth]{sorites-experiment.pdf}
+
 \section{simulations}
 
-\includegraphics[width=0.8\textwidth]{adjective.pdf}
-
-\includegraphics[width=0.8\textwidth]{sorites_model.pdf}
-
-\section{experiment}
-
-\section{comparison}
-% 
-% \section{sorites experiment}
-% 
-% \includegraphics[width=0.8\textwidth]{sorites-experiment.pdf}
-% 
-% \includegraphics[width=0.5\textwidth]{sorites-model-vs-people.pdf}
-% 
-% Pearson's product-moment correlation: 0.966776.
-
-% \section{discussion}
+  We ran the sorites model with 3 different set sof parameter values ($\alpha=C=1$, $\alpha=C=3$, and $\alpha=C=5$). The simulation results were very similar, except that the range of endorsement of the concrete premise was wider for higher alpha and cost (i.e. the items we tested that had lower prices were given lower probability of being ``expensive'' by the model the higher alpha and cost were). I will show graphs for $\alpha=C=1$.
+  
+  \includegraphics[width=0.8\textwidth]{adjective_alpha1_cost1.pdf}
+  
+  \includegraphics[width=0.8\textwidth]{sorites_model_alpha1_cost1.pdf}
+  
+  The model probabilities for the inductive premise correlated with experiment judgements on the inductive premise with Pearson's product-moment correlations of 0.96 across all parameter values. However, the model has a much wider range of probabilities than people's range of endorsements, i.e. the model goes all the way to 0 for high $\epsilon$, whereas people are still giving ratings as high as 4/9. This may be because our prior elicitation did not get as much probability mass in the tails of our distributions as people think is there. This would mean that people imagine more highly priced items than the model frequently enough that even with a high $\epsilon$, the inductive premise might still be true.
+  
+  \includegraphics[width=0.4\textwidth]{sorites-model-vs-people_alpha1_cost1.pdf}
+  
+  The correlation between model and human judgements on all premises aggregated together (including the concrete premises) is lower. For $\alpha=C=1$, the correlation was 0.94; for $\alpha=C=3$, the correlation was 0.93; and for $\alpha=C=5$, the correlation was 0.91.
+  
+  \includegraphics[width=0.6\textwidth]{sorites-model-vs-people_all_alpha1_cost1.pdf}
+  
+\section{next steps}
+  \subsection{prior elicitation}
+    Although its seems from the multiple versions of the prior elicitation that we have a consistent measure of people's intuitions, the N actually used for the model was only 10. We might want to increase that. The support for the model's prior also had an upper bound, which real prices do not. We might want to find a way of eliciting further into the tails of these distributions. Eliciting cummulative distribution functions (e.g. ``How likely is it that a particular watch costs more than \$100'') might be useful here, and so would backing out the prior from multiple different measures.
+  
+  \subsection{model}
+    \paragraph{i'm missing model confidence intervals} I intend to get bootstrapped confidence intervals on the model graphs, but it's computationally intensive, we might very well get more prior data, and I wanted to send this out, so I'm leaving out the confidence intervals for now.
+    
+    \paragraph{parameters} It's also unclear to me what the best parameters are for the model.
+    
+    \paragraph{simpler models} It might be nice to compare this to simpler models.
 
 \end {document}

@@ -25,6 +25,9 @@ d = data.frame(
     ebay$sweater,
     ebay$watch)
 )
+d$item = factor(d$item,
+                levels=c("laptop", "watch", "coffee maker", "sweater", "headphones"),
+                labels=c("laptop", "watch", "coffee maker", "sweater", "headphones"))
 
 p = ggplot(data=d, aes(x=price, colour=item)) +
   geom_density() +
@@ -80,7 +83,11 @@ d_sparse = data.frame(
   )
 )
 
+d_sparse$item = factor(d_sparse$item,
+                levels=c("laptop", "watch", "coffee maker", "sweater", "headphones"),
+                labels=c("laptop", "watch", "coffee maker", "sweater", "headphones"))
 p = ggplot(data=d_sparse, aes(x=price, y=probability, colour=item)) +
+#   geom_point(alpha=1/2) +
   geom_line() +
   facet_grid(. ~ item, scale="free") +
   ggtitle("Priors Scraped from Ebay") +

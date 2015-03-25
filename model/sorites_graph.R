@@ -3,8 +3,8 @@ library(rjson)
 library(ggplot2)
 source("~/opt/r_helper_scripts/bootsSummary.r")
 
-preferred_alpha = 1
-preferred_cost = 1
+preferred_alpha = 5
+preferred_cost = 5
 
 objects = c("laptop", "watch", "coffee maker", "sweater", "headphones")
 alphas = c(1, 3, 5)
@@ -55,7 +55,8 @@ p = ggplot(data=subset(d_marginal, alpha==preferred_alpha & utterance_cost == pr
   scale_colour_brewer(type='qual', palette='Set1') +
   scale_fill_brewer(type='qual', palette='Set1')
 print(p)
-ggsave("adjective.pdf", width=8.5, height=3)
+ggsave(paste("adjective_alpha", preferred_alpha,
+             "_cost", preferred_cost, ".pdf", sep=""), width=8.5, height=3)
 
 d_marginal$alpha_cost = as.factor(d_marginal$alpha_cost)
 p = ggplot(data=d_marginal,
@@ -99,6 +100,10 @@ p = ggplot(data=model_var_and_eps, aes(x=dollarAmt, y=probability, colour=item, 
   scale_colour_brewer(type='qual', palette='Set1') +
   scale_fill_brewer(type='qual', palette='Set1')
 print(p)
-ggsave("sorites_model.pdf", width=8.5, height=3)
+ggsave(paste("sorites_model_alpha", preferred_alpha,
+             "_cost", preferred_cost, ".pdf", sep=""), width=8.5, height=3)
 
-write.table(model_sorites, file="model_v4.csv", sep=",", row.names=F)
+write.table(model_sorites,
+            file=paste("model_v4_alpha", preferred_alpha, "_cost",
+                       preferred_cost, ".csv", sep=""),
+            sep=",", row.names=F)

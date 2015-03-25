@@ -1,0 +1,111 @@
+"dollarAmt","qType","item","probability"
+0.49,"eps","sweater",1
+0.49,"eps","sweater",1
+0.63,"eps","coffee maker",0.999999999999997
+0.63,"eps","coffee maker",0.999999999999997
+0.79,"eps","headphones",1
+0.79,"eps","headphones",1
+5,"eps","sweater",0.941572674142209
+5,"eps","sweater",0.941572674142209
+6,"eps","coffee maker",0.940902094298785
+6,"eps","coffee maker",0.940902094298785
+6,"eps","laptop",1
+6,"eps","laptop",1
+7,"eps","watch",1
+7,"eps","watch",1
+8,"eps","headphones",0.929382079761336
+8,"eps","headphones",0.929382079761336
+20,"eps","sweater",0.687404137068148
+20,"eps","sweater",0.687404137068148
+30,"eps","coffee maker",0.639528502946817
+30,"eps","coffee maker",0.639528502946817
+40,"eps","headphones",0.629196999569504
+40,"eps","headphones",0.629196999569504
+50,"eps","sweater",0.344349523612229
+50,"eps","sweater",0.344349523612229
+60,"eps","coffee maker",0.355583111280957
+60,"eps","coffee maker",0.355583111280957
+60,"eps","laptop",0.919071830262216
+60,"eps","laptop",0.919071830262216
+70,"eps","watch",0.924673636428095
+70,"eps","watch",0.924673636428095
+80,"eps","headphones",0.337576662924249
+80,"eps","headphones",0.337576662924249
+80,"val","sweater",0.375137221790592
+80,"val","sweater",0.375137221790592
+100,"eps","sweater",0.0839114701224531
+100,"eps","sweater",0.0839114701224531
+120,"val","coffee maker",0.431258662231272
+120,"val","coffee maker",0.431258662231272
+120,"val","headphones",0.354276992025454
+120,"val","headphones",0.354276992025454
+130,"eps","coffee maker",0.0675074094256902
+130,"eps","coffee maker",0.0675074094256902
+130,"val","sweater",0.788225743361873
+130,"val","sweater",0.788225743361873
+150,"eps","sweater",0.0125417687986977
+150,"eps","sweater",0.0125417687986977
+160,"eps","headphones",0.0739535139141152
+160,"eps","headphones",0.0739535139141152
+180,"val","coffee maker",0.81152136360376
+180,"val","coffee maker",0.81152136360376
+180,"val","sweater",0.956957695458211
+180,"val","sweater",0.956957695458211
+190,"eps","coffee maker",0.00935632747020044
+190,"eps","coffee maker",0.00935632747020044
+200,"val","headphones",0.790929860273689
+200,"val","headphones",0.790929860273689
+250,"eps","headphones",0.00489087518993547
+250,"eps","headphones",0.00489087518993547
+250,"val","coffee maker",0.995206496197508
+250,"val","coffee maker",0.995206496197508
+250,"val","sweater",1
+250,"val","sweater",1
+300,"eps","laptop",0.584543826958992
+300,"eps","laptop",0.584543826958992
+300,"val","coffee maker",0.999999999999997
+300,"val","coffee maker",0.999999999999997
+300,"val","headphones",0.995845192563587
+300,"val","headphones",0.995845192563587
+300,"val","sweater",1
+300,"val","sweater",1
+350,"eps","watch",0.582333234127547
+350,"eps","watch",0.582333234127547
+350,"val","coffee maker",0.999999999999997
+350,"val","coffee maker",0.999999999999997
+350,"val","headphones",1
+350,"val","headphones",1
+450,"val","headphones",1
+450,"val","headphones",1
+550,"eps","laptop",0.348812726452829
+550,"eps","laptop",0.348812726452829
+650,"eps","watch",0.370683302325682
+650,"eps","watch",0.370683302325682
+700,"val","watch",0.325392385668308
+700,"val","watch",0.325392385668308
+1150,"eps","laptop",0.0714637790984169
+1150,"eps","laptop",0.0714637790984169
+1200,"val","laptop",0.467181821097282
+1200,"val","laptop",0.467181821097282
+1300,"eps","watch",0.12918391291814
+1300,"eps","watch",0.12918391291814
+1400,"val","watch",0.731814312251883
+1400,"val","watch",0.731814312251883
+1700,"eps","laptop",0.0115602974289192
+1700,"eps","laptop",0.0115602974289192
+1800,"val","laptop",0.865998527039037
+1800,"val","laptop",0.865998527039037
+1950,"eps","watch",0.0266708476197655
+1950,"eps","watch",0.0266708476197655
+2050,"val","watch",0.916404845419591
+2050,"val","watch",0.916404845419591
+2350,"val","laptop",0.996421343415548
+2350,"val","laptop",0.996421343415548
+2700,"val","watch",0.992861619750873
+2700,"val","watch",0.992861619750873
+2900,"val","laptop",1
+2900,"val","laptop",1
+3350,"val","watch",1
+3350,"val","watch",1
+3450,"val","laptop",1
+3450,"val","laptop",1

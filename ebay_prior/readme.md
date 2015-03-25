@@ -1,0 +1,1 @@
+I don't have a good way of getting a density estimate for the ebay priors and binning that estimate for the webppl program to take in as input. So for now, let's ignore this.
