@@ -1,0 +1,85 @@
+// to run:
+// export NODE_PATH=/usr/local/lib/node_modules
+// node --max-old-space-size=8192 ~/cocolab/webppl/webppl toy_sorites.wppl --require-js ./simpleCSV.js 
+// cat *.csv all_model_output.csv
+
+var model = function(alpha, utterance_cost) {
+
+  var price_prior = function() {
+  	// a discrete, bounded distribution that kind of approximates gaussian with mean 10 and s.d. 1
+  	var probabilities = [1.486720e-07, 2.438962e-07, 3.961301e-07, 6.369828e-07, 1.014086e-06, 1.598375e-06, 2.494248e-06, 3.853521e-06, 5.894309e-06, 8.926170e-06, 1.338303e-05, 1.986556e-05, 2.919471e-05, 4.247805e-05, 6.119022e-05, 8.726831e-05, 1.232220e-04, 1.722570e-04, 2.384089e-04, 3.266820e-04, 4.431850e-04, 5.952535e-04, 7.915455e-04, 1.042094e-03, 1.358298e-03, 1.752831e-03, 2.239454e-03, 2.832705e-03, 3.547461e-03, 4.398362e-03, 5.399099e-03, 6.561584e-03, 7.895019e-03, 9.404912e-03, 1.109209e-02, 1.295177e-02, 1.497275e-02, 1.713687e-02, 1.941861e-02, 2.178523e-02, 2.419708e-02, 2.660854e-02, 2.896917e-02, 3.122541e-02, 3.332247e-02, 3.520655e-02, 3.682703e-02, 3.813880e-02, 3.910429e-02, 3.969527e-02, 3.989425e-02, 3.969527e-02, 3.910429e-02, 3.813880e-02, 3.682703e-02, 3.520655e-02, 3.332247e-02, 3.122541e-02, 2.896917e-02, 2.660854e-02, 2.419708e-02, 2.178523e-02, 1.941861e-02, 1.713687e-02, 1.497275e-02, 1.295177e-02, 1.109209e-02, 9.404912e-03, 7.895019e-03, 6.561584e-03, 5.399099e-03, 4.398362e-03, 3.547461e-03, 2.832705e-03, 2.239454e-03, 1.752831e-03, 1.358298e-03, 1.042094e-03, 7.915455e-04, 5.952535e-04, 4.431850e-04, 3.266820e-04, 2.384089e-04, 1.722570e-04, 1.232220e-04, 8.726831e-05, 6.119022e-05, 4.247805e-05, 2.919471e-05, 1.986556e-05, 1.338303e-05, 8.926170e-06, 5.894309e-06, 3.853521e-06, 2.494248e-06, 1.598375e-06, 1.014086e-06, 6.369828e-07, 3.961301e-07, 2.438962e-07, 1.486720e-07];
+    return discrete(probabilities);
+  }
+
+  var theta_prior = function() { return randomInteger(100); };
+
+  var utterancePrior = function() {
+    var utterances = [ "nothing", "expensive"];
+    var costs = [0, utterance_cost];
+    var probabilities = map(function(cost) {Math.exp(- cost);}, costs);
+    return utterances[discrete(probabilities)];
+  }
+
+  var meaning = function(utt,world) {
+    return utt=="expensive"? world.price>world.theta :
+           true
+  }
+
+  var literalListener = cache(function(utterance, inherited_theta) {
+    Enumerate(function(){
+      var world = {
+        price: price_prior(),
+        theta: inherited_theta
+      }
+
+      var m = meaning(utterance, world)
+      factor(m?0:-Infinity)
+      return world
+    })
+  })
+
+  var speaker = cache(function(world) {
+    Enumerate(function(){
+      var utterance = utterancePrior()
+      var L = literalListener(utterance, world.theta)
+      factor(L.score([],world) * alpha);
+      return utterance
+    })
+  })
+
+  var listener = function(utterance) {
+    Enumerate(function(){
+      var world = {
+        price: price_prior(),
+        theta: theta_prior()
+      }
+      var S = speaker(world)
+      factor(S.score([],utterance))
+      return world
+    })
+  }
+
+  var getHist = function(dist) {
+    var probs = map(function(label) {return Math.exp(dist.score([], label))}, dist.support([]));
+    var pairList = zip(dist.support([]), probs);
+    return pairList;
+  }
+
+  var getList = function(dist) {
+  	map(function(bin) {
+  		var price = bin[0].price;
+  		var theta = bin[0].theta;
+  		var probability = bin[1];
+  		return [price, theta, probability, utterance_cost, alpha];
+  	}, dist)
+  }
+
+  return [["price", "theta", "probability", "utterance_cost", "alpha"]].concat(getList(getHist(listener("expensive"))));
+
+}
+
+map(function(alpha) {
+  map(function(utterance_cost) {
+      simpleCSV.writeCSV(model(alpha, utterance_cost), "toy_parameter_search/toy_simulation_mean10_sd1_alpha" + alpha + "_cost" + utterance_cost + ".csv");
+  }, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+}, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
