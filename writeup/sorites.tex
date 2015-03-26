@@ -29,7 +29,7 @@
   
   When people hear this argument, they tend to think that premise 1 (the ``concrete'' premise) and premise 2 (the ``inductive'' premise) are both clearly true, but that the conclusion -- which would naturally follow from the premises according to first order logic -- is clearly false.
   
-  We explain people's reactions to these statements with a formal model of scalar adjective interpretation and show that their reactions are sensitive to the prior distribution on building heights and to the change in height $\epsilon$ given in the inductive premise (in this case, 1m).
+  We explain people's reactions to these statements with a formal model of scalar adjective interpretation and show that their reactions are sensitive to the prior distribution on building heights and to the change in height $\varepsilon$ given in the inductive premise (in this case, 1m).
   
 \section{model}
   We use a model of scalar adjectives (e.g. ``tall'') in which a pragmatic listener must infer both the height that the speaker intended to communicate and also the threshold between ``tall'' and ``not tall'' that the speaker was using (Lassiter 2013). Because a speaker is likely to be communicating about things that are plausible in the world, but is unlikely to expend effort on uttering something uninformative, the pragmatic listener will infer that the threshold is high enough to be informative, but low enough for the communicated height to be plausible. This inference will depend on the speaker and listener's common ground on what plausible and likely heights are for a given category.
@@ -54,7 +54,7 @@
     \item[] \textbf{Conclusion:} $\forall y \in \{ \mbox{buildings in Chicago} \}, \ height(y) > \theta_{tall}$
     \end{itemize}
     
-    The expressions for premises 1 and 2 are likely (but not guaranteed) to be true. The expression for the conclusion, however, is unlikely to be true. This interpretation of the sorites argument predicts that as the amount of change in height $\epsilon$ (in this case 1m) changes, endorsement of the inductive premise will change, since the probability of $height(x) - \epsilon > \theta_{tall}$ becomes lower as $\epsilon$ increases. We test this prediction, as well as sensitivity to the prior distribution.
+    The expressions for premises 1 and 2 are likely (but not guaranteed) to be true. The expression for the conclusion, however, is unlikely to be true. This interpretation of the sorites argument predicts that as the amount of change in height $\varepsilon$ (in this case 1m) changes, endorsement of the inductive premise will change, since the probability of $height(x) - \varepsilon > \theta_{tall}$ becomes lower as $\varepsilon$ increases. We test this prediction, as well as sensitivity to the prior distribution.
     
 \section{prior elicitation(s)}
   In order to compare model predictions to humans, we chose to look at prices of everyday items. This is a domain where humans have relatively consistent prior knowledge and where the scale is representable as numeric quantities.
@@ -88,11 +88,17 @@
 
 \section{sorites experiment}
 
-In the sorites experiment, participants saw two different kinds of questions, one representing the concrete premise (e.g. ``Headphones that cost \$450.00 are expensive'') and one representing the inductive premise (e.g. ``Headphones that cost \$0.79 less than expensive headphones are also expensive'') and were asked to rate these on a 9-point Likert scale from ``Completely disagree'' (1) to ``Completely agree'' (9).
+We ran two different versions of the sorites experiment, with two different phrasings. In both versions, participants saw two different kinds of questions regarding 5 different categories of objects. These questions were all randomly intermixed. One of the kinds of questions represented the concrete premise and one represented the inductive premise. Participants were asked to rate each of these questions on a 9-point Likert scale from ``Completely disagree'' (1) to ``Completely agree'' (9).
 
 \includegraphics[width=0.7\textwidth]{screenshot3.png}
 
-We varied the amount $\epsilon$ less expensive that the item in the inductive premise was, the price $V$ given in the concrete premise, and the category of item (we used headphones, laptop, watch, coffee maker, and sweater). As predicted, participants gave graded judgements that varied by the amounts $\epsilon$ and $V$ and by the category (different categories have different distributions over prices).
+The two versions of the experiment differed in their phrasing of the inductive premise. Version 1 (N=70) used the relative clause phrasing ``An X that costs \$$\varepsilon$ less than an expensive X is also expensive''. Version 2 (N=50) used the conditional statement phrasing ``If an X is expensive, then an X that costs \$$\varepsilon$ less is also expensive''. The results for these two versions of the sorites experiment had a correlation of 0.98.
+
+\includegraphics[width=0.5\textwidth]{phrasings.pdf}
+
+For the remainder of the analysis, I will use data aggregated from both versions of the experiment.
+
+We varied the amount $\varepsilon$ less expensive that the item in the inductive premise was, the price $V$ given in the concrete premise, and the category of item (we used headphones, laptop, watch, coffee maker, and sweater). As predicted, participants gave graded judgements that varied by the amounts $\varepsilon$ and $V$ and by the category (different categories have different distributions over prices).
 
 \includegraphics[width=0.8\textwidth]{sorites-experiment.pdf}
 
