@@ -50,11 +50,16 @@ p = ggplot(data=d_all_wide, aes(x=response.relative, y=response.conditional, col
                     ymax=bootsci_high.conditional)) +
   geom_errorbarh(aes(xmin=bootsci_low.relative, xmax=bootsci_high.relative,
                      y=response.conditional)) +
+  ggtitle("Different Phrasings for Sorites Experiment") +
+  xlab("Version 1: relative clause") +
+  ylab("Version 2: conditional statement") +
   theme_bw(18) +
   theme(panel.grid=element_blank()) +
   scale_colour_brewer(type='qual', palette='Set1') +
   scale_fill_brewer(type='qual', palette='Set1')
 print(p)
+ggsave("phrasings.pdf", width=8.5, height=6)
+# with(d_all_wide, print(cor.test(response.relative, response.conditional)))
 
 graph_everything = function(d, label) {
   
