@@ -95,6 +95,7 @@ graded judgements that varied by the amounts $\varepsilon$ and $X$ and by the it
 over prices). The exact values of the $\varepsilon$s and $X$s were chosen based on scraped prices from ebay and amazon.
 
 ```{r echo=F}
+### graph responses for expt 1
 ```
 
 GRAPH RESPONSES
@@ -181,6 +182,8 @@ write.csv(prior_experiment_data[,c("item", "lowers", "normed_responses", "worker
 For each item, we always showed the same bins, and the same linebreaks between rows of bins. So for every participant, some pairs of adjacent bins were always farther away from each other than every other pair of adjacent bins were. This doesn't seem obvious from the responses that people gave, but it could have caused variance in responses or confusion for participants. We could have avoided this by making the sliders horizontal rather than vertical.
 
 ## Experiment 3: Endorsement of wider range of sorites premises
+
+[link to Experiment 3](http://web.stanford.edu/~erindb/sorites-analysis/experiments/exp3-cocomd/exp3-sorites.html)
 
 In our original sorites experiment, participants on average never rejected any of the premises very strongly. We wanted to see if giving participants a wider range of values for the premises would change that.
 
@@ -282,6 +285,8 @@ write.csv(aggregate_sorites_data, "simulations/aggregate_sorites_data.csv", row.
 
 ## Experiment 4: Relative clause version
 
+[link to Experiment 4](http://web.stanford.edu/~erindb/sorites-analysis/experiments/exp4-relative-clause/exp4-sorites.html)
+
 On the off-chance that people were confused by the wording in Experiment 3, and that they would not be confused by the wording as much if I used relative clauses, I ran Experiment 4. Instead of using the conditional wording for the inductive premsise (e.g. "If a sweater is expensive, then another sweater that costs \$171.00 less is also expensive."), I used the relative clause wording (e.g. "A sweater that costs \$171.00 less than an expensive sweater is also expensive."). 
 
 ```{r, echo=F, fig.width=8.5, fig.height=3}
@@ -328,24 +333,157 @@ sorites_dat_split_half = split_half(subset(sorites_data, qtype=="inductive"), 10
 sorites_relative_data_split_half_concrete = split_half(subset(sorites_relative_data, qtype == "concrete"), 100)
 sorites_dat_split_half_concrete = split_half(subset(sorites_data, qtype=="concrete"), 100)
 
-write.csv(aggregate_sorites_data, "simulations/aggregate_sorites_relative_data.csv", row.names=F)
+write.csv(aggregate_sorites_relative_data, "simulations/aggregate_sorites_relative_data.csv", row.names=F)
 ```
 
 The split-half correlation on the inductive premises for the relative clause version (`r sorites_relative_data_split_half[["mean"]]`) was higher than for the conditional version (`r sorites_dat_split_half[["mean"]]`) but not as high as the split-half correlation for the concrete premise in both experiments (`r sorites_relative_data_split_half_concrete[["mean"]]` and `r sorites_dat_split_half_concrete[["mean"]]`).
 
+The overall correlation between responses to Experiment 3 and responses to Experiment 4 was `r cor(aggregate_sorites_data$response, aggregate_sorites_relative_data$response)`.
+
 ## Simulations
 
-FIND BEST PARAMETERS
-
-GRAPH MODEL FOR BEST PARAMETERS
+### Fit and compared to Experiment 1: Original
 
 COMPARE TO EXP1 (SCATTER, LINES)
 
-COMPARE TO EXP3 (SCATTER, LINES)
+### Fit and compared to Experiment 3: Conditional
 
-COMPARE TO EXP4 (SCATTER, LINES)
+```{r, echo=F}
+model_sorites = function(d) {
+  files <- dir("simulations/model_output/", pattern="*.csv")
+  
+  d = do.call(rbind, lapply(files, function(file) {
+    return(read.csv(paste("simulations/model_output/", file, sep=""),
+                    colClasses=c("character",
+                                 "numeric", "numeric", "numeric",
+                                 "numeric", "numeric", "numeric"),
+                    col.names=c("item", "cost", "lambda", "value", "theta", "score", "probability")))
+  }))
+  
+  model = ddply(d, .(item, cost, lambda), function(df) {
+    obj = df$item[[1]]
+    epsilons = unlist(epsilons_and_vals[epsilons_and_vals$item == obj, c("E0.01", "E0.1", "E0.5", "E0.7", "E1")])
+    values = unlist(epsilons_and_vals[epsilons_and_vals$item == obj, c("X0.1", "X0.3", "X0.5", "X0.7", "X0.9")])
+    new_df = data.frame(
+      item = obj,
+      cost = df$cost[[1]],
+      lambda = df$lambda[[1]],
+      qtype = c( rep("concrete", length(epsilons)),
+                 rep("inductive", length(values)) ),
+      dollar_amount = c( values, epsilons ),
+      response = c( sapply(values,
+                           function(dollar_amount) {
+                             ## concrete
+                             return(sum(df$probability[dollar_amount > df$theta ])) }),
+                    sapply(epsilons,
+                           function(dollar_amount) {
+                             ## indutive
+                             return(sum(df$probability[df$value - dollar_amount > df$theta]))  }) )
+    )
+  })
+  return(model)
+}
+
+model = model_sorites()
+
+get_fits = function(experiment_data) {
+  return(ddply(model, .(cost, lambda), function(df) {
+      return(cor(df$response, experiment_data$response))
+  }))
+}
+
+sorites_fits = get_fits(aggregate_sorites_data)
+sorites_best_parameters = sorites_fits[sorites_fits$V1 == max(sorites_fits$V1),]
+sorites_best_cost = sorites_best_parameters$cost
+sorites_best_lambda = sorites_best_parameters$lambda
+
+sorites_expt = aggregate_sorites_data[, c("item", "qtype", "dollar_amount", "response")]
+sorites_expt$model_or_expt = "expt"
+sorites_best_model = model[model$lambda == sorites_best_lambda & model$cost == sorites_best_cost, c("item", "qtype", "dollar_amount", "response")]
+sorites_best_model$model_or_expt = "model"
+sorites_model_and_expt = rbind(sorites_best_model, sorites_expt)
+```
+
+For Experiment 3, where the prhasing was a conditional statement, the best-fit parameters were $C=`r sorites_best_cost`$ and $\lambda=`r sorites_best_lambda`$ (I fit by choosing the parameters with the best correlation with the data). The lowest correlation between model and experimental data was `r min(sorites_fits$V1)` and the highest correlation was `r max(sorites_fits$V1)`. The correlation for only the inductive premises with the parameters fit for all the experimental data was `r cor(subset(sorites_best_model, qtype == "inductive")$response, subset(sorites_expt, qtype == "inductive")$response)`.
+
+The model probabilities with the highest-correlation parameters and the (rescaled to [0, 1]) responses from Experiment 3 (conditional statements) are shown below.
+
+```{r echo=F, fig.width=8.5, fig.height=4}
+sorites_model_and_expt_same_scale = sorites_model_and_expt
+sorites_model_and_expt_same_scale$response[sorites_model_and_expt_same_scale$model_or_expt == "expt"] = (sorites_model_and_expt_same_scale$response[sorites_model_and_expt_same_scale$model_or_expt == "expt"] + 4 )/8
+sorites_model_and_expt_plot = ggplot(sorites_model_and_expt_same_scale, aes(x=dollar_amount, y=response, colour=item, linetype=model_or_expt)) +
+  geom_point(size=2) +
+  geom_line() +
+  ylim(0, 1) +
+  facet_grid(qtype ~ item, scale="free_x")
+print(sorites_model_and_expt_plot)
+```
+
+A scatterplot of the same data is shown below.
+
+```{r echo=F, fig.width=6, fig.height=4}
+sorites_model_vs_expt = reshape(sorites_model_and_expt, direction="wide", v.names="response", timevar="model_or_expt", idvar=c("item", "qtype", "dollar_amount"))
+sorites_model_vs_expt$bootsci_low = aggregate_sorites_data$bootsci_low
+sorites_model_vs_expt$bootsci_high = aggregate_sorites_data$bootsci_high
+sorites_model_vs_expt_plot = ggplot(sorites_model_vs_expt, aes(x=response.model, y=response.expt, colour=item)) +
+  geom_point(size=3) +
+  geom_errorbar(aes(x=response.model, ymin=bootsci_low, ymax=bootsci_high)) +
+  facet_wrap(~ qtype)
+print(sorites_model_vs_expt_plot)
+```
+
+### Fit and compared to Experiment 4: Relative clause
+
+```{r echo=F}
+sorites_relative_fits = get_fits(aggregate_sorites_relative_data)
+sorites_relative_best_parameters = sorites_relative_fits[sorites_relative_fits$V1 == max(sorites_relative_fits$V1),]
+sorites_relative_best_cost = sorites_relative_best_parameters$cost
+sorites_relative_best_lambda = sorites_relative_best_parameters$lambda
+
+sorites_relative_expt = aggregate_sorites_relative_data[, c("item", "qtype", "dollar_amount", "response")]
+sorites_relative_expt$model_or_expt = "expt"
+sorites_relative_best_model = model[model$lambda == sorites_relative_best_lambda &
+                                      model$cost == sorites_relative_best_cost,
+                                    c("item", "qtype", "dollar_amount", "response")]
+sorites_relative_best_model$model_or_expt = "model"
+sorites_relative_model_and_expt = rbind(sorites_relative_best_model, sorites_relative_expt)
+```
+
+For Experiment 4, where the prhasing was a relative clause, the best-fit parameters were $C=`r sorites_relative_best_cost`$ and $\lambda=`r sorites_relative_best_lambda`$ (I fit by choosing the parameters with the best correlation with the data). The lowest correlation between model and experimental data was `r min(sorites_relative_fits$V1)` and the highest correlation was `r max(sorites_relative_fits$V1)`. The correlation for only the inductive premises with the parameters fit for all the experimental data was `r cor(subset(sorites_relative_best_model, qtype == "inductive")$response, subset(sorites_relative_expt, qtype == "inductive")$response)`.
+
+The model probabilities with the highest-correlation parameters and the (rescaled to [0, 1]) responses from Experiment 4 are shown below.
+
+```{r echo=F, fig.width=8.5, fig.height=4}
+sorites_relative_model_and_expt_same_scale = sorites_relative_model_and_expt
+sorites_relative_model_and_expt_same_scale$response[sorites_relative_model_and_expt_same_scale$model_or_expt == "expt"] = (sorites_relative_model_and_expt_same_scale$response[sorites_relative_model_and_expt_same_scale$model_or_expt == "expt"] + 4 )/8
+sorites_relative_model_and_expt_plot = ggplot(sorites_relative_model_and_expt_same_scale, aes(x=dollar_amount, y=response, colour=item, linetype=model_or_expt)) +
+  geom_point(size=2) +
+  geom_line() +
+  ylim(0, 1) +
+  facet_grid(qtype ~ item, scale="free_x")
+print(sorites_relative_model_and_expt_plot)
+```
+
+A scatterplot of the same data is shown below.
+
+```{r echo=F, fig.width=6, fig.height=4}
+sorites_relative_model_vs_expt = reshape(sorites_relative_model_and_expt, direction="wide", v.names="response", timevar="model_or_expt", idvar=c("item", "qtype", "dollar_amount"))
+
+sorites_relative_model_vs_expt$bootsci_low = aggregate_sorites_relative_data$bootsci_low
+sorites_relative_model_vs_expt$bootsci_high = aggregate_sorites_relative_data$bootsci_high
+
+sorites_relative_model_vs_expt_plot = ggplot(sorites_relative_model_vs_expt, aes(x=response.model, y=response.expt, colour=item)) +
+  geom_point(size=3) +
+  geom_errorbar(aes(x=response.model, ymin=bootsci_low, ymax=bootsci_high)) +
+  facet_wrap(~ qtype)
+print(sorites_relative_model_vs_expt_plot)
+```
 
 ## Issues to resolve
+
+I should add confidence intervals for the model, but That Is Hard.
+
+The concrete premise for watches is weird.
 
 ## More detail
 
