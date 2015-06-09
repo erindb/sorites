@@ -4,7 +4,7 @@ library(ggplot2)
 source("~/opt/r_helper_scripts/bootsSummary.r")
 source("~/opt/r_helper_scripts/json_to_r.R")
 
-alpha=1
+alpha=5
 cost=1
 
 d = json_to_r()
