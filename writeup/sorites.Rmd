@@ -1,7 +1,7 @@
 ---
 title: "Sorites"
 author: "summary by Erin Bennett"
-date: "2015 June 5"
+date: "2015 June 9"
 output:
   pdf_document:
     toc: true
@@ -174,9 +174,9 @@ prior_distributions_plot = ggplot(aggregate_prior_distributions,
 print(prior_distributions_plot)
 
 write.csv(aggregate_prior_distributions[,c("item", "lowers", "normed_responses")],
-          "simulations/mean_priors.csv", row.names=F)
+          "data/mean_priors.csv", row.names=F)
 write.csv(prior_experiment_data[,c("item", "lowers", "normed_responses", "workerid")],
-          "simulations/all_priors.csv", row.names=F)
+          "data/all_priors.csv", row.names=F)
 ```
 
 ### Some potential problems with this experiment design
@@ -282,7 +282,8 @@ aggregate_sorites_plot = ggplot(aggregate_sorites_data, aes(x=dollar_amount, y=r
   facet_grid(qtype ~ item, scale="free_x")
 print(aggregate_sorites_plot)
 
-write.csv(aggregate_sorites_data, "simulations/aggregate_sorites_data.csv", row.names=F)
+write.csv(sorites_data, "data/sorites_data.csv", row.names=F)
+write.csv(aggregate_sorites_data, "data/aggregate_sorites_data.csv", row.names=F)
 ```
 
 ## Experiment 4: Relative clause version of Experiment 3
@@ -335,7 +336,8 @@ sorites_dat_split_half = split_half(subset(sorites_data, qtype=="inductive"), 10
 sorites_relative_data_split_half_concrete = split_half(subset(sorites_relative_data, qtype == "concrete"), 100)
 sorites_dat_split_half_concrete = split_half(subset(sorites_data, qtype=="concrete"), 100)
 
-write.csv(aggregate_sorites_relative_data, "simulations/aggregate_sorites_relative_data.csv", row.names=F)
+write.csv(sorites_relative_data, "data/sorites_relative_data.csv", row.names=F)
+write.csv(aggregate_sorites_relative_data, "data/aggregate_sorites_relative_data.csv", row.names=F)
 ```
 
 The split-half correlation on the inductive premises for the relative clause version (`r sorites_relative_data_split_half[["mean"]]`) was higher than for the conditional version (`r sorites_dat_split_half[["mean"]]`) but not as high as the split-half correlation for the concrete premise in both experiments (`r sorites_relative_data_split_half_concrete[["mean"]]` and `r sorites_dat_split_half_concrete[["mean"]]`).

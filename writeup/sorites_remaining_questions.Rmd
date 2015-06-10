@@ -1,0 +1,436 @@
+---
+title: "Sorites remaining questions"
+author: "summary by Erin Bennett"
+date: "2015 June 5"
+output:
+  pdf_document:
+    toc: true
+    highlight: zenburn
+    toc_depth: 3
+  html_document:
+    toc: true
+    theme: united
+---
+
+# Sorites remaining questions
+
+```{r echo=F, quiet=T}
+char = function(v) { return(as.character(v)) }
+num = function(v) { return(as.numeric(as.character(v))) }
+library(rjson)
+library(plyr)
+library(ggplot2)
+source("~/opt/r_helper_scripts/bootsSummary.R")
+new_theme = theme_bw(10) +
+  theme(panel.grid=element_blank())
+theme_set(new_theme)
+
+get_data = function(filename) {
+  d = read.csv(filename, as.is=T)
+  desired_columns = c("workerid", paste("Answer",
+                                        c(0:4, "cond", "language", "comments", "age"),
+                                        sep="."))
+  d = d[,desired_columns]
+  d = reshape(d,
+                                  varying = paste("Answer", 0:4, sep="."),
+                                  v.names = "trial_data",
+                                  timevar = "trial", direction = "long")
+  current_column_names = paste("Answer", c("cond", "language", "comments", "age"),
+                               sep=".")
+  desired_column_names = c("buyer_gender", "language", "comments", "age")
+  mapply(function(current_name, desired_name) {
+    names(d)[
+      names(d) == current_name
+      ] <<- desired_name
+    }, current_column_names, desired_column_names)
+  d$comments = sapply(d$comments,
+                                          function(comment) {
+                                            comment_1 = gsub("\"", "", comment)
+                                            comment_2 = gsub("[+]", " ", comment_1)
+                                            return(comment_2)
+                                            })
+  d = ddply(d, .(workerid, trial), .fun=function(df) {
+    trial_data = fromJSON(df$trial_data)
+    new_df = data.frame(
+      lowers = trial_data$lowers, #vector
+      uppers = char(unlist(trial_data$uppers)), #vector
+      responses = trial_data$responses, #vector
+      normed_responses = trial_data$responses / sum(trial_data$responses)
+      )
+    new_df$buyer = trial_data$buyer
+    new_df$item = trial_data$item
+    new_df$max = trial_data$max
+    new_df$workerid = df$workerid
+    new_df$buyer_gender = df$buyer_gender
+    new_df$language = df$language
+    new_df$comments = df$comments
+    new_df$age = df$age
+    new_df$trial = df$trial
+    return(new_df)
+    }, .drop=F)
+  return(d)
+}
+prior_experiment_data = get_data("data/sorites-prior.csv")
+all_priors = read.csv("data/all_priors.csv")
+mean_priors = read.csv("data/mean_priors.csv")
+
+sorites_data = read.csv("data/sorites_data.csv")
+sorites_relative_data = read.csv("data/sorites_relative_data.csv")
+aggregate_sorites_data = read.csv("data/aggregate_sorites_data.csv")
+aggregate_sorites_relative_data = read.csv("data/aggregate_sorites_relative_data.csv")
+```
+
+Following the 2015 June 9 update, some questions remain.
+
+## Why is the concrete premise for watches so wonky?
+
+### Hypothesis: extreme responses in prior are getting chopped off
+
+Maybe we have reduced sensitivity to people's actual priors on watch prices because people would respond more extremely than our dependent measure allows them to.
+
+This hypothesis would predict that people would respond closer to the endpoints for watches than for any other category.
+
+#### How many prior responses are within $\varepsilon$ of the endpoints?
+
+Here is a histogram of all the responses. Sweater actually has the most responses at the lowest endpoint. There's a peak at 0.5 because I didn't make the slider handle hidden at the beginning and it was initialized to 0.5.
+
+```{r echo=F, fig.width=8.5, fig.height=3}
+ggplot(prior_experiment_data, aes(x=responses, fill=item)) +
+  geom_bar(stat="bin", binwidth=0.01, position=position_dodge(0.01)) +
+  facet_grid(. ~ item)
+```
+
+However, watches have the most responses within 0.1 of the endpoints.
+
+```{r echo=F, fig.width=8.5, fig.height=3}
+prior_epsilons = ddply(prior_experiment_data, .(item), function(df) {
+  epsilons = c(0, 0.1, 0.2, 0.3)
+  numbers_within = c(sapply(epsilons, function(eps) {
+    both_endpoints = sum(df$responses <= eps | (1 - df$responses) <= eps)
+    lower_endpoints = sum(df$responses <= eps)
+    upper_endpoints = sum((1 - df$responses) <= eps)
+    return(c(lower_endpoints, upper_endpoints, both_endpoints))
+  }))
+  percents_within = sapply(numbers_within, function(number) {
+    return(number / nrow(df))
+  })
+  new_df = data.frame(
+    item = df$item[[1]],
+    epsilon = c(sapply(epsilons, function(eps) {return(rep(eps, 3))})),
+    number_within = numbers_within,
+    percent_within = percents_within,
+    endpoint = c(rep(c("lower", "upper", "both"), length(epsilons)))
+  )
+})
+ggplot(prior_epsilons, aes(x=epsilon, y=percent_within, colour=item, fill=item)) +
+  geom_bar(stat="identity", position="dodge") +
+  facet_wrap(~ endpoint) +
+  ggtitle("How many responses are within epsilon of an endpoint?")
+```
+
+## Why isn't the fit for the conditional statement version as good as the relative clause version?
+
+### Hypothesis: more noise in the sorites responses
+
+Here's what happens if we take the relative clause data and add noise
+
+```{r echo=F, fig.width=8.5, fig.height=3}
+noises = c(0, 1, 2, 3)
+
+inductive_relative = do.call(rbind, lapply(1:length(noises), function(i) {
+  return(subset(sorites_relative_data, qtype == "inductive"))
+}))
+
+n_indutive_relative = nrow(subset(sorites_relative_data, qtype == "inductive"))
+inductive_relative$noise = c(sapply(noises, function(noise) {
+  return( rep(noise, n_indutive_relative) )
+}))
+
+inductive_relative$response = mapply(function(response, noise) {
+  raw_noisy_response = response + round(rnorm(1, 0, noise))
+  return(max(min(raw_noisy_response, 4), -4))
+}, inductive_relative$response, inductive_relative$noise)
+inductive_relative_summary = bootsSummary(inductive_relative, measurevar="response", groupvars=c("dollar_amount", "item", "noise"))
+ggplot(inductive_relative_summary, aes(x=dollar_amount, y=response, colour=ordered(noise), group=noise)) +
+  geom_point(size=2) +
+  geom_line() +
+  geom_errorbar(aes(x=dollar_amount, ymin=bootsci_low, ymax=bootsci_high)) +
+  ylim(-4, 4) +
+  facet_grid(. ~ item, scale="free_x")
+```
+
+And the scatterplots look like this:
+
+```{r echo=F, fig.width=8.5, fig.height=3}
+## calculate discrete cdf
+aggregate_prior_distributions = ddply(mean_priors, .(item), function(df) {
+  df$cumulative = sapply(1:nrow(df), function(i) {
+    return(sum(df$normed_responses[1:i]))
+  })
+  return(df)
+})
+
+epsilons_and_vals = ddply(aggregate_prior_distributions, .(item), function(df) {
+  ## because fixing this number just adds a constant to both values, it doesn't make a difference.
+  cum0.95_other = (df$lowers[df$cumulative >= 0.95][[1]] + df$lowers[df$cumulative <= 0.95][[length(df$lowers[df$cumulative <= 0.95])]]) / 2
+  cum0.05_other = (df$lowers[df$cumulative >= 0.05][[1]] + df$lowers[df$cumulative <= 0.05][[length(df$lowers[df$cumulative <= 0.05])]]) / 2
+  cum0.95 = df$lowers[df$cumulative >= 0.95][[1]]
+  cum0.05 = df$lowers[df$cumulative >= 0.05][[1]]
+  conf0.9 = cum0.95_other - cum0.05_other
+  new_df = data.frame(
+    item = df$item[[1]],
+    `X0.1` = df$lowers[df$cumulative >= 0.1][[1]],
+    `X0.3` = df$lowers[df$cumulative >= 0.3][[1]],
+    `X0.5` = df$lowers[df$cumulative >= 0.5][[1]],
+    `X0.7` = df$lowers[df$cumulative >= 0.7][[1]],
+    `X0.9` = df$lowers[df$cumulative >= 0.9][[1]],
+    `E0.01` = 0.01 * conf0.9,
+    `E0.1` = 0.1 * conf0.9,
+    `E0.5` = 0.5 * conf0.9,
+    `E0.7` = 0.7 * conf0.9,
+    `E1` = 1 * conf0.9
+  )
+  return(new_df)
+})
+
+model_sorites = function(d) {
+  files <- dir("simulations/model_output/", pattern="*.csv")
+  
+  d = do.call(rbind, lapply(files, function(file) {
+    return(read.csv(paste("simulations/model_output/", file, sep=""),
+                    colClasses=c("character",
+                                 "numeric", "numeric", "numeric",
+                                 "numeric", "numeric", "numeric"),
+                    col.names=c("item", "cost", "lambda", "value", "theta", "score", "probability")))
+  }))
+  
+  model = ddply(d, .(item, cost, lambda), function(df) {
+    obj = df$item[[1]]
+    epsilons = unlist(epsilons_and_vals[epsilons_and_vals$item == obj, c("E0.01", "E0.1", "E0.5", "E0.7", "E1")])
+    values = unlist(epsilons_and_vals[epsilons_and_vals$item == obj, c("X0.1", "X0.3", "X0.5", "X0.7", "X0.9")])
+    new_df = data.frame(
+      item = obj,
+      cost = df$cost[[1]],
+      lambda = df$lambda[[1]],
+      noise = NA,
+      qtype = c( 
+                 rep("inductive", length(values)) ),
+      dollar_amount = c( epsilons ),
+      response = c( 
+                    sapply(epsilons,
+                           function(dollar_amount) {
+                             ## indutive
+                             return(sum(df$probability[df$value - dollar_amount > df$theta]))  }) )
+    )
+  })
+  return(model)
+}
+
+model = model_sorites()
+
+best_cost = 1
+best_lambda = 6
+
+expt = inductive_relative_summary[, c("item", "noise", "dollar_amount", "response")]
+expt$model_or_expt = "expt"
+best_model = model[model$lambda == best_lambda & model$cost == best_cost, c("item", "noise", "dollar_amount", "response")]
+best_model = do.call(rbind, lapply(noises, function(noise) {
+  m = best_model
+  m$noise = noise
+  return(m)
+}))
+best_model$model_or_expt = "model"
+model_and_expt = rbind(best_model, expt)
+
+model_vs_expt = reshape(model_and_expt, direction="wide", v.names=c("response"), timevar="model_or_expt", idvar=c("item", "noise", "dollar_amount"))
+# model_vs_expt$bootsci_low = inductive_relative_summary$bootsci_low
+# model_vs_expt$bootsci_high = inductive_relative_summary$bootsci_high
+ggplot(model_vs_expt, aes(x=response.model, y=response.expt, colour=item)) +
+  geom_point(size=3) +
+#   geom_errorbar(aes(x=response.model, ymin=bootsci_low, ymax=bootsci_high)) +
+  facet_grid(. ~ noise)
+```
+
+## We could also fit priors by lognormal to reduce noise
+
+The fit to lognormal is pretty much perfect.
+
+```{r echo=F, fig.width=8.5, fig.height=3}
+### fit parameters of lognormal to binned hist responses
+
+fits = ddply(aggregate_prior_distributions, .(item), function(df) {
+  x = df$lowers
+  r = df$normed_response
+  logx = log(x)
+  mode = x[r == max(r)][[1]]
+  logmode = log(mode)
+  
+  f <- function(par) {
+      m <- par[1]
+      sd <- par[2]
+      k <- par[3]
+      rhat <- k * exp(-0.5 * ((logx - m)/sd)^2)
+      sum((r - rhat/sum(rhat))^2)
+  }
+  
+  fit = optim(c(logmode, 1, 1), f, method="BFGS", control=list(reltol=1e-9))
+  
+  par = fit$par
+  m <- 
+  sd <- par[2]
+  k <- par[3]
+  
+  new_df = data.frame(
+    mu = par[1],
+    sd = par[2]
+  )
+  return(new_df)
+})
+
+fit_priors = ddply(aggregate_prior_distributions, .(item), function(df) {
+  x = df$lowers
+  r = df$normed_response
+  logx = log(x)
+  mode = x[r == max(r)][[1]]
+  logmode = log(mode)
+  
+  f <- function(par) {
+      m <- par[1]
+      sd <- par[2]
+      k <- par[3]
+      rhat <- k * exp(-0.5 * ((logx - m)/sd)^2)
+      sum((r - rhat/sum(rhat))^2)
+  }
+  
+  fit = optim(c(logmode, 1, 1), f, method="BFGS", control=list(reltol=1e-9))
+  
+  par = fit$par
+  m <- par[1]
+  sd <- par[2]
+  k <- par[3]
+  rhat = sapply(logx, function(price) { return(dnorm(price, mean=m, sd=sd)) })
+#   rhat <- k * exp(-0.5 * ((logx - m)/sd)^2)
+  df$normed_responses = rhat/sum(rhat)
+  df$expt_or_fit = "fit"
+  return(df)
+})
+expt_priors = aggregate_prior_distributions
+expt_priors$expt_or_fit = "expt"
+
+ggplot(rbind(expt_priors, fit_priors), aes(x=lowers, y=normed_responses, colour=item, linetype=expt_or_fit)) +
+  geom_line() +
+  facet_grid(. ~ item, scale="free_x")
+```
+
+And these are the fit parameters for the corresponding normal distribution:
+
+```{r echo=F}
+print(fits)
+```
+
+```{r echo=F}
+files <- dir("simulations/parametric_prior_model/model_output/", pattern="*.csv")
+
+d = do.call(rbind, lapply(files, function(file) {
+  return(read.csv(paste("simulations/parametric_prior_model/model_output/", file, sep=""),
+                  colClasses=c("character",
+                               "numeric", "numeric", "numeric",
+                               "numeric", "numeric", "numeric"),
+                  col.names=c("item",
+                              "cost", "lambda", "result.value",
+                              "result.theta", "score", "probability")))
+}))
+
+# n_particles = 1000
+# for_density_d = ddply(
+#   d, .(item, cost, lambda, result.value, result.theta),
+#   function(df) {
+#     n_count = df$probability[[1]]*n_particles
+#     return(do.call(rbind, lapply(1:n_count, function(i) {return(df)})))
+#   }
+# )
+# ggplot(for_density_d, aes(x=result.value, colour=factor(cost))) +
+#   geom_density(alpha=1/10) +
+#   facet_grid(lambda ~ item, scale="free_x")
+
+model = ddply(d, .(item, cost, lambda), function(df) {
+  obj = df$item[[1]]
+  epsilons = unlist(epsilons_and_vals[epsilons_and_vals$item == obj, c("E0.01", "E0.1", "E0.5", "E0.7", "E1")])
+  values = unlist(epsilons_and_vals[epsilons_and_vals$item == obj, c("X0.1", "X0.3", "X0.5", "X0.7", "X0.9")])
+  new_df = data.frame(
+    item = obj,
+    cost = df$cost[[1]],
+    lambda = df$lambda[[1]],
+    qtype = c( rep("concrete", length(values)),
+               rep("inductive", length(values)) ),
+    dollar_amount = c( values, epsilons ),
+    response = c( 
+      sapply(values,
+             function(dollar_amount) {
+               ## indutive
+               return(sum(df$probability[dollar_amount > df$result.theta]))  }),
+      sapply(epsilons,
+             function(dollar_amount) {
+               ## indutive
+               return(sum(df$probability[df$result.value - dollar_amount > df$result.theta]))  })
+    )
+  )
+})
+
+fits = ddply(model, .(cost, lambda), function(df) {
+  correlation = cor(aggregate_sorites_relative_data$response, df$response)
+  return(correlation)
+})
+best_params = fits[fits$V1 == max(fits$V1),]
+best_cost = best_params[["cost"]]
+best_lambda = best_params[["lambda"]]
+best_model = subset(model, lambda == best_lambda & cost == best_cost)[,c("item", "qtype", "dollar_amount", "response")]
+
+best_model$model_or_expt = "model"
+exptformvd = aggregate_sorites_relative_data[,c("item", "qtype", "dollar_amount", "response")]
+exptformvd$response = (exptformvd$response + 4) / 8
+exptformvd$model_or_expt = "expt"
+modelvdata = rbind(exptformvd, best_model)
+
+scatter = data.frame(
+  model=best_model$response,
+  expt=aggregate_sorites_relative_data$response,
+  dollar_amount=best_model$dollar_amount,
+  bootsci_low = aggregate_sorites_relative_data$bootsci_low,
+  bootsci_high = aggregate_sorites_relative_data$bootsci_high,
+  item = best_model$item,
+  qtype = best_model$qtype
+)
+```
+
+If we run the model with these distributions, we see a pretty good fit: cor=`r cor(best_model$response, aggregate_sorites_relative_data$response)`. (The experiment data were rescaled to [0,1] for plotting.)
+
+```{r echo=F, fig.width=8.5, fig.height=4}
+
+# ggplot(best_model, aes(x=dollar_amount, y=response, colour=item)) +
+#   geom_point() +
+#   geom_line() +
+#   facet_grid(qtype ~ item, scale="free_x")
+
+ggplot(modelvdata, aes(x=dollar_amount, y=response, colour=item, linetype=model_or_expt)) +
+  geom_point() +
+  geom_line() + 
+  facet_grid(qtype ~ item, scale="free_x")
+# 
+# ggplot(scatter, aes(x=model, y=expt, colour=qtype, shape=item)) +
+#   geom_point() +
+#   ylim(-4, 4) +
+#   geom_errorbar(aes(x=model, ymin=bootsci_low, ymax=bootsci_high))
+```
+
+```{r echo=F, fig.width=8.5, fig.height=4}
+ggplot(scatter, aes(x=model, y=expt, colour=item)) +
+  geom_point() +
+  ylim(-4, 4) +
+  geom_errorbar(aes(x=model, ymin=bootsci_low, ymax=bootsci_high)) +
+  facet_grid(. ~ qtype)
+```
+
+```{r echo=F}
+## What are some simpler models we can compare this to?
+```
