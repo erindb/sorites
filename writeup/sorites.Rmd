@@ -20,7 +20,7 @@ num = function(v) { return(as.numeric(as.character(v))) }
 library(rjson)
 library(plyr)
 library(ggplot2)
-source("~/opt/r_helper_scripts/bootsSummary.R")
+source("../bootsSummary.R")
 new_theme = theme_bw(10) +
   theme(panel.grid=element_blank())
 theme_set(new_theme)
