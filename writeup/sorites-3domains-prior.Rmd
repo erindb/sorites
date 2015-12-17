@@ -1,0 +1,194 @@
+---
+title: "Sorites Prior Elicitation 2C: 3 domains"
+output:
+  html_document:
+    highlight: pygments
+    theme: flatly
+    toc: yes
+    toc_depth: 4
+---
+
+```{r load libraries, echo=F, message=F, warning=F}
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(grid)
+library(ggthemes)
+library(languageR)
+library(psych)
+library(lme4)
+library(lmerTest)
+library(diagram)
+library(rjson)
+library(boot)
+char = as.character
+grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
+options(digits=3)
+```
+  
+Experiment Design
+-----------------
+
+```{r, echo=F, message=F, warning=F}
+d2c = (function() {
+  d2c = read.csv('../experiments/exp2C-sorites-priors-3domains/data/exp2C-sorites-priors-2014-02-23-three-domain-bins.csv') %>%
+    mutate(language = Answer.language,
+           domain = Answer.domain,
+           condition = Answer.condition,
+           comments = Answer.comments,
+           workerid = char(workerid)) %>%
+    select(language, domain, condition, workerid, Answer.0, Answer.1, Answer.2, comments)
+  
+  # ### at this point, could exclude particpants whose native language was not english:
+  # d1 = d1 %>% filter(language %in% c('Engliah', 'english', 'English', 'ENGLISH', 'Enlish))
+  
+  d2clong = mutate(d2c, q0 = char(Answer.0), q1 = char(Answer.1), q2 = char(Answer.2)) %>%
+    select(domain, condition, workerid, q0, q1, q2) %>%
+    gather('qNumber', 'question.data', 4:6)
+  
+  d2ctidy = ldply(lapply(1:nrow(d2clong), function(i) {
+    question.data = fromJSON(d2clong[i, 'question.data'])
+    return(data.frame(workerid = d2clong[i, 'workerid'],
+                      domain = d2clong[i, 'domain'],
+                      condition = d2clong[i, 'condition'],
+                      item = question.data$item,
+                      lowers = question.data$lowers,
+                      uppers = as.numeric(unlist(question.data$uppers)),
+                      responses = as.numeric(question.data$responses)))
+    }), rbind)
+  
+  d2c = d2ctidy %>%
+    mutate(domain = sub('"', '', sub('"', '', domain)),
+           domain = factor(domain),
+           condition = sub('"', '', sub('"', '', condition)),
+           condition = factor(condition),
+           item = factor(item,
+                         levels=c('college student', 'new parent', 'New Yorker',
+                                  'tree', 'building', 'mountain',
+                                  'coffee maker', 'watch', 'laptop')))
+  return(d2c) })()
+```
+
+There were 3 domains (height, price, and age) corresponding to 3 adjectives (tall, expensive, old). For each domain, there were 3 items (height: building, tree, mountain; price: watch, laptop, coffee maker; age: New Yorker, college student, new parent).
+
+For height items, there were 20 bins per item. For age items, there were 18 bins per item. For prices, the number of bins varied (we were attempting to accommodate the tails of the distributions, based on pilot prior elicition).
+
+The width of the bins (e.g. 1000 for "A mountain with a height between 1000 and 2000 ft") varied according to the type of item. Ages were always in bins of width 5.
+
+```{r, echo=F, message=F, warning=F}
+print(d2c %>% group_by(workerid, item, domain) %>%
+  summarise(nbins = length(responses),
+            upper.bound = max(uppers),
+            lower.bound = min(lowers),
+            bin.width = lowers[2] - lowers[1]) %>%
+  as.data.frame %>% group_by(item, domain) %>%
+  summarise(#lower.bound = mean(lower.bound),
+            #upper.bound = mean(upper.bound),
+            bin.width = mean(bin.width),
+            #same.nbins.accross.Ss = mean(nbins == mean(nbins)),
+            nbins = mean(nbins)) %>%
+  as.data.frame)
+```
+
+We had prior (no utterance) and posterior (someone says, "that [[item]] is [[adjective]]"") conditions. Prior/posterior and domain were varied between Ss. There were at least 36 participants in each condition.
+
+```{r, echo=F, message=F, warning=F}
+print(d2c %>% group_by(domain, condition) %>%
+        summarise(N = length(unique(workerid))) %>% as.data.frame)
+```
+  
+Empirical Priors and Posteriors
+-------------------------------
+
+We normalize each participants response to each item to get an estimate of their discrete probability distribution for that item.
+
+```{r, echo=F, message=F, warning=F}
+d2c = group_by(d2c, workerid, item) %>%
+  mutate(normed.responses = responses / sum(responses)) %>% as.data.frame
+aggrd2c = d2c %>% group_by(domain, item, lowers, condition) %>%
+  summarise(normed.responses = mean(normed.responses))
+ggplot(aggrd2c, aes(x=lowers, y=normed.responses, colour=condition)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ item, scale='free') +
+  theme_few() + scale_colour_few() + scale_fill_few()
+```
+
+### Fit to Log-normal curve
+
+For each prior distribution, we fit a log-normal curve. The fit is very good, except for watches, which are too left-skewed (because of the bins we asked about in an attempt to get more of the tail).
+
+```{r, echo=F, message=F, warning=F}
+eps = 0.00001
+fit.priors = aggrd2c %>% filter(condition == 'prior') %>%
+  group_by(item) %>%
+  ddply(., .(item), function(df) {
+    x = df$lowers
+    r = df$normed.response
+    logx = log(x)
+    mode = x[r == max(r)][[1]] + eps
+    logmode = log(mode)
+    
+    f <- function(par) {
+      m <- par[1]
+      sig <- par[2]
+      k <- par[3]
+      rhat <- k * exp(-0.5 * ((logx - m)/sig)^2)
+      sum((r - rhat/sum(rhat))^2)
+      }
+    
+    fit = optim(c(logmode, 1, 1), f, method="BFGS", control=list(reltol=1e-9))
+    
+    par = fit$par
+    m <- 
+      sig <- par[2]
+    k <- par[3]
+    
+    new_df = data.frame(
+      mu = par[1],
+      sig = par[2]
+      )
+    return(new_df) })
+
+aggrd2c.priors = aggrd2c %>% filter(condition == 'prior') %>%
+  mutate(lognormal.responses = mapply(function(l, i) {
+    mu = fit.priors[fit.priors$item==i, 'mu']
+    sig = fit.priors[fit.priors$item==i, 'sig']
+    return(dnorm(log(l), mu, sig))}, lowers, item)) %>%
+  group_by(item) %>%
+  mutate(lognormal.responses = lognormal.responses/sum(lognormal.responses)) %>%
+  rename(data.responses = normed.responses) %>%
+  as.data.frame
+
+aggrd2c.priors %>% gather('source', 'probability', 5:6) %>%
+  mutate(source = factor(source,
+                         levels=c('data.responses', 'lognormal.responses'),
+                         labels=c('data', 'lognormal fit'))) %>%
+  ggplot(., aes(x=lowers, y=probability, colour=source)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ item, scale='free') +
+  theme_few() + scale_colour_few()
+```
+
+We plug the best-fit log-normal parameters into the adjectives model as the priors for the items.
+
+```{r, echo=F, message=F, warning=F}
+print(fit.priors)
+```
+
+Adjectives Model vs. Empirical Posterior
+----------------------------------------
+
+We graph the posterior predictions of the model against the posterior data from this experiment.
+
+```{r, echo=F, message=F, warning=F}
+## run model, graph against empirical posterior
+```
+
+We also get predictions from this model for sorites, though we have no experimental data to test this against for the age and height domains.
+
+```{r, echo=F, message=F, warning=F}
+## graph sorites predictions
+```
