@@ -32,7 +32,7 @@ Experiment Design
 
 ```{r, echo=F, message=F, warning=F}
 d2c = (function() {
-  d2c = read.csv('../experiments/exp2C-sorites-priors-3domains/data/exp2C-sorites-priors-2014-02-23-three-domain-bins.csv') %>%
+  d2c = read.csv('../data/exp2c-sorites-priors-3domains-2014-02-23.csv') %>%
     mutate(language = Answer.language,
            domain = Answer.domain,
            condition = Answer.condition,
