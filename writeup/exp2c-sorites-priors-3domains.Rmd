@@ -1,11 +1,15 @@
 ---
 title: "Sorites Prior Elicitation 2C: 3 domains"
 output:
+  pdf_document:
+    toc: true
+    highlight: zenburn
+    toc_depth: 3
   html_document:
     highlight: pygments
     theme: flatly
     toc: yes
-    toc_depth: 4
+    toc_depth: 3
 ---
 
 ```{r load libraries, echo=F, message=F, warning=F}
@@ -175,7 +179,12 @@ aggrd2c.priors %>% gather('source', 'probability', 5:6) %>%
 We plug the best-fit log-normal parameters into the adjectives model as the priors for the items.
 
 ```{r, echo=F, message=F, warning=F}
-print(fit.priors)
+get.max = function(i) {return(max(aggrd2c[aggrd2c$item==i,'lowers']))}
+get.step = function(i) {
+  lowers = aggrd2c.priors[aggrd2c.priors$item==i,'lowers']
+  return(lowers[2]-lowers[1]) }
+print(fit.priors %>% mutate(max=sapply(item, get.max),
+                            step=sapply(item, get.step)))
 ```
 
 Adjectives Model vs. Empirical Posterior
