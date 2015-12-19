@@ -21,17 +21,17 @@ var debug = function(str) {
 
 //model
 
-var n_particles = 1000;
+var n_particles = 10000;
 
 var alternatives = "adjnull";
 
 var items = [
-	"building",
-	"mountain",
-	"tree",
-	"coffee maker",
-	"laptop",
-	"watch",
+	//"building",
+	//"mountain",
+	//"tree",
+	//"coffee maker",
+	//"laptop",
+	//"watch",
 	"college student",
 	"new parent",
 	"New Yorker"
