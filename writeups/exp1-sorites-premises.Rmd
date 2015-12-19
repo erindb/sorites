@@ -1,0 +1,121 @@
+---
+title: "Sorites Experiment 1"
+output:
+  html_document:
+    highlight: pygments
+    theme: flatly
+    toc: yes
+    toc_depth: 4
+---
+
+```{r load libraries, echo=F, message=F, warning=F}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid)
+library(ggthemes)
+library(languageR)
+library(psych)
+library(lme4)
+library(lmerTest)
+library(diagram)
+library(rjson)
+char = as.character
+grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
+options(digits=3)
+```
+
+## Experiment 0: Sorites Pilot
+
+There was a sorites experiment in August. People didn't think things were very expensive, so we didn't really use these data in much future analysis.
+
+```{r, echo=F, message=F, warning=F}
+d0 = read.csv('../data/exp0-sorites-premises-2013-08-27.csv') %>%
+  rename(questions=Answer.questions,
+         language=Answer.language,
+         age=Answer.age,
+         comments=Answer.comments) %>%
+  mutate(language = factor(sub('"', '', sub('"', '', char(language))))) %>%
+  select(workerid, questions, language, age, comments)
+
+# ### at this point, could exclude particpants whose native language was not english:
+# d0 = d0 %>% filter(language %in% c('english', 'English', 'ENGLISH'))
+# print(unique(d0$comments))
+d0 = select(d0, workerid, questions)
+
+questions = sapply(char(d0$questions), fromJSON)
+n0 = length(questions)
+nqns0 = sapply(1:n0, function(i) {return(length(questions[[i]]))})
+graball = function(colname) {
+  return(unlist(sapply(1:n0, function(i) {
+    return(sapply(questions[[i]], grab(colname))) }))) }
+d0 = data.frame(qNumber = graball('qNumber'),
+                qType = graball('qType'),
+                dollarAmt = graball('dollarAmt'),
+                sigs = graball('sigs'),
+                item = graball('item'),
+                response = graball('response'),
+                workerid = rep(d0$workerid, nqns0)) %>%
+  mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
+         response = as.integer(response),
+         workerid = as.factor(workerid))
+```
+
+```{r, echo=F, message=F, warning=F}
+d0 %>% group_by(item, dollarAmt, qType) %>%
+  summarise(response = mean(response)) %>%
+  ggplot(., aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(~ item, scale='free') +
+  scale_y_continuous(breaks = 1:9) +
+  theme_few() + scale_colour_few()
+```
+
+## Experiment 1: Sorites Premises
+
+Sorites experiment 1 had 2 different phrasings: conditional and relative, varied between Ss. Each participant was asked about their ratings for the inductive premise and the concrete premise for each item for each of several numeric values.
+
+```{r, echo=F, message=F, warning=F}
+d1 = read.csv('../data/exp1-sorites-premises-2014-01-31.csv') %>%
+  rename(questions=Answer.questions,
+         language=Answer.language,
+         age=Answer.age,
+         comments=Answer.comments) %>%
+  mutate(language = factor(sub('"', '', sub('"', '', char(language))))) %>%
+  select(workerid, questions, language, age, comments)
+
+# ### at this point, could exclude particpants whose native language was not english:
+# d0 = d0 %>% filter(language %in% c('english', 'English', 'ENGLISH', 'English+'))
+# print(unique(d1$comments))
+d1 = select(d1, workerid, questions)
+
+questions = sapply(char(d1$questions), fromJSON)
+n1 = length(questions)
+nqns1 = sapply(1:n1, function(i) {return(length(questions[[i]]))})
+graball = function(colname) {
+  return(unlist(sapply(1:n1, function(i) {
+    return((grab(colname))(questions[[i]])) }))) }
+d1 = data.frame(qNumber = graball('qNumber'),
+                qType = graball('qType'),
+                dollarAmt = graball('dollarAmt'),
+                sigs = graball('sigs'),
+                item = graball('item'),
+                response = graball('response'),
+                workerid = rep(d1$workerid, n1)
+                ) %>%
+  mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
+         response = as.integer(response),
+         workerid = as.factor(workerid))
+```
+
+```{r, echo=F, message=F, warning=F}
+d1 %>% group_by(item, dollarAmt, qType) %>%
+  summarise(response = mean(response)) %>%
+  ggplot(., aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(~ item, scale='free') +
+  scale_y_continuous(breaks = 1:9) +
+  theme_few() + scale_colour_few()
+```
