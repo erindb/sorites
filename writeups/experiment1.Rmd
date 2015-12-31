@@ -1,0 +1,104 @@
+---
+title: "Sorites Experiment 1"
+output:
+  pdf_document:
+    toc: true
+    highlight: zenburn
+    toc_depth: 3
+---
+
+```{r load libraries, echo=F, message=F, warning=F}
+library(rjson)
+library(fitdistrplus)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid)
+library(ggthemes)
+library(languageR)
+library(psych)
+library(lme4)
+library(lmerTest)
+library(diagram)
+library(boot)
+char = as.character
+num = function(x) {return(as.numeric(char(x)))}
+grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
+options(digits=3)
+mean.sd = funs(mean, sd)
+```
+
+## Description of experiment
+
+A copy of the experiment can be found at: [`experiments/experiment1/prices_8-27.html`](../experiments/experiment1/prices_8-27.html).
+
+This was a second stage of the sorites experiment, which we ran in August of 2013. The design was identical to [Experiment 0](experiment0.pdf), except that we added more extreme values.
+
+**Values V** We chose the dollar amount values of the items to be 0, 1, 2, 3, and 4 standard deviations above the mean prices of the given item category.
+
+**Epsilons E** We chose the dollar amount for the "difference" E in the inductive premise to be 0.01, 0.1, 0.5, 1, 2, and 3 multiples of a standard deviation for the price of the given item category.
+
+For each of the 5 items, there were 5 possible concrete premise sentences and 6 possible inductive premise sentences. In order to keep the number of questions roughly the same as in Experiment 0,  of these 55 possible questions, each participant saw some random subset of 44 of those questions.
+
+## Results
+
+There were 50 participants.
+
+```{r, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
+d0 = read.csv('../data/experiment0-and-experiment1.csv') %>%
+  filter(num(workerid) >= 30) %>%
+  rename(questions=Answer.questions,
+         language=Answer.language,
+         age=Answer.age,
+         comments=Answer.comments) %>%
+  mutate(language = factor(sub('"', '', sub('"', '', char(language))))) %>%
+  select(workerid, questions, language, age, comments)
+
+# ### at this point, could exclude particpants whose native language was not english:
+# d0 = d0 %>% filter(language %in% c('english', 'English', 'ENGLISH'))
+# print(unique(d0$comments))
+d0 = select(d0, workerid, questions)
+
+questions = sapply(char(d0$questions), fromJSON)
+n0 = length(questions)
+graball = function(colname) {
+  return(unlist(sapply(1:n0, function(i) {
+    return((grab(colname))(questions[[i]])) }))) }
+d0 = data.frame(qNumber = graball('qNumber'),
+                qType = graball('qType'),
+                dollarAmt = graball('dollarAmt'),
+                sigs = graball('sigs'),
+                item = graball('item'),
+                response = graball('response'),
+                workerid = rep(d0$workerid, rep(44, length(d0$workerid)))) %>%
+  mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
+         response = as.integer(response),
+         workerid = as.factor(workerid))
+
+samplemean <- function(x, d) {
+  return(mean(x[d]))
+}
+ci = function(vals) {
+  cis = boot.ci(boot(vals, samplemean, 1000), type="bca")
+  low = cis$bca[1,4]
+  high = cis$bca[1,5]
+  return(data.frame(mean=mean(vals),
+                    ci.low=low,
+                    ci.high=high,
+                    N=length(vals)))
+}
+
+aggr = d0 %>% group_by(item, dollarAmt, qType) %>%
+#   summarise(response = mean(response)) %>%
+  do(ci(.$response)) %>%
+  rename(response=mean)
+ggplot(aggr, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(x=dollarAmt, ymin=ci.low, ymax=ci.high), width=0) +
+  facet_grid(~ item, scale='free') +
+  scale_y_continuous(breaks = 1:9, limits=c(1, 9)) +
+  theme_few() + scale_colour_few()
+```
+
+## Model fit
