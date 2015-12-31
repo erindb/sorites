@@ -84,6 +84,7 @@ var adjectivesModel = function(item, cost, nParticles) {
 		});
 	});
 
+	// utterance prior depends on cost. softmax.
 	var utterancePrior = function() {
 		var costs = [cost, 0];
 		var probs = map(function(C) {return Math.exp(-C);}, costs);
@@ -101,6 +102,7 @@ var adjectivesModel = function(item, cost, nParticles) {
 		});
 	});
 
+	// listener samples both price and theta
 	var listenerERP = cache(function(utterance) {
 		return CheckedParticles(function() {
 			var price = prior();
@@ -112,6 +114,9 @@ var adjectivesModel = function(item, cost, nParticles) {
 			}
 		});
 	});
+
+
+	// testing different parts:
 
 	// print(ParticleFilter(prior, nParticles));
 
@@ -144,23 +149,24 @@ var adjectivesModel = function(item, cost, nParticles) {
 
 	if (result == 'impossible') {return true}
 
+	// write to csv
 	var model_output = {
-		"data" : map(function(pair) {
-			var price = pair[0];
-			var theta = pair[1];
-			var score = result.score([], pair);
+		"data" : map(function(res) {
+			var price = res.price;
+			var theta = res.theta;
+			var score = result.score([], res);
 			var probability = Math.exp(score);
 			return [item, cost, price, theta, score, probability];
 		}, result.support())
 	}
-	simpleCSV.writeCSV(model_output, "justine-priors-lognormal-fit/simulation-results/" + timestamp + "-" + item + "cost" + cost + "-nParticles" + nParticles);
+	simpleCSV.writeCSV(model_output, "justine-priors-lognormal-fit/simulation-results/" + timestamp + "-" + item + "-cost" + cost + "-nParticles" + nParticles + ".csv");
 	return true;
 }
 
 var nParticles = 1000;
 map(function(cost) {
 	map(function(item) {
-		console.log("running " + item + ": " + "cost" + cost + "-nParticles" + nParticles);
+		console.log("running " + item + ": " + "cost-" + cost + "-nParticles" + nParticles);
 		adjectivesModel(item, cost, nParticles);
 		return true;
 	}, items);
