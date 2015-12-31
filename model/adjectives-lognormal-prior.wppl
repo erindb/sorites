@@ -36,7 +36,7 @@ var timestamp = Date.now();
 
 ///~~~~~~item specific model follows
 
-var adjectivesModel = function(item, cost, nParticles) {
+var adjectivesModel = function(item, cost, alpha, nParticles) {
 
 	var prior = function() {
 		var itemParams = params[item];
@@ -51,7 +51,7 @@ var adjectivesModel = function(item, cost, nParticles) {
 		var meanlog = itemParams.meanlog;
 		var sdlog = itemParams.sdlog;
 		// sample theta from 4 standard deviations out
-		return uniform(0, Math.exp(meanlog + 4*sdlog));
+		return uniform(0, Math.exp(meanlog + 2*sdlog));
 	}
 
 	// a function for dealling with assertion errors when an ERP has a condition
@@ -74,12 +74,12 @@ var adjectivesModel = function(item, cost, nParticles) {
 	var CheckedParticles = function(thunk) {return CheckedInfer(thunk, function(thunk) {return ParticleFilter(thunk, nParticles)})}
 
 	// literal listener has meaning function for adjective. otherwise true.
-	var literalERP = cache(function(utterance, theta) {
+	var literalERP = cache(function(utterance, inheritedTheta) {
 		return CheckedParticles(function() {
-			var price = prior();
+			var literalPrice = prior();
 			return {
-				result: price,
-				factor: utterance=='adj' ? ( price>=theta ? 0 : -Infinity) : 0
+				result: literalPrice,
+				factor: utterance=='adj' ? ( literalPrice>=inheritedTheta ? 0 : -Infinity) : 0
 			};
 		});
 	});
@@ -91,28 +91,29 @@ var adjectivesModel = function(item, cost, nParticles) {
 		return categorical(probs, ['adj', 'null']);
 	};
 
-	var speakerERP = cache(function(price, theta) {
+	var speakerERP = cache(function(speakerPrice, speakerInheritedTheta) {
 		return CheckedEnumerate(function() {
 			var utterance = utterancePrior();
-			var interpretation = literalERP(utterance, theta);
+			var interpretation = literalERP(utterance, speakerInheritedTheta);
 			return {
 				result: utterance,
-				factor: interpretation=='impossible' ? -Infinity : -Math.abs(sample(interpretation, []) - price)
+				factor: interpretation=='impossible' ? -Infinity : -Math.abs(sample(interpretation, []) - speakerPrice)
 			};
 		});
 	});
 
 	// listener samples both price and theta
 	var listenerERP = cache(function(utterance) {
-		return CheckedParticles(function() {
+		return ParticleFilter(function() {
 			var price = prior();
 			var theta = thetaPrior();
 			var utteranceChoice = speakerERP(price, theta);
-			return {
-				result: {price: price, theta: theta},
-				factor: utteranceChoice=='impossible' ? -Infinity : utteranceChoice.score([], utterance)
-			}
-		});
+			// debug('utteranceChoice:');
+			// debug(0.001*alpha*utteranceChoice.score([], utterance));
+			condition(utterance != 'impossible');
+			factor( alpha*utteranceChoice.score([], utterance) );
+			return {price: price, theta: theta}
+		}, nParticles);
 	});
 
 
@@ -145,7 +146,10 @@ var adjectivesModel = function(item, cost, nParticles) {
 	// }
 
 	var result = listenerERP('adj');
-	console.log("writing " + item + ": " + "cost" + cost + "-nParticles" + nParticles);
+	console.log("writing " + item + ": "
+		+ "cost" + cost
+		+ "-alpha" + alpha
+		+ "-nParticles" + nParticles);
 
 	if (result == 'impossible') {return true}
 
@@ -156,21 +160,26 @@ var adjectivesModel = function(item, cost, nParticles) {
 			var theta = res.theta;
 			var score = result.score([], res);
 			var probability = Math.exp(score);
-			return [item, cost, price, theta, score, probability];
+			return [item, cost, price, theta, score, probability, alpha];
 		}, result.support())
 	}
-	simpleCSV.writeCSV(model_output, "justine-priors-lognormal-fit/simulation-results/" + timestamp + "-" + item + "-cost" + cost + "-nParticles" + nParticles + ".csv");
+	simpleCSV.writeCSV(model_output, "justine-priors-lognormal-fit/simulation-results/" +
+		timestamp + "-" + item + "-cost" + cost  + "-alpha" + alpha
+		+ "-nParticles" + nParticles + ".csv");
 	return true;
 }
 
 var nParticles = 1000;
 map(function(cost) {
-	map(function(item) {
-		console.log("running " + item + ": " + "cost-" + cost + "-nParticles" + nParticles);
-		adjectivesModel(item, cost, nParticles);
+	map(function(alpha) {
+		map(function(item) {
+			console.log("running " + item + ": " + "cost" + cost + "-alpha" + alpha +
+				"-nParticles" + nParticles);
+			adjectivesModel(item, cost, alpha, nParticles);
+			return true;
+		}, ['coffee.maker', 'headphones', 'laptop', 'sweater', 'watch']);
 		return true;
-	}, items);
-	return true;
-}, [1, 3, 6]);
+	}, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+}, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
 "finished";
