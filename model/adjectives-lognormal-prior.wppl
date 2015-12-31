@@ -1,0 +1,170 @@
+var printERP = function(erp) {
+  var support = erp.support();
+  var probs = map(function(x) {return Math.exp(erp.score([], x));}, support);
+  map2(function(s, p) {
+    print(JSON.stringify(s) + ': ' + p);
+  }, support, probs);
+  return true;
+}
+var isERP = function(x){
+	return (x && (x.score != undefined) && (x.sample != undefined));
+}
+var print = function(x) {
+	if (isERP(x)) { printERP(x); } else { console.log(x); }
+	return true;
+}
+var DEBUG = true;
+var debug = function(x) {if (DEBUG) {print(x)}}
+var directory = 'justine-priors-lognormal-fit';
+
+var items = ['coffee.maker', 'headphones', 'laptop', 'sweater', 'watch'];
+
+var params = (function() {
+	var raw = simpleCSV.readCSV(directory + '/prior-params.csv');
+	return _.object(map(function(item) {
+		var data = raw.data;
+		var header = data[0];
+		var paramline = filter(function(line) {return line[0] == item}, data)[0];
+		var meanlog = global.parseFloat(paramline[indexOf('meanlog', header)]);
+		var sdlog = global.parseFloat(paramline[indexOf('sdlog', header)]);
+		var params = {meanlog: meanlog, sdlog: sdlog}
+		return [item, params];
+	}, items));
+})()
+
+var timestamp = Date.now();
+
+///~~~~~~item specific model follows
+
+var adjectivesModel = function(item, cost, nParticles) {
+
+	var prior = function() {
+		var itemParams = params[item];
+		var meanlog = itemParams.meanlog;
+		var sdlog = itemParams.sdlog;
+		var samplelog = gaussian(meanlog, sdlog);
+		return Math.exp(samplelog);
+	}
+
+	var thetaPrior = function() {
+		var itemParams = params[item];
+		var meanlog = itemParams.meanlog;
+		var sdlog = itemParams.sdlog;
+		// sample theta from 4 standard deviations out
+		return uniform(0, Math.exp(meanlog + 4*sdlog));
+	}
+
+	// a function for dealling with assertion errors when an ERP has a condition
+	// that can never be met.
+	var CheckedInfer = function(thunk, inferenceFn) {
+		var erp = inferenceFn(thunk);
+		var support = erp.support();
+		var possible = any(function(s) {return s.factor != -Infinity}, support);
+		if (possible) {
+			return Enumerate(function() {
+				var s = sample(erp, []);
+				factor(s.factor);
+				return s.result;
+			});
+		} else {
+			return 'impossible';
+		}
+	}
+	var CheckedEnumerate = function(thunk) {return CheckedInfer(thunk, function(thunk) {return Enumerate(thunk);})}
+	var CheckedParticles = function(thunk) {return CheckedInfer(thunk, function(thunk) {return ParticleFilter(thunk, nParticles)})}
+
+	// literal listener has meaning function for adjective. otherwise true.
+	var literalERP = cache(function(utterance, theta) {
+		return CheckedParticles(function() {
+			var price = prior();
+			return {
+				result: price,
+				factor: utterance=='adj' ? ( price>=theta ? 0 : -Infinity) : 0
+			};
+		});
+	});
+
+	var utterancePrior = function() {
+		var costs = [cost, 0];
+		var probs = map(function(C) {return Math.exp(-C);}, costs);
+		return categorical(probs, ['adj', 'null']);
+	};
+
+	var speakerERP = cache(function(price, theta) {
+		return CheckedEnumerate(function() {
+			var utterance = utterancePrior();
+			var interpretation = literalERP(utterance, theta);
+			return {
+				result: utterance,
+				factor: interpretation=='impossible' ? -Infinity : -Math.abs(sample(interpretation, []) - price)
+			};
+		});
+	});
+
+	var listenerERP = cache(function(utterance) {
+		return CheckedParticles(function() {
+			var price = prior();
+			var theta = thetaPrior();
+			var utteranceChoice = speakerERP(price, theta);
+			return {
+				result: {price: price, theta: theta},
+				factor: utteranceChoice=='impossible' ? -Infinity : utteranceChoice.score([], utterance)
+			}
+		});
+	});
+
+	// print(ParticleFilter(prior, nParticles));
+
+	// print('theta=0');
+	// print(literalERP('adj', 0));
+	// print('theta=40');
+	// print(literalERP('adj', 40));
+	// print('theta=1000');
+	// print(literalERP('adj', 1000));
+	// print('no utt');
+	// print(literalERP('null', 0));
+
+	// print(utterancePriorERP);
+
+	// print('theta=0');
+	// print(speakerERP(50, 0));
+	// print('theta=40');
+	// print(speakerERP(50, 40));
+	// print('theta=1000');
+	// print(speakerERP(50, 1000));
+
+	// // print(ParticleFilter(thetaPrior, nParticles));
+	// var printAndRunTheta = function(theta){
+	// 	print('theta = ' + theta);
+	// 	print(literalERP('adj', theta));
+	// }
+
+	var result = listenerERP('adj');
+	console.log("writing " + item + ": " + "cost" + cost + "-nParticles" + nParticles);
+
+	if (result == 'impossible') {return true}
+
+	var model_output = {
+		"data" : map(function(pair) {
+			var price = pair[0];
+			var theta = pair[1];
+			var score = result.score([], pair);
+			var probability = Math.exp(score);
+			return [item, cost, price, theta, score, probability];
+		}, result.support())
+	}
+	simpleCSV.writeCSV(model_output, "justine-priors-lognormal-fit/simulation-results/" + timestamp + "-" + item + "cost" + cost + "-nParticles" + nParticles);
+	return true;
+}
+
+var nParticles = 1000;
+map(function(cost) {
+	map(function(item) {
+		console.log("running " + item + ": " + "cost" + cost + "-nParticles" + nParticles);
+		adjectivesModel(item, cost, nParticles);
+		return true;
+	}, items);
+	return true;
+}, [1, 3, 6]);
+
+"finished";
