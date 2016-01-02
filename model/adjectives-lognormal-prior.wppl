@@ -169,7 +169,7 @@ var adjectivesModel = function(item, cost, alpha, nParticles) {
 	return true;
 }
 
-var nParticles = 1000;
+var nParticles = 100;
 map(function(cost) {
 	map(function(alpha) {
 		map(function(item) {
