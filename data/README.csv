@@ -1,0 +1,21 @@
+current name,date,past names,description,N
+experiment0,2013.08.27,exp0,sorites premises take 0 not extreme enough values,30
+experiment1,2013.08.28,exp0,sorites premises take 1 with more extreme values,50
+experiment2,2013.10.08,exp2.0 V0,sorites priors binned free response,105
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,2013.10.08,exp2.0 V0,prices prior free response,
+,2013.12.04,exp2.1 exp2.2 V1 V2,prices prior bins: first 10 Ss 10 bins each item next 17 20 bins each item,
+,2013.08.27,exp2A exp2B V3 V4 V5,prices prior bins: first 10 Ss 40 bins each next 10 Ss number of bins varied next 20 Ss posterior,

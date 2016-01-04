@@ -9,3 +9,4 @@
 old-analysis/alternate-directory-structure-jan2015
 writeup/simulations/node_modules
 experiments/*/analysis/mturk
+*.results

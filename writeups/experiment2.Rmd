@@ -1,0 +1,66 @@
+---
+title: "Sorites Experiment 2"
+output:
+  pdf_document:
+    toc: true
+    highlight: zenburn
+    toc_depth: 3
+---
+
+```{r load libraries, echo=F, message=F, warning=F}
+library(rjson)
+library(fitdistrplus)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid)
+library(ggthemes)
+library(languageR)
+library(psych)
+library(lme4)
+library(lmerTest)
+library(diagram)
+library(boot)
+char = as.character
+num = function(x) {return(as.numeric(char(x)))}
+grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
+options(digits=3)
+mean.sd = funs(mean, sd)
+```
+
+## Description of experiment
+
+A copy of the experiment can be found at: [`experiments/experiment2/insurance-inventory.html`](../experiments/experiment2/insurance-inventory.html).
+
+This was the first prior elicitation experiment that I worked on, which we ran in October of 2013. For 10 categories of items ("watch", "coffee maker", "laptop", "electric kettle", "headphones", "sweater", "camera", "backpack", "wallet", and "bike"), we asked participants to fill in guesses about the prices of those items. We gave them one piece of information for each item: whether it cost more or less than a particular cutoff (50, 100, 500, 1000, 2000, 5000, or 10000). The cutoffs were varied between participants. Each participant saw every item twice, once above the cutoff and once below.
+
+There are two different data files for this experiment, because when I put the experiment up on mTurk the first time, I gave it the tagline "Insurance Inventory", which sounds really boring. People signed up, but really slowly. So after a day passed and I had only gotten 18 participants, I re-posted with a new tagline: "Store Rescue". 3 participants were repeats. Once we excluded repeats, there were 105 participants in the experiment.
+
+```{r load data, echo=F, warning=F, message=F}
+# ## this is the code to generate the "repeat-workers" file from the raw results
+# ## i'm not going to push this file, so i've cached the object "repeat.workers" in
+# ## the data directory
+# rawA = read.csv('../data/raw-data/experiment2-fileA.results', sep='\t') %>%
+#   select(hitid, workerid)
+# rawB = read.csv('../data/raw-data/experiment2-fileB.results', sep='\t') %>%
+#   select(hitid, workerid)
+# raw = rbind(rawA, rawB)
+# repeat.workers = raw %>% group_by(workerid) %>% summarise(N = length(hitid)) %>% as.data.frame %>%
+#   filter(N==2) %>%
+#   mutate(index.in.A = sapply(char(.$workerid), function(w) {return(which(rawA$workerid == w))}),
+#          index.in.B = sapply(char(.$workerid), function(w) {return(which(rawB$workerid == w))})) %>%
+#   select(index.in.A, index.in.B)
+# write.csv(repeat.workers, '../data/experiment2-repeat-workers.csv', row.names=F)
+repeat.workers = read.csv('../data/experiment2-repeat-workers.csv')
+
+## combine two data files together:
+d0 = rbind(read.csv('../data/experiment2-fileA.csv'),
+           read.csv('../data/experiment2-fileB.csv') %>%
+             filter(!(workerid %in% repeat.workers$index.in.B)) %>%
+             mutate(workerid = 1:length(workerid) + 17))
+```
+
+## Results
+
+```{r, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
+```
