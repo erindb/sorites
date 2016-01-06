@@ -1,5 +1,5 @@
 ---
-title: "Sorites Prior Elicitation 2C: 3 domains"
+title: "Sorites Experiment 9"
 output:
   pdf_document:
     toc: true
@@ -29,6 +29,19 @@ library(boot)
 char = as.character
 grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
 options(digits=3)
+samplemean <- function(x, d) {
+  return(mean(x[d]))
+}
+ci = function(vals) {
+  if(length(vals)<2) {return(data.frame(mean=mean(vals), ci.low=NA, ci.high=NA, N=length(vals)))}
+  cis = boot.ci(boot(vals, samplemean, 1000), type="bca")
+  low = cis$bca[1,4]
+  high = cis$bca[1,5]
+  return(data.frame(mean=mean(vals),
+                    ci.low=low,
+                    ci.high=high,
+                    N=length(vals)))
+}
 ```
   
 Experiment Design
@@ -36,7 +49,7 @@ Experiment Design
 
 ```{r, echo=F, message=F, warning=F}
 d2c = (function() {
-  d2c = read.csv('../data/exp2c-sorites-priors-3domains-2014-02-23.csv') %>%
+  d2c = read.csv('../data/experiment9.csv') %>%
     mutate(language = Answer.language,
            domain = Answer.domain,
            condition = Answer.condition,
@@ -111,10 +124,11 @@ We normalize each participants response to each item to get an estimate of their
 d2c = group_by(d2c, workerid, item) %>%
   mutate(normed.responses = responses / sum(responses)) %>% as.data.frame
 aggrd2c = d2c %>% group_by(domain, item, lowers, condition) %>%
-  summarise(normed.responses = mean(normed.responses))
-ggplot(aggrd2c, aes(x=lowers, y=normed.responses, colour=condition)) +
-  geom_point() +
+  do(ci(.$normed.response)) %>%
+  rename(normed.responses=mean) %>% as.data.frame
+ggplot(aggrd2c, aes(x=lowers, y=normed.responses, colour=condition, fill=condition)) +
   geom_line() +
+  geom_ribbon(aes(ymin=ci.low,ymax=ci.high),alpha=0.5,lwd=0) +
   facet_wrap(~ item, scale='free') +
   theme_few() + scale_colour_few() + scale_fill_few()
 ```
@@ -155,25 +169,31 @@ fit.priors = aggrd2c %>% filter(condition == 'prior') %>%
       )
     return(new_df) })
 
+fit.priors = fit.priors %>% rename(meanlog=mu, sdlog=sig)
+
 aggrd2c.priors = aggrd2c %>% filter(condition == 'prior') %>%
   mutate(lognormal.responses = mapply(function(l, i) {
-    mu = fit.priors[fit.priors$item==i, 'mu']
-    sig = fit.priors[fit.priors$item==i, 'sig']
-    return(dnorm(log(l), mu, sig))}, lowers, item)) %>%
+    meanlog = fit.priors[fit.priors$item==i, 'meanlog']
+    sdlog = fit.priors[fit.priors$item==i, 'sdlog']
+    return(dnorm(log(l), meanlog, sdlog))}, lowers, item)) %>%
   group_by(item) %>%
   mutate(lognormal.responses = lognormal.responses/sum(lognormal.responses)) %>%
   rename(data.responses = normed.responses) %>%
   as.data.frame
 
-aggrd2c.priors %>% gather('source', 'probability', 5:6) %>%
+aggrd2c.priors %>% gather('source', 'probability', c(5,9)) %>%
   mutate(source = factor(source,
                          levels=c('data.responses', 'lognormal.responses'),
-                         labels=c('data', 'lognormal fit'))) %>%
-  ggplot(., aes(x=lowers, y=probability, colour=source)) +
-  geom_point() +
+                         labels=c('data', 'lognormal fit')),
+         ci.low = ifelse(source=='data', ci.low, NA),
+         ci.high = ifelse(source=='data', ci.high, NA)) %>%
+  ggplot(., aes(x=lowers, y=probability, colour=source, fill=source)) +
   geom_line() +
+  geom_ribbon(aes(ymin=ci.low,ymax=ci.high),alpha=0.5,lwd=0) +
   facet_wrap(~ item, scale='free') +
-  theme_few() + scale_colour_few()
+  theme_few() + scale_colour_few() + scale_fill_few()
+
+
 ```
 
 We plug the best-fit log-normal parameters into the adjectives model as the priors for the items.
