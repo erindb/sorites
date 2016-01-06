@@ -6,6 +6,8 @@ experiment3,2013.12.04,exp2.1 V1,prices prior bins: first 21 Ss 10 bins each ite
 experiment4,2013.12.04,exp2.2 V2,prices prior bins: next 17 20 bins each item,17
 experiment5,2013.12.04,exp2A V3,prices prior bins: first 10 Ss 40 bins each,10
 experiment6,2013.12.05 and 2014.01.10,exp2B V4 V5,prices prior bins: first 10 Ss 40 bins each,30
-experiment7,2014.01.31,exp1,sorites premises,
-experiment8,2014.01.31,exp2.3 pilot,sorites priors,
-experiment9,2014.02.12,exp2c,3 domain bins,
+experiment7,2014.01.31,exp1,sorites premises,120
+experiment8,2014.01.31,exp2.3 pilot,sorites priors,18
+experiment9,2014.02.12,exp2c,3 domain bins,320
+experiment10,2014.04.23,exp3,"sorites premises, conditional phrasing",30
+experiment11,2015.06.05,exp4,"sorites premises, relative clause phrasing",30
