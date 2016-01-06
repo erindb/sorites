@@ -15,9 +15,11 @@ var print = function(x) {
 }
 var DEBUG = true;
 var debug = function(x) {if (DEBUG) {print(x)}}
-var directory = 'justine-priors-lognormal-fit';
+var directory = '3domain-bins-priors';
 
-var items = ['coffee.maker', 'headphones', 'laptop', 'sweater', 'watch'];
+var items = [
+'college student', 'new parent', 'New Yorker',
+'tree', 'building', 'mountain', 'coffee maker', 'watch', 'laptop'];
 
 var params = (function() {
 	var raw = simpleCSV.readCSV(directory + '/prior-params.csv');
@@ -163,7 +165,7 @@ var adjectivesModel = function(item, cost, alpha, nParticles) {
 			return [item, cost, price, theta, score, probability, alpha];
 		}, result.support())
 	}
-	simpleCSV.writeCSV(model_output, "justine-priors-lognormal-fit/simulation-results/" +
+	simpleCSV.writeCSV(model_output, directory + "/simulation-results/" +
 		timestamp + "-" + item + "-cost" + cost  + "-alpha" + alpha
 		+ "-nParticles" + nParticles + ".csv");
 	return true;
@@ -177,7 +179,7 @@ map(function(cost) {
 				"-nParticles" + nParticles);
 			adjectivesModel(item, cost, alpha, nParticles);
 			return true;
-		}, ['coffee.maker', 'headphones', 'laptop', 'sweater', 'watch']);
+		}, items);
 		return true;
 	}, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 }, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);

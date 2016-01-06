@@ -1,5 +1,5 @@
 ---
-title: "Sorites Experiment 6"
+title: "Sorites Experiment 8"
 output:
   pdf_document:
     toc: true
@@ -44,53 +44,53 @@ ci = function(vals) {
 
 ## Description of experiment
 
-A copy of the "prior" version of this experiment can be found at [`experiments/experiment6-conditionA/morebins.html`](../experiments/experiment6-conditionA/morebins.html), and a copy of the "posterior" version of this experiment can be found at [`experiments/experiment6-conditionB/morebins.html`](../experiments/experiment6-conditionB/morebins.html).
+This was a prior elicitation experiment with bins in which we had two presentation conditions: the original presentation condition, where all of the bins for an item were presented at once, in sequence from left to right, and a new condition where each bin was asked about on its own slide. The resolution was relatively low and varied by item. A copy of the experiment can be found at [`experiments/experiment8/morebins.html`](../experiments/experiment8/morebins.html).
 
-This was the fourth binned prior elicitation experiment that I worked on, which we ran in December of 2013 and January of 2014. The design was identical to Experiments [3](experiment3.pdf), [4](experiment4.pdf), and [5](experiment5.pdf), except that the number of bins varied by item and we included a "posterior" condition in which the item was labeled "expensive".
-
-There were 30 participants in this version, 10 in the prior condition and 20 in the posterior condition
+There were N participants in this version, N in the prior condition and N in the posterior condition.
 
 ```{r load data, echo=F, warning=F, message=F}
 ## combine two data files together:
-d0.raw = read.csv('../data/experiment5-and-experiment6.csv') %>%
-  filter(workerid >= 10) %>%
-  mutate(condition = ifelse(workerid < 20, 'prior', 'posterior')) %>%
+d0.raw = read.csv('../data/experiment8.csv') %>%
   mutate(workerid = factor(workerid)) %>%
   rename(language=Answer.language,
          age=Answer.age,
-         comments=Answer.comments) %>%
-  mutate(language = factor(sub('"', '', sub('"', '', char(language))))) %>%
-  select(workerid, Answer.0,
-         Answer.1, Answer.2,
-         Answer.3, Answer.4, condition) %>%
-  gather('qnumber', 'question.data', 2:6) %>%
+         comments=Answer.comments,
+         presentation.condition=Answer.cond) %>%
+  mutate(language = factor(sub('"', '', sub('"', '', char(language)))),
+         presentation.condition = factor(sub('"', '', sub('"', '', char(presentation.condition))))) %>%
+  gather('qnumber', 'question.data', 31:66) %>%
+  select(workerid, presentation.condition, qnumber, question.data) %>%
   mutate(qnumber = sapply(.$qnumber, function(q) {return(substring(q, 8))}),
-         qnumber = num(qnumber),
-         qtype = ifelse(qnumber < 5, 'bins', 'max'))
+         qnumber = num(qnumber))
          
 ## extract lame data collection into long form
 d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
+  if (d0.raw[i, 'question.data'] == '') {
+    return(data.frame(
+      workerid = d0.raw[i, 'workerid'],
+      qnumber = d0.raw[i, 'qnumber'],
+      presentation.condition=d0.raw[i, 'presentation.condition'],
+      item=NA,
+      response=NA,
+      lower=NA))}
   question.data = fromJSON(d0.raw[i, 'question.data'])
-  qtype = d0.raw[i, 'qtype']
-  if (qtype == 'bins') {
+  presentation.condition = d0.raw[i, 'presentation.condition']
+  if (presentation.condition == 'original') {
     workerid = d0.raw[i, 'workerid']
     qnumber = d0.raw[i, 'qnumber']
-    condition = d0.raw[i, 'condition']
     item = question.data$item
     response = question.data$responses
     lower = question.data$lowers
-  } else {
-    workerid = d0.raw[i, 'workerid']
-    qnumber = d0.raw[i, 'qnumber']
-    condition = d0.raw[i, 'condition']
-    item = question.data$item
-    response = question.data$response
-    lower = NA
+    } else {
+      workerid = d0.raw[i, 'workerid']
+      qnumber = d0.raw[i, 'qnumber']
+      item = question.data$item
+      response = question.data$response
+    lower = question.data$lower
   }
   return(data.frame(workerid=workerid,
                     qnumber=qnumber,
-                    qtype=qtype,
-                    condition = condition,
+                    presentation.condition=presentation.condition,
                     item=item,
                     response=response,
                     lower=lower))
@@ -99,22 +99,24 @@ d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
 
 ## Results
 
+The distributions elicited with bins split across trials were different. They were less peaky than the distributions elicited all at once.
+
 ```{r plotdensities, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
-aggr = d0 %>% filter(qtype == 'bins') %>%
-  group_by(condition, item) %>%
+aggr = d0 %>% filter(!is.na(response)) %>%
+  group_by(presentation.condition, item) %>%
   mutate(normed.response = response / sum(response)) %>%
   as.data.frame %>%
-  group_by(condition, item, lower) %>%
+  group_by(presentation.condition, item, lower) %>%
   do(ci(.$normed.response)) %>%
 #   summarise(mean = mean(normed.response)) %>%
   rename(response=mean) %>% as.data.frame
 
-ggplot(aggr, aes(x=lower, y=response, colour=item, fill=item)) +
+ggplot(aggr, aes(x=lower, y=response, colour=presentation.condition, fill=presentation.condition)) +
 #   geom_bar(stat='identity') +
   geom_line() +
   geom_ribbon(aes(ymin=ci.low,ymax=ci.high),alpha=0.5,lwd=0) +
-  facet_grid(condition~item, scale='free') +
-  theme_few() + scale_colour_few() + scale_fill_few()
+  facet_grid(~item, scale='free') +
+  theme_few() + scale_colour_brewer(type='qual') + scale_fill_brewer(type='qual')
 ```
 
 ```{r plotmax, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
