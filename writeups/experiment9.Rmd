@@ -27,6 +27,7 @@ library(diagram)
 library(rjson)
 library(boot)
 char = as.character
+num = function(x) {return(as.numeric(char(x)))}
 grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
 options(digits=3)
 samplemean <- function(x, d) {
@@ -94,7 +95,9 @@ For height items, there were 20 bins per item. For age items, there were 18 bins
 The width of the bins (e.g. 1000 for "A mountain with a height between 1000 and 2000 ft") varied according to the type of item. Ages were always in bins of width 5.
 
 ```{r, echo=F, message=F, warning=F}
-print(d2c %>% group_by(workerid, item, domain) %>%
+# print( d2c %>% group_by(domain, condition) %>% summarise(N.participants=length(unique(workerid))) %>% as.data.frame )
+
+print(d2c %>% group_by(workerid, item, domain, condition) %>%
   summarise(nbins = length(responses),
             upper.bound = max(uppers),
             lower.bound = min(lowers),
@@ -108,7 +111,7 @@ print(d2c %>% group_by(workerid, item, domain) %>%
   as.data.frame)
 ```
 
-We had prior (no utterance) and posterior (someone says, "that [[item]] is [[adjective]]"") conditions. Prior/posterior and domain were varied between Ss. There were at least 36 participants in each condition.
+We had prior (no utterance) and posterior (someone says, "that [[item]] is [[adjective]]"") conditions. Prior/posterior and domain were varied between Ss. There were 320 participants in this experiment, at least 36 participants in each condition.
 
 ```{r, echo=F, message=F, warning=F}
 print(d2c %>% group_by(domain, condition) %>%
@@ -209,6 +212,8 @@ print(fit.priors %>% mutate(max=sapply(item, get.max),
 
 Adjectives Model vs. Empirical Posterior
 ----------------------------------------
+
+I ran the [adjectives model](../model/adjectives-lognormal-prior.wppl) on the [fit lognormal prior from this experiment](../model/3domain-bins-priors/prior-params.csv).
 
 We graph the posterior predictions of the model against the posterior data from this experiment.
 
