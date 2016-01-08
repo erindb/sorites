@@ -219,6 +219,18 @@ We graph the posterior predictions of the model against the posterior data from 
 
 ```{r, echo=F, message=F, warning=F}
 ## run model, graph against empirical posterior
+m0 = do.call(rbind,
+             lapply(
+               list.files('../model/3domain-bins-priors/simulation-results/commit-5c33ee3ca354b8340b543f466b62a8204b2e3e2f/',
+                          pattern='.*csv$'),
+               function(filename) {
+                 return(read.csv(
+                   paste('../model/3domain-bins-priors/simulation-results/commit-5c33ee3ca354b8340b543f466b62a8204b2e3e2f/',
+                         filename, sep=''),
+                   header=F,
+                   col.names=c('item', 'cost', 'price', 'theta', 'score', 'probability', 'alpha')))
+                 })) %>% 
+  mutate(alpha = num(alpha), cost = num(cost))
 ```
 
 We also get predictions from this model for sorites, though we have no experimental data to test this against for the age and height domains.

@@ -98,7 +98,7 @@ d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
 
 ```{r plotdensities, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
 aggr = d0 %>% filter(qtype == 'bins') %>%
-  group_by(item) %>%
+  group_by(item, workerid) %>%
   mutate(normed.response = response / sum(response)) %>%
   as.data.frame %>%
   group_by(item, lower) %>%

@@ -79,6 +79,7 @@ d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
     item = question.data$item
     response = question.data$responses
     lower = question.data$lowers
+    upper = unname(unlist(question.data$uppers))
   } else {
     workerid = d0.raw[i, 'workerid']
     qnumber = d0.raw[i, 'qnumber']
@@ -86,6 +87,7 @@ d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
     item = question.data$item
     response = question.data$response
     lower = NA
+    upper = NA
   }
   return(data.frame(workerid=workerid,
                     qnumber=qnumber,
@@ -93,18 +95,21 @@ d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
                     condition = condition,
                     item=item,
                     response=response,
-                    lower=lower))
+                    lower=lower,
+                    upper=upper))
 }), rbind)
 ```
 
 ## Results
 
+Some version of these results inspired the mean and standard deviations that we used in [Experiment 7](experiment7.pdf).
+
 ```{r plotdensities, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
 aggr = d0 %>% filter(qtype == 'bins') %>%
-  group_by(condition, item) %>%
+  group_by(condition, item, workerid) %>%
   mutate(normed.response = response / sum(response)) %>%
   as.data.frame %>%
-  group_by(condition, item, lower) %>%
+  group_by(condition, item, lower, upper) %>%
   do(ci(.$normed.response)) %>%
 #   summarise(mean = mean(normed.response)) %>%
   rename(response=mean) %>% as.data.frame
@@ -115,6 +120,13 @@ ggplot(aggr, aes(x=lower, y=response, colour=item, fill=item)) +
   geom_ribbon(aes(ymin=ci.low,ymax=ci.high),alpha=0.5,lwd=0) +
   facet_grid(condition~item, scale='free') +
   theme_few() + scale_colour_few() + scale_fill_few()
+
+aggr %>% group_by(item) %>% filter(condition=='prior') %>%
+  mutate(upper = num(gsub('infty', 'NaN', char(upper)))) %>%
+  filter(!is.nan(upper)) %>%
+  summarise(mean=sum(response*(lower+upper)/2),
+            sd = sqrt(sum(((lower+upper)/2-mean)^2)/(length(response)-1))) %>%
+  as.data.frame
 ```
 
 ```{r plotmax, echo=F, message=F, warning=F, fig.width=8, fig.height=3}

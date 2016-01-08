@@ -9,9 +9,9 @@ output:
 
 ```{r load libraries, echo=F, message=F, warning=F}
 library(rjson)
+library(plyr)
 library(fitdistrplus)
 library(ggplot2)
-library(plyr)
 library(dplyr)
 library(tidyr)
 library(grid)
@@ -103,7 +103,7 @@ The distributions elicited with bins split across trials were different. They we
 
 ```{r plotdensities, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
 aggr = d0 %>% filter(!is.na(response)) %>%
-  group_by(presentation.condition, item) %>%
+  group_by(presentation.condition, item, workerid) %>%
   mutate(normed.response = response / sum(response)) %>%
   as.data.frame %>%
   group_by(presentation.condition, item, lower) %>%

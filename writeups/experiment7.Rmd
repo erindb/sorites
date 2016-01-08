@@ -1,0 +1,119 @@
+---
+title: "Sorites Experiment 7"
+output:
+  pdf_document:
+    toc: true
+    highlight: zenburn
+    toc_depth: 3
+---
+
+```{r load libraries, echo=F, message=F, warning=F}
+library(rjson)
+library(fitdistrplus)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid)
+library(ggthemes)
+library(languageR)
+library(psych)
+library(lme4)
+library(lmerTest)
+library(diagram)
+library(boot)
+char = as.character
+num = function(x) {return(as.numeric(char(x)))}
+grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
+options(digits=3)
+mean.sd = funs(mean, sd)
+```
+
+## Description of experiment
+
+A copy of the experiment can be found at: [`experiments/experiment7/sorites.html`](../experiments/experiment7/sorites.html).
+
+This was a sorites premises experiment (similar to [Experiment 0](experiment0.pdf) and [Experiment 1](experiment1.pdf)), which we ran in January of 2014. There were two different phrasings: conditional and relative clause. The phrasings were unfortunately not recorded for the first 40 participants. They were recorded for the following 80 participants. The values and epsilons were chosen in the same way as in [Experiment 1](experiment1.pdf), except that the means and standard deviations were chosen based on the results of [Experiment 6](experiment6.pdf). Unfortunately, the analysis I used to generate these values (I think) had some issues, so these numbers to not exactly match those reported in [Experiment 6](experiment6.pdf).
+
+
+```{r, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
+sds = '{
+  "coffee maker": 63.0799749633,
+  "headphones": 79.0068590031,
+  "laptop": 562.8069320736,
+  "sweater": 48.9088453535,
+  "watch": 657.605377432
+}'
+
+means = '{
+  "coffee maker": 117.7356754496,
+  "headphones": 119.9895196507,
+  "laptop": 1221.8962172648,
+  "sweater": 83.0482352941,
+  "watch": 722.592738753
+}'
+print(cbind(mean=fromJSON(means), sd=fromJSON(sds)))
+```
+
+## Results
+
+There were 120 participants.
+
+```{r, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
+d0 = read.csv('../data/experiment7.csv') %>%
+  rename(questions=Answer.questions,
+         language=Answer.language,
+         age=Answer.age,
+         comments=Answer.comments,
+         phrasing=Answer.phrasing) %>%
+  mutate(language = factor(sub('"', '', sub('"', '', char(language))))) %>%
+  select(workerid, questions, language, age, comments, phrasing)
+
+# ### at this point, could exclude particpants whose native language was not english:
+# d0 = d0 %>% filter(language %in% c('english', 'English', 'English+', 'ENGLISH'))
+# print(unique(d0$comments))
+d0 = select(d0, workerid, questions, phrasing)
+
+questions = sapply(char(d0$questions), fromJSON)
+nqns = nrow(questions)
+nsubj = ncol(questions)
+graball = function(colname) {
+  return(unlist(sapply(1:length(questions), function(i) {
+    return((grab(colname))(questions[[i]])) }))) }
+d0 = data.frame(qNumber = graball('qNumber'),
+                qType = graball('qType'),
+                dollarAmt = graball('dollarAmt'),
+                item = graball('item'),
+                response = num(graball('response')),
+                workerid = rep(d0$workerid, rep(nqns, length(d0$workerid))),
+                phrasing = rep(d0$phrasing, rep(nqns, length(d0$phrasing)))) %>%
+  mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
+         workerid = as.factor(workerid))
+
+samplemean <- function(x, d) {
+  return(mean(x[d]))
+}
+ci = function(vals) {
+  cis = boot.ci(boot(vals, samplemean, 1000), type="bca")
+  low = cis$bca[1,4]
+  high = cis$bca[1,5]
+  return(data.frame(mean=mean(vals),
+                    ci.low=low,
+                    ci.high=high,
+                    N=length(vals)))
+}
+
+aggr = d0 %>% group_by(item, dollarAmt, qType) %>%
+#   summarise(response = mean(response)) %>%
+  do(ci(.$response)) %>%
+  rename(response=mean) %>% as.data.frame
+ggplot(aggr, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(x=dollarAmt, ymin=ci.low, ymax=ci.high), width=0) +
+  facet_grid(~ item, scale='free') +
+  scale_y_continuous(breaks = 1:9, limits=c(1, 9)) +
+  theme_few() + scale_colour_few()
+```
+
+## Model fit
+
