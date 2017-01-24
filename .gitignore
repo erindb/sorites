@@ -13,3 +13,7 @@ experiments/*/analysis/mturk
 model/justine-priors-lognormal-fit/simulation-results/commit-7d785bf97f7d54e55d28dc7a267ec68c91277f2c-run1/*
 model/justine-priors-lognormal-fit/simulation-results/commit-88c4a624297fac26b82555a114ae2c84ff5288d5/*
 model/justine-priors-lognormal-fit/simulation-results/commit-9cfefad7c02f0593d4b980046a381f2ff160ca50/*
+old-analysis/
+writeups/older-writeups
+writeups/old-analysis
+.DS_Store
