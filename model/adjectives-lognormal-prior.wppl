@@ -1,187 +1,173 @@
-var printERP = function(erp) {
-  var support = erp.support();
-  var probs = map(function(x) {return Math.exp(erp.score([], x));}, support);
-  map2(function(s, p) {
-    print(JSON.stringify(s) + ': ' + p);
-  }, support, probs);
-  return true;
-}
-var isERP = function(x){
-	return (x && (x.score != undefined) && (x.sample != undefined));
-}
-var print = function(x) {
-	if (isERP(x)) { printERP(x); } else { console.log(x); }
-	return true;
-}
+// var printERP = function(erp) {
+//   var support = erp.support();
+//   var probs = map(function(x) {return Math.exp(erp.score([], x));}, support);
+//   map2(function(s, p) {
+//     print(JSON.stringify(s) + ': ' + p);
+//   }, support, probs);
+//   return true;
+// }
+// var isERP = function(x){
+// 	return (x && (x.score != undefined) && (x.sample != undefined));
+// }
+// var print = function(x) {
+// 	if (isERP(x)) { printERP(x); } else { console.log(x); }
+// 	return true;
+// }
+
 var DEBUG = true;
-var debug = function(x) {if (DEBUG) {print(x)}}
+var debug = function(x) {if (DEBUG) {display(x)}}
+
+var warn = function(msg) { display("warning " + msg); };
+
 var directory = '3domain-bins-priors';
-
 var items = [
-'college student', 'new parent', 'New Yorker',
-'tree', 'building', 'mountain', 'coffee maker', 'watch', 'laptop'];
+	'college student', 'new parent', 'New Yorker',
+	'tree', 'building', 'mountain', 'coffee maker', 'watch', 'laptop'
+];
 
-var params = (function() {
+var priorParams = (function() {
 	var raw = simpleCSV.readCSV(directory + '/prior-params.csv');
 	return _.object(map(function(item) {
 		var data = raw.data;
 		var header = data[0];
 		var paramline = filter(function(line) {return line[0] == item}, data)[0];
-		var meanlog = global.parseFloat(paramline[indexOf('meanlog', header)]);
-		var sdlog = global.parseFloat(paramline[indexOf('sdlog', header)]);
+		var meanlog = global.parseFloat(paramline[header.indexOf('meanlog')]);
+		var sdlog = global.parseFloat(paramline[header.indexOf('sdlog')]);
 		var params = {meanlog: meanlog, sdlog: sdlog}
 		return [item, params];
 	}, items));
-})()
+})();
 
-var timestamp = Date.now();
+// var timestamp = Date.now();
+
+var meaning = function(utterance, value, theta) {
+	if (utterance=="null") {
+		return true;
+	} else if (utterance=="adjective") {
+		return value > theta;
+	} else {
+		warn("836294");
+	}
+};
+
+var utterancePriorMaker = cache(function(cost) {
+	return function() {
+		var erp = Infer({method: "enumerate"}, function() {
+			var utterance = uniformDraw(["adjective", "null"]);
+			factor(utterance=="adjective" ? -cost : 0);
+			return utterance;
+		});
+		return sample(erp);
+	};
+});
 
 ///~~~~~~item specific model follows
 
-var adjectivesModel = function(item, cost, alpha, nParticles) {
+
+var defaultInferenceOpts = {
+	listener: {method: "MCMC", samples: 100},
+	s1: {method: "MCMC", samples: 100}
+};
+
+var adjectivesModel = function(params) {
+	var item = params.item ? params.item : "";
+	var utterance = params.utterance ? params.utterance : "";
+
+	if (item=="") { warn("209384"); };
+	if (utterance=="") { warn("8723540"); };
+
+	var cost = params.cost ? params.cost : 1;
+	var alpha = params.alpha ? params.alpha : 1;
+
+	var inferenceOpts = (
+		params.inferenceOpts ?
+		params.inferenceOpts :
+		defaultInferenceOpts
+	);
+
+	var utterancePrior = utterancePriorMaker(cost);
 
 	var prior = function() {
-		var itemParams = params[item];
+		var itemParams = priorParams[item];
 		var meanlog = itemParams.meanlog;
 		var sdlog = itemParams.sdlog;
 		var samplelog = gaussian(meanlog, sdlog);
 		return Math.exp(samplelog);
-	}
+	};
 
 	var thetaPrior = function() {
-		var itemParams = params[item];
+		var itemParams = priorParams[item];
 		var meanlog = itemParams.meanlog;
 		var sdlog = itemParams.sdlog;
 		// sample theta from 4 standard deviations out
 		return uniform(0, Math.exp(meanlog + 2*sdlog));
-	}
-
-	// a function for dealling with assertion errors when an ERP has a condition
-	// that can never be met.
-	var CheckedInfer = function(thunk, inferenceFn) {
-		var erp = inferenceFn(thunk);
-		var support = erp.support();
-		var possible = any(function(s) {return s.factor != -Infinity}, support);
-		if (possible) {
-			return Enumerate(function() {
-				var s = sample(erp, []);
-				factor(s.factor);
-				return s.result;
-			});
-		} else {
-			return 'impossible';
-		}
-	}
-	var CheckedEnumerate = function(thunk) {return CheckedInfer(thunk, function(thunk) {return Enumerate(thunk);})}
-	var CheckedParticles = function(thunk) {return CheckedInfer(thunk, function(thunk) {return ParticleFilter(thunk, nParticles)})}
-
-	// literal listener has meaning function for adjective. otherwise true.
-	var literalERP = cache(function(utterance, inheritedTheta) {
-		return CheckedParticles(function() {
-			var literalPrice = prior();
-			return {
-				result: literalPrice,
-				factor: utterance=='adj' ? ( literalPrice>=inheritedTheta ? 0 : -Infinity) : 0
-			};
-		});
-	});
-
-	// utterance prior depends on cost. softmax.
-	var utterancePrior = function() {
-		var costs = [cost, 0];
-		var probs = map(function(C) {return Math.exp(-C);}, costs);
-		return categorical(probs, ['adj', 'null']);
 	};
 
-	var speakerERP = cache(function(speakerPrice, speakerInheritedTheta) {
-		return CheckedEnumerate(function() {
+	var literal = function(utterance, theta) {
+		return function() {
+			var value = prior();
+			condition(meaning(utterance, value, theta));
+			return value;
+		};
+	};
+	var literalERP = function(utterance, theta, inferenceOpts) {
+		if (inferenceOpts.literal) {
+			return Infer(
+				inferenceOpts.literal,
+				literal(utterance, theta)
+			);
+		} else { warn(827645); }
+	};
+
+	var s1 = function(value, theta) {
+		return function() {
 			var utterance = utterancePrior();
-			var interpretation = literalERP(utterance, speakerInheritedTheta);
-			return {
-				result: utterance,
-				factor: interpretation=='impossible' ? -Infinity : -Math.abs(sample(interpretation, []) - speakerPrice)
-			};
-		});
-	});
+			// caching ERP wouldn't really help much here I think...
+			var interpretation = (literal(utterance, theta))();
+			// punish interpretations that are far from the actual value
+			factor(- Math.abs(interpretation - value));
+			return utterance;
+		};
+	};
+	var s1ERP = function(value, theta) {
+		return Infer(inferenceOpts.s1, s1(value, theta));
+	};
 
-	// listener samples both price and theta
-	var listenerERP = cache(function(utterance) {
-		return ParticleFilter(function() {
-			var price = prior();
+	var listener = function(utterance) {
+		return function () {
+			var value = prior();
 			var theta = thetaPrior();
-			var utteranceChoice = speakerERP(price, theta);
-			// debug('utteranceChoice:');
-			// debug(0.001*alpha*utteranceChoice.score([], utterance));
-			condition(utterance != 'impossible');
-			factor( alpha*utteranceChoice.score([], utterance) );
-			return {price: price, theta: theta}
-		}, nParticles);
-	});
+			var descriptionERP = s1ERP(value, theta);
 
+			// punish worlds where the speaker would have been unlikely
+			// to say the given utterance.
+			var descriptionFactor = descriptionERP.score(utterance);
+			factor( descriptionFactor );
+			return {
+				item: item,
+				cost: cost,
+				utterance: utterance,
+				alpha: alpha,
+				value: value,
+				theta: theta
+			};
+		};
+	};
 
-	// testing different parts:
+	return listener(utterance);
+};
 
-	// print(ParticleFilter(prior, nParticles));
-
-	// print('theta=0');
-	// print(literalERP('adj', 0));
-	// print('theta=40');
-	// print(literalERP('adj', 40));
-	// print('theta=1000');
-	// print(literalERP('adj', 1000));
-	// print('no utt');
-	// print(literalERP('null', 0));
-
-	// print(utterancePriorERP);
-
-	// print('theta=0');
-	// print(speakerERP(50, 0));
-	// print('theta=40');
-	// print(speakerERP(50, 40));
-	// print('theta=1000');
-	// print(speakerERP(50, 1000));
-
-	// // print(ParticleFilter(thetaPrior, nParticles));
-	// var printAndRunTheta = function(theta){
-	// 	print('theta = ' + theta);
-	// 	print(literalERP('adj', theta));
-	// }
-
-	var result = listenerERP('adj');
-	console.log("writing " + item + ": "
-		+ "cost" + cost
-		+ "-alpha" + alpha
-		+ "-nParticles" + nParticles);
-
-	if (result == 'impossible') {return true}
-
-	// write to csv
-	var model_output = {
-		"data" : map(function(res) {
-			var price = res.price;
-			var theta = res.theta;
-			var score = result.score([], res);
-			var probability = Math.exp(score);
-			return [item, cost, price, theta, score, probability, alpha];
-		}, result.support())
-	}
-	simpleCSV.writeCSV(model_output, directory + "/simulation-results/" +
-		timestamp + "-" + item + "-cost" + cost  + "-alpha" + alpha
-		+ "-nParticles" + nParticles + ".csv");
-	return true;
-}
-
-var nParticles = 100;
-map(function(cost) {
-	map(function(alpha) {
-		map(function(item) {
-			console.log("running " + item + ": " + "cost" + cost + "-alpha" + alpha +
-				"-nParticles" + nParticles);
-			adjectivesModel(item, cost, alpha, nParticles);
-			return true;
-		}, items);
-		return true;
-	}, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-}, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+// var results = Infer(
+// 	defaultInferenceOpts.listener,
+// 	adjectivesModel({
+// 		item: "coffee maker",
+// 		utterance: "adjective",
+// 		inferenceOpts: {
+// 			listener: {method: "MCMC", samples: 100},
+// 			s1: {method: "MCMC", samples: 100}
+// 		}
+// 	})
+// );
+// display(results);
 
 "finished";
