@@ -124,14 +124,23 @@ Empirical Priors and Posteriors
 We normalize each participants response to each item to get an estimate of their discrete probability distribution for that item.
 
 ```{r, echo=F, message=F, warning=F}
+# for bootstrapping 95% confidence intervals
+theta <- function(x,xdata) {mean(xdata[x])}
+ci.low <- function(x) {
+  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.025)}
+ci.high <- function(x) {
+  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.975)}
+
 d2c = group_by(d2c, workerid, item) %>%
   mutate(normed.responses = responses / sum(responses)) %>% as.data.frame
-aggrd2c = d2c %>% group_by(domain, item, lowers, condition) %>%
-  do(ci(.$normed.response)) %>%
-  rename(normed.responses=mean) %>% as.data.frame
+aggrd2c = d2c %>% group_by(domain, item, uppers, lowers, condition) %>%
+  summarise(low = ci.low(normed.responses),
+            high = ci.high(normed.responses),
+            normed.responses = mean(normed.responses)) %>%
+  as.data.frame
 ggplot(aggrd2c, aes(x=lowers, y=normed.responses, colour=condition, fill=condition)) +
   geom_line() +
-  geom_ribbon(aes(ymin=ci.low,ymax=ci.high),alpha=0.5,lwd=0) +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
   facet_wrap(~ item, scale='free') +
   theme_few() + scale_colour_few() + scale_fill_few()
 ```
@@ -145,7 +154,8 @@ eps = 0.00001
 fit.priors = aggrd2c %>% filter(condition == 'prior') %>%
   group_by(item) %>%
   ddply(., .(item), function(df) {
-    x = df$lowers
+    df$uppers = ifelse(is.na(df$uppers), df$lowers, df$uppers)
+    x = (df$lowers + df$uppers) / 2
     r = df$normed.response
     logx = log(x)
     mode = x[r == max(r)][[1]] + eps
@@ -173,6 +183,7 @@ fit.priors = aggrd2c %>% filter(condition == 'prior') %>%
     return(new_df) })
 
 fit.priors = fit.priors %>% rename(meanlog=mu, sdlog=sig)
+write.csv(fit.priors, "../model/3domain-bins-priors/prior-params.csv", row.names=F)
 
 aggrd2c.priors = aggrd2c %>% filter(condition == 'prior') %>%
   mutate(lognormal.responses = mapply(function(l, i) {
@@ -184,19 +195,17 @@ aggrd2c.priors = aggrd2c %>% filter(condition == 'prior') %>%
   rename(data.responses = normed.responses) %>%
   as.data.frame
 
-aggrd2c.priors %>% gather('source', 'probability', c(5,9)) %>%
+aggrd2c.priors %>% gather('source', 'probability', c(data.responses, lognormal.responses)) %>%
   mutate(source = factor(source,
                          levels=c('data.responses', 'lognormal.responses'),
                          labels=c('data', 'lognormal fit')),
-         ci.low = ifelse(source=='data', ci.low, NA),
-         ci.high = ifelse(source=='data', ci.high, NA)) %>%
+         low = ifelse(source=='data', low, NA),
+         high = ifelse(source=='data', high, NA)) %>%
   ggplot(., aes(x=lowers, y=probability, colour=source, fill=source)) +
   geom_line() +
-  geom_ribbon(aes(ymin=ci.low,ymax=ci.high),alpha=0.5,lwd=0) +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
   facet_wrap(~ item, scale='free') +
   theme_few() + scale_colour_few() + scale_fill_few()
-
-
 ```
 
 We plug the best-fit log-normal parameters into the adjectives model as the priors for the items.
@@ -210,6 +219,7 @@ print(fit.priors %>% mutate(max=sapply(item, get.max),
                             step=sapply(item, get.step)))
 ```
 
+<!--
 Adjectives Model vs. Empirical Posterior
 ----------------------------------------
 
@@ -238,3 +248,4 @@ We also get predictions from this model for sorites, though we have no experimen
 ```{r, echo=F, message=F, warning=F}
 ## graph sorites predictions
 ```
+-->
