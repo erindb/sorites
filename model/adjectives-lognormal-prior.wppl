@@ -117,7 +117,7 @@ var adjectivesModel = function(params) {
 			// caching ERP wouldn't really help much here I think...
 			var interpretation = (literal(utterance, theta))();
 			// punish interpretations that are far from the actual value
-			factor(- Math.abs(interpretation - value));
+			factor(- Math.abs(interpretation - value) * alpha);
 			return utterance;
 		};
 	};
