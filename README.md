@@ -30,8 +30,9 @@ We actually do all of this in the domain of prices.
 	- Experiment 6 prior elicitation has all 5 items, but only 10 Ss.
 	- Experiment 9 prior elicitation has only 3 items, but 36 Ss.
 * Final sorites experiments: Experiments 10 and 11
-	- Experiment 10 uses a relative clause ("A laptop that costs...")
-	- Experiment 11 uses a conditional statement ("If a laptop costs...")
+	- Experiment 10 uses a conditional statement for the inductive premise ("If a laptop is expensive, then another laptop that costs $E less is also expensive.")
+	- Experiment 11 uses a relative clause for the inductive premise ("A laptop that costs $E less than an expensive laptop is also expensive.")
+	- Both experiments used relative clauses for the concrete premise ("A laptop that costs $V is expensive.")
 
 # All Experiments
 
