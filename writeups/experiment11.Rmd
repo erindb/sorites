@@ -7,6 +7,15 @@ output:
     toc_depth: 3
 ---
 
+```{r global_options, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(
+  echo=F, warning=F, #cache=T, 
+  message=F, #sanitiz =T, 
+  fig.width = 5, fig.height = 3)
+```
+
+
 ```{r load libraries, echo=F, message=F, warning=F}
 library(rjson)
 library(fitdistrplus)
@@ -88,4 +97,120 @@ ggplot(aggr, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
   theme_few() + scale_colour_few()
 ```
 
-## Model fit
+## Model fit (using Expt 9 priors)
+
+```{r}
+library(rwebppl)
+library(tidyr)
+library(dplyr)
+# for bootstrapping 95% confidence intervals
+theta <- function(x,xdata) {mean(xdata[x])}
+ci.low <- function(x) {
+  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.025)}
+ci.high <- function(x) {
+  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.975)}
+```
+
+```{r}
+alpha = 5
+cost = 6
+priors_dir = "3domain-bins-priors"
+model_commit = "315b4"
+samples = 1000
+
+if(priors_dir=="3domain-bins-priors") {
+  relevant_items = c("laptop", "coffee maker", "watch")
+} else {
+  relevant_items = char(unique(d0$item))
+}    
+
+# adjectivesModel = function(listenerSamples, s1Samples) {
+#   return(function(item){
+#     rs = webppl(program_file = "adjectives-lognormal-prior.wppl",
+#                 model_var = paste("adjectivesModel({",
+#                                   "item: '", item, "', ",
+#                                   "utterance: 'adjective', ",
+#                                   "alpha: ", alpha, ",",
+#                                   "cost: ", cost, ",",
+#                                   "priors_dir: '", priors_dir, "',",
+#                                   "inferenceOpts: {",
+#                                   "listener: {method: 'MCMC', samples: ",
+#                                   listenerSamples, "}, ",
+#                                   "s1: {method: 'MCMC', samples: ",
+#                                   s1Samples, "}}})", sep=""),
+#                 inference_opts = list(method="MCMC", samples=listenerSamples),
+#                 packages = c("node_modules/simpleCSV",
+#                              "node_modules/babyparse"))
+#     return(rs)
+#   })
+# }
+# 
+# setwd("../model")
+# model_results = do.call(rbind,
+#                         lapply(relevant_items,
+#                                adjectivesModel(samples, samples)))
+# setwd("../writeups/")
+# 
+# # write.csv(model_results,
+# #           paste("../model/", priors_dir, "/",
+# #                 "simulation-results/",
+# #                 "model_results_alpha", alpha,
+# #                 "_cost", cost,
+# #                 "_", priors_dir,
+# #                 samples/1000,
+# #                 "K_",
+# #                 model_commit, sep=""),
+# #           row.names=F)
+model_results = read.csv(paste("../model/", priors_dir, "/",
+                               "simulation-results/",
+                               "model_results_alpha", alpha,
+                               "_cost", cost,
+                               "_", priors_dir,
+                               samples/1000,
+                               "K_",
+                               model_commit, sep=""))
+```
+
+```{r}
+inductive = function(this_item, this_epsilon) {
+  inductive_prob = sum((model_results %>% filter(item==this_item) %>%
+                          mutate(new_item_cost = value - this_epsilon,
+                                 inductive_true = new_item_cost > theta) %>%
+                          filter(inductive_true))$prob)
+  return(inductive_prob)
+}
+
+concrete = function(this_item, this_value) {
+  concrete_prob = sum((model_results %>% filter(item==this_item) %>%
+                         mutate(concrete_true = this_value > theta) %>%
+                         filter(concrete_true))$prob)
+  return(concrete_prob)
+}
+```
+
+```{r}
+modelvdata = d0 %>%
+  filter(item %in% relevant_items) %>%
+  mutate(item = factor(item)) %>%
+  mutate(model = ifelse(qType=="inductive",
+                        mapply(inductive, item, dollarAmt),
+                        mapply(concrete, item, dollarAmt)))
+```
+
+```{r}
+modelvdata %>%
+  mutate(human = (response-1)/8) %>%
+  gather("source", "rating", c(human, model)) %>%
+  group_by(phrasing, source, item, qType, dollarAmt) %>%
+  summarise(low = ci.low(rating),
+            high = ci.high(rating),
+            rating = mean(rating)) %>%
+  as.data.frame() %>%
+  ggplot(., aes(x=dollarAmt, y=rating, linetype=source, colour=item)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(x=dollarAmt, ymin=low, ymax=high), width=0) +
+  scale_colour_brewer(type="qual", palette = 2) +
+  facet_grid(qType ~ item, scale="free") +
+  ylim(0,1)
+```
