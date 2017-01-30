@@ -24,7 +24,12 @@ We actually do all of this in the domain of prices.
 * **`paper`**: Draft of the paper for this project
 * **`writeups`**: Brief .Rmd summaries and graphs for each experiment. These contain more details about the design of experiments.
 
-# Experiments
+# Main Experiments
+
+* Priors: Actual source of prior data...
+* Final sorites experiments: Experiments 10 and 11
+
+# All Experiments
 
 * Pilot experiments
 	* Experiment 0: sorites premises where the dollar amounts were not etreme enough to get a variety of judgments
