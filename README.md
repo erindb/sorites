@@ -26,8 +26,12 @@ We actually do all of this in the domain of prices.
 
 # Main Experiments
 
-* Priors: Actual source of prior data...
+* Priors: Actual source of prior data: Experiment 9 (or Experiment 6?)
+	- Experiment 6 prior elicitation has all 5 items, but only 10 Ss.
+	- Experiment 9 prior elicitation has only 3 items, but 36 Ss.
 * Final sorites experiments: Experiments 10 and 11
+	- Experiment 10 uses a relative clause ("A laptop that costs...")
+	- Experiment 11 uses a conditional statement ("If a laptop costs...")
 
 # All Experiments
 
