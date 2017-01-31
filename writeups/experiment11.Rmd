@@ -50,27 +50,27 @@ For each of the 5 items, there were 5 possible concrete premise sentences and 5 
 There were 30 participants.
 
 ```{r, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
-# d0 = read.csv('../data/experiment10.csv') %>%
-#   rename(questions=Answer.responses) %>%
-#   select(workerid, questions)
-# 
-# questions = sapply(char(d0$questions), fromJSON)
-# n0 = length(questions)
-# nqns = nrow(questions)
-# nsubj = ncol(questions)
-# graball = function(colname) {
-#   return(unlist(sapply(1:n0, function(i) {
-#     return((grab(colname))(questions[[i]])) }))) }
-# d0 = data.frame(qType = graball('qtype'),
-#                 item = graball('object'),
-#                 dollarAmt = graball('dollar_amount'),
-#                 phrasing = graball('phrasing'),
-#                 response = graball('response'),
-#                 workerid = rep(d0$workerid, rep(nqns, length(d0$workerid)))) %>%
-#   mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
-#          response = as.integer(response),
-#          workerid = as.factor(workerid))
-# 
+d0 = read.csv('../data/experiment11.csv') %>%
+  rename(questions=Answer.responses)
+d0 = d0[,c("workerid", "questions")]
+
+questions = sapply(char(d0$questions), fromJSON)
+n0 = length(questions)
+nqns = nrow(questions)
+nsubj = ncol(questions)
+graball = function(colname) {
+  return(unlist(sapply(1:n0, function(i) {
+    return((grab(colname))(questions[[i]])) }))) }
+d0 = data.frame(qType = graball('qtype'),
+                item = graball('object'),
+                dollarAmt = graball('dollar_amount'),
+                phrasing = graball('phrasing'),
+                response = graball('response'),
+                workerid = rep(d0$workerid, rep(nqns, length(d0$workerid)))) %>%
+  mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
+         response = as.integer(response),
+         workerid = as.factor(workerid))
+
 samplemean <- function(x, d) {
   return(mean(x[d]))
 }
@@ -83,7 +83,7 @@ ci = function(vals) {
                     ci.high=high,
                     N=length(vals)))
 }
-# # write.csv(d0, "../data/experiment11-processed.csv", row.names = F)
+write.csv(d0, "../data/experiment11-processed.csv", row.names = F)
 d0 = read.csv("../data/experiment11-processed.csv")
 
 aggr = d0 %>% group_by(item, dollarAmt, qType) %>%

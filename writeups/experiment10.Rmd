@@ -76,53 +76,53 @@ The inductive premise used the conditional statement phrasing.
 There were 30 participants.
 
 ```{r, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
-# d0 = read.csv('../data/experiment10.csv') %>%
-#   rename(questions=Answer.responses)
-# d0 = d0[,c("workerid", "questions")]
-# 
-# questions = sapply(char(d0$questions), fromJSON)
-# n0 = length(questions)
-# nqns = nrow(questions)
-# nsubj = ncol(questions)
-# graball = function(colname) {
-#   return(unlist(sapply(1:n0, function(i) {
-#     return((grab(colname))(questions[[i]])) }))) }
-# d0 = data.frame(qType = graball('qtype'),
-#                 item = graball('object'),
-#                 dollarAmt = graball('dollar_amount'),
-#                 phrasing = graball('phrasing'),
-#                 response = graball('response'),
-#                 workerid = rep(d0$workerid, rep(nqns, length(d0$workerid)))) %>%
-#   mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
-#          response = as.integer(response),
-#          workerid = as.factor(workerid))
-# 
-# samplemean <- function(x, d) {
-#   return(mean(x[d]))
-# }
-# ci = function(vals) {
-#   cis = boot.ci(boot(vals, samplemean, 1000), type="bca")
-#   low = cis$bca[1,4]
-#   high = cis$bca[1,5]
-#   return(data.frame(mean=mean(vals),
-#                     ci.low=low,
-#                     ci.high=high,
-#                     N=length(vals)))
-# }
-# 
-# aggr = d0 %>% group_by(item, dollarAmt, qType) %>%
-# #   summarise(response = mean(response)) %>%
-#   do(ci(.$response)) %>%
-#   rename(response=mean) %>% as.data.frame
-# ggplot(aggr, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
-#   geom_point() +
-#   geom_line() +
-#   geom_errorbar(aes(x=dollarAmt, ymin=ci.low, ymax=ci.high), width=0) +
-#   facet_grid(~ item, scale='free') +
-#   scale_y_continuous(breaks = 1:9, limits=c(1, 9)) +
-#   theme_few() + scale_colour_few()
-# # write.csv(d0, "../data/experiment10-processed.csv", row.names=F)
-d0 = read.csv("../data/experiment10-processed.csv")
+d0 = read.csv('../data/experiment10.csv') %>%
+  rename(questions=Answer.responses)
+d0 = d0[,c("workerid", "questions")]
+
+questions = sapply(char(d0$questions), fromJSON)
+n0 = length(questions)
+nqns = nrow(questions)
+nsubj = ncol(questions)
+graball = function(colname) {
+  return(unlist(sapply(1:n0, function(i) {
+    return((grab(colname))(questions[[i]])) }))) }
+d0 = data.frame(qType = graball('qtype'),
+                item = graball('object'),
+                dollarAmt = graball('dollar_amount'),
+                phrasing = graball('phrasing'),
+                response = graball('response'),
+                workerid = rep(d0$workerid, rep(nqns, length(d0$workerid)))) %>%
+  mutate(dollarAmt = as.numeric(sub('\\$','',as.character(dollarAmt))),
+         response = as.integer(response),
+         workerid = as.factor(workerid))
+
+samplemean <- function(x, d) {
+  return(mean(x[d]))
+}
+ci = function(vals) {
+  cis = boot.ci(boot(vals, samplemean, 1000), type="bca")
+  low = cis$bca[1,4]
+  high = cis$bca[1,5]
+  return(data.frame(mean=mean(vals),
+                    ci.low=low,
+                    ci.high=high,
+                    N=length(vals)))
+}
+write.csv(d0, "../data/experiment10-processed.csv", row.names=F)
+
+# d0 = read.csv("../data/experiment10-processed.csv")
+aggr = d0 %>% group_by(item, dollarAmt, qType) %>%
+#   summarise(response = mean(response)) %>%
+  do(ci(.$response)) %>%
+  rename(response=mean) %>% as.data.frame
+ggplot(aggr, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(x=dollarAmt, ymin=ci.low, ymax=ci.high), width=0) +
+  facet_grid(~ item, scale='free') +
+  scale_y_continuous(breaks = 1:9, limits=c(1, 9)) +
+  theme_few() + scale_colour_few()
 ```
 
 ## Model fit (using Expt 9 priors)
