@@ -7,6 +7,15 @@ output:
     toc_depth: 3
 ---
 
+```{r global_options, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(
+  echo=F, warning=F, #cache=T, 
+  message=F, #sanitiz =T, 
+  fig.width = 5, fig.height = 3)
+```
+
+
 ```{r load libraries, echo=F, message=F, warning=F}
 library(rjson)
 library(fitdistrplus)
@@ -51,53 +60,55 @@ This was the fourth binned prior elicitation experiment that I worked on, which 
 There were 30 participants in this version, 10 in the prior condition and 20 in the posterior condition
 
 ```{r load data, echo=F, warning=F, message=F}
-## combine two data files together:
-d0.raw = read.csv('../data/experiment5-and-experiment6.csv') %>%
-  filter(workerid >= 10) %>%
-  mutate(condition = ifelse(workerid < 20, 'prior', 'posterior')) %>%
-  mutate(workerid = factor(workerid)) %>%
-  rename(language=Answer.language,
-         age=Answer.age,
-         comments=Answer.comments) %>%
-  mutate(language = factor(sub('"', '', sub('"', '', char(language))))) %>%
-  select(workerid, Answer.0,
-         Answer.1, Answer.2,
-         Answer.3, Answer.4, condition) %>%
-  gather('qnumber', 'question.data', 2:6) %>%
-  mutate(qnumber = sapply(.$qnumber, function(q) {return(substring(q, 8))}),
-         qnumber = num(qnumber),
-         qtype = ifelse(qnumber < 5, 'bins', 'max'))
-         
-## extract lame data collection into long form
-d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
-  question.data = fromJSON(d0.raw[i, 'question.data'])
-  qtype = d0.raw[i, 'qtype']
-  if (qtype == 'bins') {
-    workerid = d0.raw[i, 'workerid']
-    qnumber = d0.raw[i, 'qnumber']
-    condition = d0.raw[i, 'condition']
-    item = question.data$item
-    response = question.data$responses
-    lower = question.data$lowers
-    upper = unname(unlist(question.data$uppers))
-  } else {
-    workerid = d0.raw[i, 'workerid']
-    qnumber = d0.raw[i, 'qnumber']
-    condition = d0.raw[i, 'condition']
-    item = question.data$item
-    response = question.data$response
-    lower = NA
-    upper = NA
-  }
-  return(data.frame(workerid=workerid,
-                    qnumber=qnumber,
-                    qtype=qtype,
-                    condition = condition,
-                    item=item,
-                    response=response,
-                    lower=lower,
-                    upper=upper))
-}), rbind)
+# ## combine two data files together:
+# d0.raw = read.csv('../data/experiment5-and-experiment6.csv') %>%
+#   filter(workerid >= 10) %>%
+#   mutate(condition = ifelse(workerid < 20, 'prior', 'posterior')) %>%
+#   mutate(workerid = factor(workerid)) %>%
+#   rename(language=Answer.language,
+#          age=Answer.age,
+#          comments=Answer.comments) %>%
+#   mutate(language = factor(sub('"', '', sub('"', '', char(language))))) %>%
+#   select(workerid, Answer.0,
+#          Answer.1, Answer.2,
+#          Answer.3, Answer.4, condition) %>%
+#   gather('qnumber', 'question.data', 2:6) %>%
+#   mutate(qnumber = sapply(.$qnumber, function(q) {return(substring(q, 8))}),
+#          qnumber = num(qnumber),
+#          qtype = ifelse(qnumber < 5, 'bins', 'max'))
+#          
+# ## extract lame data collection into long form
+# d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
+#   question.data = fromJSON(d0.raw[i, 'question.data'])
+#   qtype = d0.raw[i, 'qtype']
+#   if (qtype == 'bins') {
+#     workerid = d0.raw[i, 'workerid']
+#     qnumber = d0.raw[i, 'qnumber']
+#     condition = d0.raw[i, 'condition']
+#     item = question.data$item
+#     response = question.data$responses
+#     lower = question.data$lowers
+#     upper = unname(unlist(question.data$uppers))
+#   } else {
+#     workerid = d0.raw[i, 'workerid']
+#     qnumber = d0.raw[i, 'qnumber']
+#     condition = d0.raw[i, 'condition']
+#     item = question.data$item
+#     response = question.data$response
+#     lower = NA
+#     upper = NA
+#   }
+#   return(data.frame(workerid=workerid,
+#                     qnumber=qnumber,
+#                     qtype=qtype,
+#                     condition = condition,
+#                     item=item,
+#                     response=response,
+#                     lower=lower,
+#                     upper=upper))
+# }), rbind)
+# # write.csv(d0, "../data/experiment6-processed.csv", row.names=F)
+d0 = read.csv("../data/experiment6-processed.csv")
 ```
 
 ## Results
@@ -129,6 +140,3 @@ aggr %>% group_by(item) %>% filter(condition=='prior') %>%
   as.data.frame
 ```
 
-```{r plotmax, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
-## plot max
-```

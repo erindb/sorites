@@ -1,0 +1,403 @@
+---
+title: "Sorites"
+output:
+  pdf_document:
+    toc: true
+    highlight: zenburn
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(
+  echo=F, warning=F, #cache=T, 
+  message=F, #sanitiz =T, 
+  fig.width = 5, fig.height = 3)
+```
+
+```{r load libraries, echo=F, message=F, warning=F}
+library(plyr)
+source("~/Settings/startup.R")
+```
+
+## Description of experiments
+
+### Prior elicitations
+
+After many pilot experiments, we found a set of lower and upper bounds for the bins in a binned histogram elicitation experiment. It took a lot of tries, because we needed detailed, accurated information about the shape of the distributions in the *tails* of the distribution. The sorites premises condition on expensive items, and so we need to know about the upper tails of the distributions.
+
+For each item, we choose a maximum price to ask about, and a step-size -- the width of the bins.
+
+  item       |   max price   |   step-size
+-------------|---------------|--------------
+watch        |  3000         |  50
+laptop       |  2500         |  50
+coffee maker |  270          |  4
+sweater      |  240          |  6
+headphones   |  330          |  3
+
+For each of these prior elcitation experiments, we asked participants to move sliders to represent their estimate of the likelihood that the prices of various items would fall within the given ranges.
+
+```{r}
+fit.lognorm.params = function(midpoints, responses) {
+  x = midpoints
+  r = responses
+  logx = log(x)
+  
+  ## pick a first guess
+  mode = x[r == max(r)][[1]] + eps
+  logmode = log(mode)
+      
+  f <- function(par) {
+    m <- par[1]
+    sig <- par[2]
+    k <- par[3]
+    rhat <- k * exp(-0.5 * ((logx - m)/sig)^2)
+    sum((r - rhat/sum(rhat))^2)
+  }
+  
+  fit = optim(c(logmode, 1, 1), f, method="BFGS", control=list(reltol=1e-9))
+  
+  par = fit$par
+  m <- 
+    sig <- par[2]
+  k <- par[3]
+  
+  return(paste(par[1], par[2], sep=" "))
+}
+fit.my.lognorm = function(mydataframe) {
+  rs = mydataframe %>% 
+    group_by(item) %>%
+    summarise(params = fit.lognorm.params(midpoint, response)) %>%
+    separate(params, c("mu", "sig"), sep=" ") %>%
+    mutate(meanlog = num(mu), sdlog = num(sig)) %>%
+    select(-mu, -sig) %>%
+    as.data.frame
+  return(rs)
+}
+```
+
+#### 5 items, 10 Ss
+
+A copy of the experiment can be found at: [`experiments/experiment6-conditionA/morebins.html`](../experiments/experiment6-conditionA/morebins.html).
+
+```{r}
+d6 = read.csv("../data/experiment6-processed.csv") %>%
+  filter(condition=="prior") %>%
+  select(workerid, item, lower, upper, response) %>%
+  mutate(lower = num(lower), upper = num(upper))
+```
+
+Here are the average responses, without rescaling each participants' responses:
+
+```{r}
+d6 %>%
+  mutate(midpoint = (upper + lower) / 2,
+         midpoint = ifelse(is.na(midpoint), lower, midpoint)) %>%
+  group_by(midpoint, item) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response)) %>%
+  ggplot(., aes(x=midpoint, y=response, colour=item, fill=item)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
+  facet_grid(~item, scale="free") +
+  scale_fill_brewer(type="qual", palette = 2) +
+  scale_colour_brewer(type="qual", palette = 2)
+```
+
+Because we are trying to get a probability distribution from each participant, we rescale so that each participant's responses for a particular item sum to one.
+
+```{r}
+aggr.d6 = d6 %>%
+  mutate(midpoint = (upper + lower) / 2,
+         midpoint = ifelse(is.na(midpoint), lower, midpoint)) %>%
+  group_by(item, workerid) %>%
+  mutate(response = response / sum(response)) %>%
+  ungroup %>%
+  group_by(midpoint, item) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response)) %>%
+  as.data.frame
+aggr.d6 %>%
+  ggplot(., aes(x=midpoint, y=response, colour=item, fill=item)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
+  facet_grid(~item, scale="free") +
+  scale_fill_brewer(type="qual", palette = 2) +
+  scale_colour_brewer(type="qual", palette = 2)
+```
+
+These rescaled and then averaged values, along with the midpoint of the bins, is what we use to fit the parameters of a lognormal distribution.
+
+```{r, echo=F, message=F, warning=F}
+eps = 0.00001
+fit.priors.6 = fit.my.lognorm(aggr.d6)
+
+loadNamespace("tidyr")
+# write.csv(fit.priors.6, "../model/5item-bins/prior-params.csv")
+
+aggr.d6 %>%
+  mutate(lognormal.responses = mapply(function(l, i) {
+    meanlog = fit.priors.6[fit.priors.6$item==i, 'meanlog']
+    sdlog = fit.priors.6[fit.priors.6$item==i, 'sdlog']
+    return(dnorm(log(l), meanlog, sdlog))}, midpoint, item)) %>%
+  group_by(item) %>%
+  mutate(lognormal.responses = lognormal.responses/sum(lognormal.responses)) %>%
+  rename(data.responses = response) %>%
+  as.data.frame %>%
+  gather('source', 'probability', c(data.responses, lognormal.responses)) %>%
+  mutate(source = factor(source,
+                         levels=c('data.responses', 'lognormal.responses'),
+                         labels=c('data', 'lognormal fit')),
+         low = ifelse(source=='data', low, NA),
+         high = ifelse(source=='data', high, NA)) %>%
+  ggplot(., aes(x=midpoint, y=probability, colour=source, fill=source)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
+  facet_grid(~ item, scale='free') +
+  theme_few() + scale_colour_few() + scale_fill_few()
+```
+
+#### 3 items, 36 Ss
+
+A copy of the experiment can be found at: [`experiments/experiment9/morebins.html`](../experiments/experiment9/morebins.html).
+
+```{r}
+loadNamespace("tidyr")
+d9 = read.csv("../data/experiment9-processed.csv") %>%
+  mutate(workerid = workerid + length(unique(d6$workerid))) %>%
+  filter(condition=="prior") %>%
+  rename(lower = lowers, upper = uppers, response = responses) %>%
+  filter(domain=="price") %>%
+  select(-domain, -condition) %>%
+  mutate(lower = num(lower), upper = num(upper),
+         item = factor(char(item)))
+```
+
+Here are the average responses, without rescaling each participants' responses:
+
+```{r}
+d9 %>%
+  mutate(midpoint = (upper + lower) / 2,
+         midpoint = ifelse(is.na(midpoint), lower, midpoint)) %>%
+  group_by(midpoint, item) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response)) %>%
+  ggplot(., aes(x=midpoint, y=response, colour=item, fill=item)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
+  facet_grid(~item, scale="free") +
+  scale_fill_brewer(type="qual", palette = 2) +
+  scale_colour_brewer(type="qual", palette = 2)
+```
+
+Because we are trying to get a probability distribution from each participant, we rescale so that each participant's responses for a particular item sum to one.
+
+```{r}
+aggr.d9 = d9 %>%
+  mutate(midpoint = (upper + lower) / 2,
+         midpoint = ifelse(is.na(midpoint), lower, midpoint)) %>%
+  group_by(item, workerid) %>%
+  mutate(response = response / sum(response)) %>%
+  ungroup %>%
+  group_by(midpoint, item) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response))
+aggr.d9 %>%
+  ggplot(., aes(x=midpoint, y=response, colour=item, fill=item)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
+  facet_grid(~item, scale="free") +
+  scale_fill_brewer(type="qual", palette = 2) +
+  scale_colour_brewer(type="qual", palette = 2)
+```
+
+These rescaled and then averaged values, along with the midpoint of the bins, is what we use to fit the parameters of a lognormal distribution.
+
+```{r, echo=F, message=F, warning=F}
+eps = 0.00001
+fit.priors.9 = fit.my.lognorm(aggr.d9)
+
+loadNamespace("tidyr")
+
+aggr.d9 %>%
+  mutate(lognormal.responses = mapply(function(l, i) {
+    meanlog = fit.priors.9[fit.priors.9$item==i, 'meanlog']
+    sdlog = fit.priors.9[fit.priors.9$item==i, 'sdlog']
+    return(dnorm(log(l), meanlog, sdlog))}, midpoint, item)) %>%
+  group_by(item) %>%
+  mutate(lognormal.responses = lognormal.responses/sum(lognormal.responses)) %>%
+  rename(data.responses = response) %>%
+  as.data.frame %>%
+  gather('source', 'probability', c(data.responses, lognormal.responses)) %>%
+  mutate(source = factor(source,
+                         levels=c('data.responses', 'lognormal.responses'),
+                         labels=c('data', 'lognormal fit')),
+         low = ifelse(source=='data', low, NA),
+         high = ifelse(source=='data', high, NA)) %>%
+  ggplot(., aes(x=midpoint, y=probability, colour=source, fill=source)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=low,ymax=high),alpha=0.5,lwd=0) +
+  facet_grid(~ item, scale='free') +
+  theme_few() + scale_colour_few() + scale_fill_few()
+```
+
+#### Comparison
+
+Looking at just the items that were in both experiments, we can check if we got similar results.
+
+```{r}
+priors = aggr.d6 %>%
+  rename(experiment6 = response,
+         low6 = low,
+         high6 = high) %>%
+  filter(item %in% unique(char(aggr.d9$item))) %>%
+  as.data.frame %>%
+  merge(., aggr.d9 %>%
+          mutate(experiment9 = response,
+                 low9 = low,
+                 high9 = high) %>%
+          as.data.frame)
+priors %>% 
+  ggplot(., aes(x=experiment6, y=experiment9)) +
+  geom_abline(slope=1, intercept=0, colour="lightgray") +
+  geom_errorbar(aes(x=experiment6, ymin=low9, ymax=high9), alpha=1/10) +
+  geom_errorbarh(aes(y=experiment9, xmin=low6, xmax=high6), alpha=1/10) +
+  geom_point(alpha=1/2)
+r = cor(priors$experiment6, priors$experiment9)
+```
+
+The correlation of the probabilities derived from these experiments is r=`r r`.
+
+Converting to log-space (so we can see things at a smaller scale a little more clearly), we get the following plot:
+
+```{r}
+priors = aggr.d6 %>%
+  mutate(experiment6 = log(response),
+         low6 = log(low),
+         high6 = log(high)) %>%
+  select(-low, -high, -response) %>%
+  filter(item %in% unique(char(aggr.d9$item))) %>%
+  as.data.frame %>%
+  merge(., aggr.d9 %>%
+          mutate(experiment9 = log(response),
+                 low9 = log(low),
+                 high9 = log(high)) %>%
+          select(-low, -high, -response) %>%
+          as.data.frame)
+priors %>% 
+  ggplot(., aes(x=experiment6, y=experiment9)) +
+  geom_abline(slope=1, intercept=0, colour="lightgray") +
+  geom_errorbar(aes(x=experiment6, ymin=low9, ymax=high9), alpha=1/10) +
+  geom_errorbarh(aes(y=experiment9, xmin=low6, xmax=high6), alpha=1/10) +
+  geom_point(alpha=1/2) +
+  ylab("log of expt9 data") +
+  xlab("log of expt6 data")
+r = cor(priors$experiment6, priors$experiment9)
+```
+
+The correlation of the scores (log(probability)) derived from these experiments is r=`r r`.
+
+I think these are close enough, so I'm presenting an aggregate of the data from both experiments. Note that the three items that were in Experiment 9 have *much* more data than the other two.
+
+#### Aggregate
+
+Here's the aggregate data and fit lognormal parameters:
+
+```{r}
+loadNamespace("tidyr")
+aggr = rbind(d6, d9) %>%
+  mutate(midpoint = (lower + upper) / 2,
+         midpoint = ifelse(is.na(midpoint), lower, midpoint)) %>%
+  group_by(item, workerid) %>%
+  mutate(response = response / sum(response)) %>%
+  ungroup %>%
+  group_by(item, midpoint) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response)) %>%
+  as.data.frame
+```
+
+```{r}
+fit.priors = fit.my.lognorm(aggr)
+write.csv(fit.priors,
+          "../model/aggregate-bins-priors/prior-params.csv",
+          row.names = F)
+print(fit.priors)
+```
+
+### Sorites experiments
+
+This was a sorites premises experiment that we ran in April of 2015. The design was the same as previous sorites experiments, but we asked about a wider range of epsilons and values. Using the previous experiments as pilots, we chose epsilons and values that we thought would elicit the full range of ratings.
+
+```{r echo=F, fig.width=8, fig.height=2}
+values = '{
+  	"laptop": [350, 600, 900, 1250, 1850],
+		"watch": [100, 250, 450, 900, 2000],
+		"coffee maker": [24, 52, 84, 124, 188],
+		"sweater": [18, 36, 57, 87, 150],
+		"headphones": [24, 60, 96, 144, 234]
+	}'
+epsilons = '{
+		"laptop": [18.50, 185.0, 925.0, 1295.0, 1850],
+		"watch": [24.00, 240.0, 1200.0, 1680.0, 2400],
+		"coffee maker": [2.00, 20.0, 100.0, 140.0, 200],
+		"sweater": [1.71, 17.1, 85.5, 119.7, 171],
+		"headphones": [2.58, 25.8, 129.0, 180.6, 258]
+	}'
+sorites.ranges = rbind(
+  as.data.frame(fromJSON(values)) %>% gather('item', 'dollarAmt') %>% mutate(variable='value'),
+  as.data.frame(fromJSON(epsilons)) %>% gather('item', 'dollarAmt') %>% mutate(variable='epsilon') )
+sorites.ranges %>% ggplot(., aes(x=dollarAmt, y=variable, colour=item)) +
+  geom_point() +
+  facet_grid(~item, scale='free') +
+  theme_few() + scale_colour_few()
+```
+
+For each of the 5 items, there were 5 possible concrete premise sentences and 5 possible inductive premise sentences. So each participant rating 50 sentences.
+
+For each of these experiments (really the same experiment with 2 conditions), the concrete premise was of the form:
+
+"A laptop that costs $V is expensive."
+
+Where V could take any of the values shown above.
+
+The inductive premise varied between
+
+"If a laptop is expensive, then another laptop that costs $E less is also expensive."
+
+in the "Conditional" version (Experiment 10), and 
+
+"A laptop that costs $E less than an expensive laptop is also expensive."
+
+in the "Relative clause" version (Experiment 11), where E could be any of the epsilons shown above.
+
+#### Conditional
+
+A copy of the experiment can be found at: [`experiments/experiment10/exp3-sorites.html`](../experiments/experiment10/exp3-sorites.html).
+
+```{r}
+d10 = read.csv("../data/experiment10-processed.csv")
+```
+
+The inductive premise was of the form:
+
+"If a laptop is expensive, then another laptop that costs $E less is also expensive."
+
+#### Relative clause
+
+A copy of the experiment can be found at: [`experiments/experiment11/exp4-sorites.html`](../experiments/experiment11/exp4-sorites.html).
+
+```{r}
+d11 = read.csv("../data/experiment11-processed.csv") %>%
+  mutate(workerid = workerid+length(unique(d10$workerid)))
+```
+
+The inductive premise was of the form:
+
+"A laptop that costs $E less than an expensive laptop is also expensive."

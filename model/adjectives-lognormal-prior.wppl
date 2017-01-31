@@ -50,7 +50,9 @@ var adjectivesModel = function(params) {
 
 	var directory = params.priors_dir ? params.priors_dir : "";
 	if (!(directory=="3domain-bins-priors" ||
-		directory=="justine-priors-lognormal-fit")) {
+		directory=="justine-priors-lognormal-fit" ||
+		directory=="aggregate-bins-priors" ||
+		directory=="5item-bins")) {
 		warn("35469 -- directory=" + directory);
 	};
 

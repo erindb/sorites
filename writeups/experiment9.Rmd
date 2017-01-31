@@ -49,43 +49,45 @@ Experiment Design
 -----------------
 
 ```{r, echo=F, message=F, warning=F}
-d2c = (function() {
-  d2c = read.csv('../data/experiment9.csv') %>%
-    mutate(language = Answer.language,
-           domain = Answer.domain,
-           condition = Answer.condition,
-           comments = Answer.comments,
-           workerid = char(workerid)) %>%
-    select(language, domain, condition, workerid, Answer.0, Answer.1, Answer.2, comments)
-  
-  # ### at this point, could exclude particpants whose native language was not english:
-  # d1 = d1 %>% filter(language %in% c('Engliah', 'english', 'English', 'ENGLISH', 'Enlish))
-  
-  d2clong = mutate(d2c, q0 = char(Answer.0), q1 = char(Answer.1), q2 = char(Answer.2)) %>%
-    select(domain, condition, workerid, q0, q1, q2) %>%
-    gather('qNumber', 'question.data', 4:6)
-  
-  d2ctidy = ldply(lapply(1:nrow(d2clong), function(i) {
-    question.data = fromJSON(d2clong[i, 'question.data'])
-    return(data.frame(workerid = d2clong[i, 'workerid'],
-                      domain = d2clong[i, 'domain'],
-                      condition = d2clong[i, 'condition'],
-                      item = question.data$item,
-                      lowers = question.data$lowers,
-                      uppers = as.numeric(unlist(question.data$uppers)),
-                      responses = as.numeric(question.data$responses)))
-    }), rbind)
-  
-  d2c = d2ctidy %>%
-    mutate(domain = sub('"', '', sub('"', '', domain)),
-           domain = factor(domain),
-           condition = sub('"', '', sub('"', '', condition)),
-           condition = factor(condition),
-           item = factor(item,
-                         levels=c('college student', 'new parent', 'New Yorker',
-                                  'tree', 'building', 'mountain',
-                                  'coffee maker', 'watch', 'laptop')))
-  return(d2c) })()
+# d2c = (function() {
+#   d2c = read.csv('../data/experiment9.csv') %>%
+#     mutate(language = Answer.language,
+#            domain = Answer.domain,
+#            condition = Answer.condition,
+#            comments = Answer.comments,
+#            workerid = char(workerid)) %>%
+#     select(language, domain, condition, workerid, Answer.0, Answer.1, Answer.2, comments)
+#   
+#   # ### at this point, could exclude particpants whose native language was not english:
+#   # d1 = d1 %>% filter(language %in% c('Engliah', 'english', 'English', 'ENGLISH', 'Enlish))
+#   
+#   d2clong = mutate(d2c, q0 = char(Answer.0), q1 = char(Answer.1), q2 = char(Answer.2)) %>%
+#     select(domain, condition, workerid, q0, q1, q2) %>%
+#     gather('qNumber', 'question.data', 4:6)
+#   
+#   d2ctidy = ldply(lapply(1:nrow(d2clong), function(i) {
+#     question.data = fromJSON(d2clong[i, 'question.data'])
+#     return(data.frame(workerid = d2clong[i, 'workerid'],
+#                       domain = d2clong[i, 'domain'],
+#                       condition = d2clong[i, 'condition'],
+#                       item = question.data$item,
+#                       lowers = question.data$lowers,
+#                       uppers = as.numeric(unlist(question.data$uppers)),
+#                       responses = as.numeric(question.data$responses)))
+#     }), rbind)
+#   
+#   d2c = d2ctidy %>%
+#     mutate(domain = sub('"', '', sub('"', '', domain)),
+#            domain = factor(domain),
+#            condition = sub('"', '', sub('"', '', condition)),
+#            condition = factor(condition),
+#            item = factor(item,
+#                          levels=c('college student', 'new parent', 'New Yorker',
+#                                   'tree', 'building', 'mountain',
+#                                   'coffee maker', 'watch', 'laptop')))
+#   return(d2c) })()
+# # write.csv(d2c, "../data/experiment9-processed.csv", row.names = F)
+d2c = read.csv("../data/experiment9-processed.csv")
 ```
 
 There were 3 domains (height, price, and age) corresponding to 3 adjectives (tall, expensive, old). For each domain, there were 3 items (height: building, tree, mountain; price: watch, laptop, coffee maker; age: New Yorker, college student, new parent).
