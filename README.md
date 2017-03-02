@@ -53,4 +53,10 @@ We actually do all of this in the domain of prices.
 
 # To do
 
-Model results with Bayesian data analysis for sorites ratings in Experiments 10 and 11 based on the prior elicitation results from Experiment 9.
+Bayesian data analysis and model comparison.
+
+Alternative models:
+* quantile model
+* unlifted threshold variable
+* literal (L0) model
+* listener (L1) model
