@@ -37,7 +37,7 @@ We actually do all of this in the domain of prices.
 # All Experiments
 
 * Pilot experiments
-	* Experiment 0: sorites premises where the dollar amounts were not etreme enough to get a variety of judgments
+	* Experiment 0: sorites premises where the dollar amounts were not etreme enough to get a variety of judgments (first 30 Ss in file)
 	* Experiment 1: sorites premises with more extreme values but still not full range of ratings
 	* Experiment 2: binned free response prior experiment
 	* Experiment 3: binned sliders prior experiment with 10 bins per item
@@ -47,16 +47,25 @@ We actually do all of this in the domain of prices.
 	* Experiment 7: sorites premises experiment with new dollar amounts
 	* Experiment 8: a prior elicitation experiment where in one condition, we asked about bins individually
 * Sorites priors experiments
-	* Experiment 9: 3 domain bins prior elicitation experiment
+	* **ONE PRIOR ELICITATION EXPT** Experiment 9: 3 domain bins prior elicitation experiment
 * Sorites premises experiments
-	* Experiments 10 & 11: sorites premises experiment with full range of responses, two different ways of phrasing the inductive premise. Also within this directory is a folder `older-writeups` which contains descriptions of many of the experiments as well as some old model results.
+	* **ACTUAL SORITES EXPT** Experiments 10 & 11: sorites premises experiment with full range of responses, two different ways of phrasing the inductive premise. Also within this directory is a folder `older-writeups` which contains descriptions of many of the experiments as well as some old model results.
 
 # To do
+
+* get Justine's data and check lognormal fit against inferred parameters for Experiment 6a and Experiment 9 [E]
+* implement alternative models [M]
+* look at distributions of responses for sorites [M] 
 
 Bayesian data analysis and model comparison.
 
 Alternative models:
+
 * quantile model
 * unlifted threshold variable
-* literal (L0) model
-* listener (L1) model
+* listener models + transformation:
+	* literal (L0) model
+	* listener (L1) model
+* speaker models:
+	* s1
+	* s2
