@@ -1,0 +1,34 @@
+
+
+```{r}
+source("~/Settings/startup.R")
+
+parse_my_data_format = function(df_raw) {
+  df = data.frame()
+  for (i in 1:nrow(df_raw)) {
+    qnstring = char(df_raw$Answer.questions)[[i]]
+    subdf = fromJSON(qnstring) %>% as.data.frame %>% mutate(workerid=i)
+    df = rbind(df, subdf)
+  }
+  return(df)
+}
+```
+
+```{r}
+free_response = read.csv("../../data/free_response_priors.csv")
+write.csv(free_response, "free_response_data.csv")
+```
+
+```{r}
+df0 = read.csv("../../data/experiment0-and-experiment1.csv")[1:30,] %>% parse_my_data_format
+df1 = read.csv("../../data/experiment0-and-experiment1.csv")[31:80,] %>% parse_my_data_format
+sorites_experiments = list(df0, df1)
+sorites_designs = do.call(rbind, lapply(1:length(sorites_experiments), function(i) {
+  df = sorites_experiments[[i]]
+  df %>% group_by(qType, item, dollarAmt) %>%
+    summarise() %>%
+    mutate(experiment = paste("experiment", i, sep=""))
+}))
+write.csv(sorites_designs, "sorites_designs.csv")
+```
+
