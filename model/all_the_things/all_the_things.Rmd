@@ -15,20 +15,49 @@ parse_my_data_format = function(df_raw) {
 ```
 
 ```{r}
-free_response = read.csv("../../data/free_response_priors.csv")
-write.csv(free_response, "free_response_data.csv")
+give_a_number_data = read.csv("../../data/free_response_priors.csv") %>%
+  mutate(item=ifelse(item=="coffee.maker", "coffee maker", char(item)))
+write.csv(give_a_number_data, "give_a_number_data.csv", row.names=F)
 ```
 
 ```{r}
 df0 = read.csv("../../data/experiment0-and-experiment1.csv")[1:30,] %>% parse_my_data_format
-df1 = read.csv("../../data/experiment0-and-experiment1.csv")[31:80,] %>% parse_my_data_format
+df1 = read.csv("../../data/experiment0-and-experiment1.csv")[31:80,] %>%
+  parse_my_data_format %>% 
+  select(-rt)
+
 sorites_experiments = list(df0, df1)
+
 sorites_designs = do.call(rbind, lapply(1:length(sorites_experiments), function(i) {
   df = sorites_experiments[[i]]
   df %>% group_by(qType, item, dollarAmt) %>%
     summarise() %>%
-    mutate(experiment = paste("experiment", i, sep=""))
+    mutate(experiment = paste("experiment", i-1, sep=""))
 }))
-write.csv(sorites_designs, "sorites_designs.csv")
+write.csv(sorites_designs, "sorites_designs.csv", row.names=F)
+
+silent = lapply(1:length(sorites_experiments), function(i) {
+  df = sorites_experiments[[i]]
+  filename = paste("experiment", i-1, ".csv", sep="")
+  write.csv(df, filename, row.names=F)
+})
+```
+
+```{r}
+rs = webppl(
+  program_file = "all_the_things.wppl",
+  packages = c("../../model/node_modules/simpleCSV"),
+  model_var = "model",
+  inference_opts = list(method="MCMC", samples=1000, lag=10)
+)
+
+rs %>% separate(Parameter, c("item", "parameter"), sep="\\.") %>%
+  group_by(item, parameter) %>%
+  summarise(value = mean(value)) %>%
+  spread(parameter, value)
+# rs %>% ggplot(., aes(x=value, colour=Parameter)) +
+#   geom_density() +
+#   facet_wrap(~Parameter, scale="free")
+
 ```
 
