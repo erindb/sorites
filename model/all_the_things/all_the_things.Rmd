@@ -51,13 +51,20 @@ rs = webppl(
   inference_opts = list(method="MCMC", samples=1000, lag=10)
 )
 
-rs %>% separate(Parameter, c("item", "parameter"), sep="\\.") %>%
+rs %>% spread(Parameter, value) %>% 
+  gather(
+    "Parameter",
+    "value",
+    c(
+      #-rationality_of_human_sampler,
+      -Iteration, -Chain
+    )
+  ) %>%
+  separate(Parameter, c("item", "parameter"), sep="\\.") %>%
   group_by(item, parameter) %>%
-  summarise(value = mean(value)) %>%
+  summarise(# rationality_of_human_sampler = rationality_of_human_sampler[[1]]
+    value = mean(value)
+  ) %>%
   spread(parameter, value)
-# rs %>% ggplot(., aes(x=value, colour=Parameter)) +
-#   geom_density() +
-#   facet_wrap(~Parameter, scale="free")
-
 ```
 
