@@ -1,0 +1,15 @@
+
+
+Sorites
+
+Experiment 0
+Please indicate how much you agree with the above statement.
+Completely agree [left] to Completely disagree [right]
+An ITEM that costs $VAL is expensive.
+An ITEM that costs $EPS less than an expensive ITEM is also expensive.
+
+Experiment 1
+Please indicate how much you agree with the above statement.
+Completely agree [left] to Completely disagree [right]
+An ITEM that costs $VAL is expensive.
+An ITEM that costs $EPS less than an expensive ITEM is also expensive.
