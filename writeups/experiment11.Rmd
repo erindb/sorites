@@ -87,7 +87,11 @@ write.csv(d0, "../data/experiment11-processed.csv", row.names = F)
 d0 = read.csv("../data/experiment11-processed.csv")
 
 aggr = d0 %>% group_by(item, dollarAmt, qType) %>%
-#   summarise(response = mean(response)) %>%
+  mutate(response = ifelse(
+    response>5, 1, 
+    ifelse(response<5, 0, 
+           ifelse(response==5, 0.5, response)))) %>%
+  #   summarise(response = mean(response)) %>%
   do(ci(.$response)) %>%
   rename(response=mean) %>% as.data.frame
 ggplot(aggr, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
@@ -95,7 +99,7 @@ ggplot(aggr, aes(x=dollarAmt, y=response, colour=item, linetype=qType)) +
   geom_line() +
   geom_errorbar(aes(x=dollarAmt, ymin=ci.low, ymax=ci.high), width=0) +
   facet_grid(~ item, scale='free') +
-  scale_y_continuous(breaks = 1:9, limits=c(1, 9)) +
+  ylim(0,1) +
   theme_few() + scale_colour_few()
 ```
 
@@ -201,7 +205,11 @@ modelvdata = d0 %>%
 
 ```{r}
 modelvdata %>%
-  mutate(human = (response-1)/8) %>%
+  mutate(response = ifelse(
+    response>5, 1, 
+    ifelse(response<5, 0, 
+           ifelse(response==5, 0.5, response)))) %>%
+  mutate(human = response) %>%
   gather("source", "rating", c(human, model)) %>%
   group_by(phrasing, source, item, qType, dollarAmt) %>%
   summarise(low = ci.low(rating),
@@ -214,5 +222,6 @@ modelvdata %>%
   geom_errorbar(aes(x=dollarAmt, ymin=low, ymax=high), width=0) +
   scale_colour_brewer(type="qual", palette = 2) +
   facet_grid(qType ~ item, scale="free") +
+  theme(axis.text.x=element_text(angle=-45, hjust=0)) +
   ylim(0,1)
 ```

@@ -240,6 +240,7 @@ modelvdata %>%
   geom_errorbar(aes(x=dollarAmt, ymin=low, ymax=high), width=0) +
   scale_colour_brewer(type="qual", palette = 2) +
   facet_grid(qType ~ item, scale="free") +
+  theme(axis.text.x=element_text(angle=-45, hjust=0)) +
   ylim(0,1)
 ```
 
