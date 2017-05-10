@@ -5,8 +5,10 @@
 * `data_summary.Rmd`
 	- shows data collected so far and fit of log-normal curves
     - summarizes results from sorites judgments collected so far, with a clear indication of the precise wording used for each.
-* `data/`
-	- directory containing data collected from `sorites/` and `priors/` experiments
+* `data/`: contains data collected from all experiments
+	- `sorites/`: raw data from experiments where we elicit ratings for "goodness" of sorites premises
+	- `priors/`: raw data from experiments where we elicit prior probabilities of items costing different amounts
+	- `reformat_data.R`: script to parse experiment data into tidy format
 
 ## Motivation
 
