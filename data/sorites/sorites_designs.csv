@@ -1,7 +1,7 @@
-id,date,prompt,left,right,concrete,inductive_label,inductive
-00,2013 August 27 7am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,relative,An ITEM that costs $EPS less than an expensive ITEM is also expensive.
-01,2013 August 28 12pm,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,relative,An ITEM that costs $EPS less than an expensive ITEM is also expensive.
-07a,2014 January 31 7am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,both*,NOT RECORDED: either relative (see 1) or conditional (see 10)
-07b,2014 February 5 5am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,both*,NOT RECORDED: either relative (see 1) or conditional (see 10)
-07c,2014 February 6 5am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,both,either relative (see 1) or conditional (see 10)
-10,2014 April 23 4am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,conditional,"If an ITEM is expensive, then another ITEM that costs $EPS less is also expensive."
+id,date,prompt,left,right,concrete,inductive_label,inductive,N
+00,2013 August 27 7am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,relative,An ITEM that costs $EPS less than an expensive ITEM is also expensive.,30
+01,2013 August 28 12pm,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,relative,An ITEM that costs $EPS less than an expensive ITEM is also expensive.,50
+07a,2014 January 31 7am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,both*,NOT RECORDED: either relative (see 1) or conditional (see 10),10
+07b,2014 February 5 5am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,both*,NOT RECORDED: either relative (see 1) or conditional (see 10),60
+07c,2014 February 6 5am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,both,either relative (see 1) or conditional (see 10),50
+10,2014 April 23 4am,Please indicate how much you agree with the above statement.,Completely disagree,Completely agree,An ITEM that costs $VAL is expensive.,conditional,"If an ITEM is expensive, then another ITEM that costs $EPS less is also expensive.",30

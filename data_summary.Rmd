@@ -15,7 +15,7 @@ library(knitr)
 library(pander)
 ```
 
-# Wording used in Sorites experiments
+# Wording used in sorites experiments
 
 ```{r load design descriptions}
 sorites_designs = read.csv("data/sorites/sorites_designs.csv",
@@ -48,6 +48,8 @@ Consistent across all experiments:
 
 *In experiments 7a and 7b, phrasing was randomized between participants (either relative or conditional), but I did not record which phrasing was used for which participant
 
+# Results of sorites experiments
+
 ```{r load (and reformat) data}
 ## this is the script for reformatting sorites data into one single datafile
 RUN_REFORMAT = F
@@ -77,6 +79,9 @@ if (RUN_REFORMAT) {
     if ("Answer.responses" %in% names(raw_df_all_columns)) {
       raw_df_all_columns$Answer.questions = raw_df_all_columns$Answer.responses
     }
+    if (!("Answer.phrasing" %in% names(raw_df_all_columns))) {
+      raw_df_all_columns$Answer.phrasing = NA
+    }
     if ("Answer.time_in_minutes" %in% names(raw_df_all_columns)) {
       raw_df_all_columns$time_in_minutes = raw_df_all_columns$Answer.time_in_minutes
     } else {
@@ -99,16 +104,18 @@ if (RUN_REFORMAT) {
              language = Answer.language,
              questions = Answer.questions,
              education = Answer.education,
+             phrasing = Answer.phrasing,
              age = Answer.age) %>%
       select(workerid, reward, comments,
              age, language, questions) %>%
       mutate(workerid = paste(workerid, experiment_id, sep="_"))
     
-    reformatted_df = do.call(rbind, lapply(raw_df$questions, fromJSON))
+    reformatted_df = do.call(rbind, mapply(function(qn, workerid_for_merge) {
+      return(fromJSON(qn) %>% mutate(workerid=workerid_for_merge))
+    }, raw_df$questions, raw_df$workerid, SIMPLIFY = F) %>% unname) 
     ## some versions collect reaction time, etc.:
     if (!("rt" %in% names(reformatted_df))) { reformatted_df$rt = NA }
     if (!("level" %in% names(reformatted_df))) { reformatted_df$level = NA }
-    if (!("phrasing" %in% names(reformatted_df))) { reformatted_df$phrasing = NA }
     if (!("sigs" %in% names(reformatted_df))) { reformatted_df$sigs = NA }
     if (!("qNumber" %in% names(reformatted_df))) { reformatted_df$qNumber = NA }
     if ("qType" %in% names(reformatted_df)) { reformatted_df = reformatted_df%>%rename(qtype=qType) }
@@ -120,10 +127,13 @@ if (RUN_REFORMAT) {
     }
     df = merge(
       raw_df %>% select(-questions),
-      reformatted_df
-    ) %>% 
+      reformatted_df,
+      by=c("workerid")
+    ) %>%
       mutate(id = experiment_id,
              date = lookup_date(experiment_id))
+    if (!("phrasing" %in% names(df))) { df$phrasing = NA }
+    return(df)
   }
   df = do.call(rbind, lapply(c("00", "01", "07a", "07b", "07c", "10"), read_sorites_data)) %>%
     as.data.frame %>% flatten %>% ungroup %>% mutate(
@@ -137,6 +147,7 @@ if (RUN_REFORMAT) {
     qtype = ifelse(qtype=="eps", "inductive", qtype),
     qtype = ifelse(qtype=="val", "concrete", qtype),
     qtype = factor(qtype),
+    phrasing = ifelse(id %in% c("00", "01"), "relative", phrasing),
     response = num(response)
   )
   
@@ -144,13 +155,21 @@ if (RUN_REFORMAT) {
 } else {
   df = read.csv("data/sorites/combined_reformatted_sorites_data.csv")
 }
+df = df %>% mutate(
+  phrasing = ifelse(phrasing=='"relative"', "relative", phrasing),
+  phrasing = ifelse(phrasing=='"conditional"', "conditional", phrasing),
+  phrasing = factor(phrasing),
+  id = factor(id)
+)
 ```
 
 ```{r}
-RUN_AGG = F
+RUN_AGG = T
+## computing confidence intervals takes a long time.
+## so just cache the results of this most of the time
 if (RUN_AGG) {
   agg = df %>%
-  group_by(id, qtype, object, dollar_amount) %>%
+  group_by(id, qtype, phrasing, object, dollar_amount) %>%
   summarise(low = ci.low(response),
             high = ci.high(response),
             response = mean(response))
@@ -162,13 +181,19 @@ agg = read.csv("agg_cache.csv")
 
 ```{r, fig.height=4, fig.width=12}
 opacity = 0.5
-agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=id)) +
+agg %>% ggplot(., aes(x=dollar_amount, y=response, shape=id, colour=phrasing)) +
   geom_point(alpha=opacity) +
   # geom_line(alpha=opacity) +
   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
   facet_grid(qtype~object, scale="free_x") +
   ylim(1, 9) +
-  scale_colour_brewer(type="qual", palette = 2) +
+  # scale_colour_brewer(type="qual", palette = 3) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggsave("sorites_data.png", width=12, height=4)
 ```
+
+
+
+
+
 

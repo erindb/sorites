@@ -4,7 +4,7 @@
 
 * `data_summary.Rmd`
 	- ☐ shows data collected so far and fit of log-normal curves
-    - summarizes ☐ results from sorites judgments collected so far, with a ☑ clear indication of the precise wording used for each.
+    - summarizes ☑ results from sorites judgments collected so far, with a ☑ clear indication of the precise wording used for each.
 * `data/`: contains data from all experiments
 	- `sorites/`: data from experiments where we elicit ratings for "goodness" of sorites premises
 	- `priors/`: data from experiments where we elicit prior probabilities of items costing different amounts
@@ -27,12 +27,5 @@ order logic – is clearly false.
 
 We explain people’s reactions to statements of this kind with a formal model of scalar adjective interpretation and show that their reactions are sensitive to the prior distribution on building heights and to the change in height ε given in the inductive premise (in this case, 1 meter).
 
-We actually do all of this in the domain of prices.
+We do all of this in the domain of prices.
 
-# Directory structure
-
-* **`data`**: Anonymized data files are in `data` directory.
-* **`experiments`**: A copy of the HTML and JavaScript files for running each of the experiments is in `experiments` directory. This directory also includes a subdirectory detailing many of the prior experiments using an old naming scheme.
-* **`model`**: An attempt at a webppl model of adjectives taking in some fit parameters for the prior. Really, the prior parameters should be inferred from the prior elicitation experiments results within the webppl model.
-* **`paper`**: Draft of the paper for this project
-* **`writeups`**: Brief .Rmd summaries and graphs for each experiment. These contain more details about the design of experiments.
