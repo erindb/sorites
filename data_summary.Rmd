@@ -48,82 +48,127 @@ Consistent across all experiments:
 
 *In experiments 7a and 7b, phrasing was randomized between participants (either relative or conditional), but I did not record which phrasing was used for which participant
 
-```{r load and reformat data}
-lookup_date = function(experiment_id) {
-  return((
-    sorites_designs %>%
-      filter(char(id)==experiment_id)
-  )$date[[1]])
-}
-find_sorites_filename = function(experiment_id) {
-  directory = "data/sorites/"
-  filenames = list.files(directory)
-  filename = filenames[
-    grep(paste("data_exp", experiment_id, sep=""),
-         filenames)
-  ]
-  return(paste(directory, filename, sep=""))
-}
-read_sorites_data = function(experiment_id) {
-  raw_df_all_columns = read.csv(
-    find_sorites_filename(experiment_id),
-    stringsAsFactors = F
+```{r load (and reformat) data}
+## this is the script for reformatting sorites data into one single datafile
+RUN_REFORMAT = F
+if (RUN_REFORMAT) {
+  lookup_date = function(experiment_id) {
+    return((
+      sorites_designs %>%
+        filter(char(id)==experiment_id)
+    )$date[[1]])
+  }
+  find_sorites_filename = function(experiment_id) {
+    directory = "data/sorites/"
+    filenames = list.files(directory)
+    filename = filenames[
+      grep(paste("data_exp", experiment_id, sep=""),
+           filenames)
+      ]
+    return(paste(directory, filename, sep=""))
+  }
+  read_sorites_data = function(experiment_id) {
+    raw_df_all_columns = read.csv(
+      find_sorites_filename(experiment_id),
+      stringsAsFactors = F
+    )
+    
+    ## for experiment 10 data format:
+    if ("Answer.responses" %in% names(raw_df_all_columns)) {
+      raw_df_all_columns$Answer.questions = raw_df_all_columns$Answer.responses
+    }
+    if ("Answer.time_in_minutes" %in% names(raw_df_all_columns)) {
+      raw_df_all_columns$time_in_minutes = raw_df_all_columns$Answer.time_in_minutes
+    } else {
+      raw_df_all_columns$time_in_minutes = NA
+    }
+    if ("Answer.subj_data" %in% names(raw_df_all_columns)) {
+      subj_data = do.call(rbind, lapply(raw_df_all_columns$Answer.subj_data, fromJSON)) %>%
+        as.data.frame
+      raw_df_all_columns$Answer.comments = unlist(subj_data$comments)
+      raw_df_all_columns$Answer.language = unlist(subj_data$language)
+      raw_df_all_columns$Answer.education = unlist(subj_data$education)
+      raw_df_all_columns$Answer.age = unlist(subj_data$age)
+    } else {
+      raw_df_all_columns$Answer.education = NA
+    }
+    
+    ## select only the useful columns
+    raw_df = raw_df_all_columns %>%
+      rename(comments = Answer.comments,
+             language = Answer.language,
+             questions = Answer.questions,
+             education = Answer.education,
+             age = Answer.age) %>%
+      select(workerid, reward, comments,
+             age, language, questions) %>%
+      mutate(workerid = paste(workerid, experiment_id, sep="_"))
+    
+    reformatted_df = do.call(rbind, lapply(raw_df$questions, fromJSON))
+    ## some versions collect reaction time, etc.:
+    if (!("rt" %in% names(reformatted_df))) { reformatted_df$rt = NA }
+    if (!("level" %in% names(reformatted_df))) { reformatted_df$level = NA }
+    if (!("phrasing" %in% names(reformatted_df))) { reformatted_df$phrasing = NA }
+    if (!("sigs" %in% names(reformatted_df))) { reformatted_df$sigs = NA }
+    if (!("qNumber" %in% names(reformatted_df))) { reformatted_df$qNumber = NA }
+    if ("qType" %in% names(reformatted_df)) { reformatted_df = reformatted_df%>%rename(qtype=qType) }
+    if ("dollarAmt" %in% names(reformatted_df)) {
+      reformatted_df = reformatted_df%>%rename(dollar_amount=dollarAmt)
+    }
+    if ("item" %in% names(reformatted_df)) {
+      reformatted_df = reformatted_df%>%rename(object=item)
+    }
+    df = merge(
+      raw_df %>% select(-questions),
+      reformatted_df
+    ) %>% 
+      mutate(id = experiment_id,
+             date = lookup_date(experiment_id))
+  }
+  df = do.call(rbind, lapply(c("00", "01", "07a", "07b", "07c", "10"), read_sorites_data)) %>%
+    as.data.frame %>% flatten %>% ungroup %>% mutate(
+    dollar_amount = as.numeric(unname(sapply(char(dollar_amount), function(money_string) {
+      if (substr(money_string, 1, 1)=="$") {
+        return(substr(money_string, start=2, stop=nchar(money_string)))
+      } else {
+        return(money_string)
+      }
+    }))),
+    qtype = ifelse(qtype=="eps", "inductive", qtype),
+    qtype = ifelse(qtype=="val", "concrete", qtype),
+    qtype = factor(qtype),
+    response = num(response)
   )
   
-  ## for experiment 10 data format:
-  if ("Answer.phrasing" %in% names(raw_df_all_columns)) {
-    raw_df_all_columns$phrasing = raw_df_all_columns$Answer.phrasing
-  } else {
-    raw_df_all_columns$phrasing = NA
-  }
-  if ("Answer.responses" %in% names(raw_df_all_columns)) {
-    raw_df_all_columns$Answer.questions = raw_df_all_columns$Answer.responses
-  }
-  if ("Answer.time_in_minutes" %in% names(raw_df_all_columns)) {
-    raw_df_all_columns$time_in_minutes = raw_df_all_columns$Answer.time_in_minutes
-  } else {
-    raw_df_all_columns$time_in_minutes = NA
-  }
-  if ("Answer.subj_data" %in% names(raw_df_all_columns)) {
-    subj_data = do.call(rbind, lapply(raw_df_all_columns$Answer.subj_data, fromJSON)) %>%
-      as.data.frame
-    raw_df_all_columns$Answer.comments = subj_data$comments
-    raw_df_all_columns$Answer.language = subj_data$language
-    raw_df_all_columns$Answer.education = subj_data$education
-    raw_df_all_columns$Answer.age = subj_data$age
-  } else {
-    raw_df_all_columns$Answer.education = NA
-  }
-  
-  ## select only the useful columns
-  raw_df = raw_df_all_columns %>%
-    rename(comments = Answer.comments,
-           language = Answer.language,
-           questions = Answer.questions,
-           education = Answer.education,
-           age = Answer.age) %>%
-    select(workerid, reward, comments,
-           age, language, questions)
-  
-  reformatted_df = do.call(rbind, lapply(raw_df$questions, fromJSON))
-  ## some versions collect reaction time, etc.:
-  if (!("rt" %in% names(reformatted_df))) { reformatted_df$rt = NA }
-  if (!("sigs" %in% names(reformatted_df))) { reformatted_df$sigs = NA }
-  if (!("qNumber" %in% names(reformatted_df))) { reformatted_df$qNumber = NA }
-  if ("qType" %in% names(reformatted_df)) { reformatted_df = reformatted_df%>%rename(qtype=qType) }
-  if ("dollarAmt" %in% names(reformatted_df)) {
-    reformatted_df = reformatted_df%>%rename(dollar_amount=dollarAmt)
-  }
-  if ("item" %in% names(reformatted_df)) {
-    reformatted_df = reformatted_df%>%rename(object=item)
-  }
-  df = merge(
-    raw_df %>% select(-questions),
-    reformatted_df
-  ) %>% 
-    mutate(id = experiment_id,
-           date = lookup_date(experiment_id))
+  write.csv(df, "data/sorites/combined_reformatted_sorites_data.csv", row.names = F)
+} else {
+  df = read.csv("data/sorites/combined_reformatted_sorites_data.csv")
 }
-df = do.call(rbind, lapply(c("00", "01", "07a", "07b", "07c", "10"), read_sorites_data))
+```
+
+```{r}
+RUN_AGG = F
+if (RUN_AGG) {
+  agg = df %>%
+  group_by(id, qtype, object, dollar_amount) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response))
+write.csv(agg, "agg_cache.csv", row.names = F)
+}  else {
+agg = read.csv("agg_cache.csv")
+}
+```
+
+```{r, fig.height=4, fig.width=12}
+opacity = 0.5
+agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=id)) +
+  geom_point(alpha=opacity) +
+  # geom_line(alpha=opacity) +
+  geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+  facet_grid(qtype~object, scale="free_x") +
+  ylim(1, 9) +
+  scale_colour_brewer(type="qual", palette = 2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
