@@ -3,11 +3,11 @@
 ## Files
 
 * `data_summary.Rmd`
-	- shows data collected so far and fit of log-normal curves
-    - summarizes results from sorites judgments collected so far, with a clear indication of the precise wording used for each.
-* `data/`: contains data collected from all experiments
-	- `sorites/`: raw data from experiments where we elicit ratings for "goodness" of sorites premises
-	- `priors/`: raw data from experiments where we elicit prior probabilities of items costing different amounts
+	- ☐ shows data collected so far and fit of log-normal curves
+    - summarizes ☐ results from sorites judgments collected so far, with a ☑ clear indication of the precise wording used for each.
+* `data/`: contains data from all experiments
+	- `sorites/`: data from experiments where we elicit ratings for "goodness" of sorites premises
+	- `priors/`: data from experiments where we elicit prior probabilities of items costing different amounts
 	- each experiment is labeled with a unique number as an identifier.
 	- data filenames are `data_exp{NUMBER}_{YEAR}_{MONTH}_{DATE}_{HOUR}.csv`
 

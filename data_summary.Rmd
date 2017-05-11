@@ -1,15 +1,49 @@
+---
+title: "Sorites Data Summary"
+author: "Erin Bennett"
+output: "pdf_document"
+---
 
+```{r global_options, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.width = 5, fig.height = 3)
+```
 
-Sorites
+```{r}
+source("~/Settings/startup.R")
+library(knitr)
+library(pander)
+```
 
-Experiment 0
-Please indicate how much you agree with the above statement.
-Completely agree [left] to Completely disagree [right]
-An ITEM that costs $VAL is expensive.
-An ITEM that costs $EPS less than an expensive ITEM is also expensive.
+## Wording used in Sorites experiments
 
-Experiment 1
-Please indicate how much you agree with the above statement.
-Completely agree [left] to Completely disagree [right]
-An ITEM that costs $VAL is expensive.
-An ITEM that costs $EPS less than an expensive ITEM is also expensive.
+```{r}
+sorites_designs = read.csv("data/sorites/sorites_designs.csv")
+sorites_designs %>%
+  select(-prompt, -left, -right, -concrete, -inductive) %>%
+  rename(`inductive phrasing` = inductive_label) %>%
+  pander(.,
+       caption="Sorites variations",
+       align=rep("l", ncol(sorites_designs)))
+lookup_phrasing = function(inductive_phrasing) {
+  return((
+    sorites_designs %>%
+      filter(inductive_label==inductive_phrasing)
+  )$inductive[[1]])
+}
+```
+
+Possible phrasings of inductive premise:
+
+* relative: "`r lookup_phrasing("relative")`"
+* conditional: "`r lookup_phrasing("conditional")`"
+
+Consistent across all experiments:
+
+* Concrete premise: "`r sorites_designs$concrete[[1]]`"
+* Prompt: "`r sorites_designs$prompt[[1]]`"
+* Left (lower) label of likert scale: "`r sorites_designs$left[[1]]`""
+* Right (higher) label of likert scale: "`r sorites_designs$right[[1]]`""
+
+*In experiments 7a and 7b, phrasing was randomized between participants (either relative or conditional), but I did not record which phrasing was used for which participant
+
