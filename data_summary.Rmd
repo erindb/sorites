@@ -9,16 +9,17 @@ rm(list=ls())
 knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.width = 5, fig.height = 3)
 ```
 
-```{r}
+```{r load libraries}
 source("~/Settings/startup.R")
 library(knitr)
 library(pander)
 ```
 
-## Wording used in Sorites experiments
+# Wording used in Sorites experiments
 
-```{r}
-sorites_designs = read.csv("data/sorites/sorites_designs.csv")
+```{r load design descriptions}
+sorites_designs = read.csv("data/sorites/sorites_designs.csv",
+                           stringsAsFactors = F)
 sorites_designs %>%
   select(-prompt, -left, -right, -concrete, -inductive) %>%
   rename(`inductive phrasing` = inductive_label) %>%
@@ -46,4 +47,83 @@ Consistent across all experiments:
 * Right (higher) label of likert scale: "`r sorites_designs$right[[1]]`""
 
 *In experiments 7a and 7b, phrasing was randomized between participants (either relative or conditional), but I did not record which phrasing was used for which participant
+
+```{r load and reformat data}
+lookup_date = function(experiment_id) {
+  return((
+    sorites_designs %>%
+      filter(char(id)==experiment_id)
+  )$date[[1]])
+}
+find_sorites_filename = function(experiment_id) {
+  directory = "data/sorites/"
+  filenames = list.files(directory)
+  filename = filenames[
+    grep(paste("data_exp", experiment_id, sep=""),
+         filenames)
+  ]
+  return(paste(directory, filename, sep=""))
+}
+read_sorites_data = function(experiment_id) {
+  raw_df_all_columns = read.csv(
+    find_sorites_filename(experiment_id),
+    stringsAsFactors = F
+  )
+  
+  ## for experiment 10 data format:
+  if ("Answer.phrasing" %in% names(raw_df_all_columns)) {
+    raw_df_all_columns$phrasing = raw_df_all_columns$Answer.phrasing
+  } else {
+    raw_df_all_columns$phrasing = NA
+  }
+  if ("Answer.responses" %in% names(raw_df_all_columns)) {
+    raw_df_all_columns$Answer.questions = raw_df_all_columns$Answer.responses
+  }
+  if ("Answer.time_in_minutes" %in% names(raw_df_all_columns)) {
+    raw_df_all_columns$time_in_minutes = raw_df_all_columns$Answer.time_in_minutes
+  } else {
+    raw_df_all_columns$time_in_minutes = NA
+  }
+  if ("Answer.subj_data" %in% names(raw_df_all_columns)) {
+    subj_data = do.call(rbind, lapply(raw_df_all_columns$Answer.subj_data, fromJSON)) %>%
+      as.data.frame
+    raw_df_all_columns$Answer.comments = subj_data$comments
+    raw_df_all_columns$Answer.language = subj_data$language
+    raw_df_all_columns$Answer.education = subj_data$education
+    raw_df_all_columns$Answer.age = subj_data$age
+  } else {
+    raw_df_all_columns$Answer.education = NA
+  }
+  
+  ## select only the useful columns
+  raw_df = raw_df_all_columns %>%
+    rename(comments = Answer.comments,
+           language = Answer.language,
+           questions = Answer.questions,
+           education = Answer.education,
+           age = Answer.age) %>%
+    select(workerid, reward, comments,
+           age, language, questions)
+  
+  reformatted_df = do.call(rbind, lapply(raw_df$questions, fromJSON))
+  ## some versions collect reaction time, etc.:
+  if (!("rt" %in% names(reformatted_df))) { reformatted_df$rt = NA }
+  if (!("sigs" %in% names(reformatted_df))) { reformatted_df$sigs = NA }
+  if (!("qNumber" %in% names(reformatted_df))) { reformatted_df$qNumber = NA }
+  if ("qType" %in% names(reformatted_df)) { reformatted_df = reformatted_df%>%rename(qtype=qType) }
+  if ("dollarAmt" %in% names(reformatted_df)) {
+    reformatted_df = reformatted_df%>%rename(dollar_amount=dollarAmt)
+  }
+  if ("item" %in% names(reformatted_df)) {
+    reformatted_df = reformatted_df%>%rename(object=item)
+  }
+  df = merge(
+    raw_df %>% select(-questions),
+    reformatted_df
+  ) %>% 
+    mutate(id = experiment_id,
+           date = lookup_date(experiment_id))
+}
+df = do.call(rbind, lapply(c("00", "01", "07a", "07b", "07c", "10"), read_sorites_data))
+```
 
