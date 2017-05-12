@@ -135,7 +135,7 @@ if (RUN_REFORMAT) {
     if (!("phrasing" %in% names(df))) { df$phrasing = NA }
     return(df)
   }
-  df = do.call(rbind, lapply(c("00", "01", "07a", "07b", "07c", "10"), read_sorites_data)) %>%
+  df = do.call(rbind, lapply(c("00", "01", "07a", "07b", "07c", "10", "11"), read_sorites_data)) %>%
     as.data.frame %>% flatten %>% ungroup %>% mutate(
     dollar_amount = as.numeric(unname(sapply(char(dollar_amount), function(money_string) {
       if (substr(money_string, 1, 1)=="$") {
@@ -157,6 +157,7 @@ if (RUN_REFORMAT) {
 }
 df = df %>% mutate(
   phrasing = ifelse(phrasing=='"relative"', "relative", phrasing),
+  phrasing = ifelse(phrasing=="relative_clause", "relative", phrasing),
   phrasing = ifelse(phrasing=='"conditional"', "conditional", phrasing),
   phrasing = factor(phrasing),
   id = factor(id)
@@ -164,7 +165,7 @@ df = df %>% mutate(
 ```
 
 ```{r}
-RUN_AGG = T
+RUN_AGG = F
 ## computing confidence intervals takes a long time.
 ## so just cache the results of this most of the time
 if (RUN_AGG) {
@@ -173,15 +174,16 @@ if (RUN_AGG) {
   summarise(low = ci.low(response),
             high = ci.high(response),
             response = mean(response))
-write.csv(agg, "agg_cache.csv", row.names = F)
+write.csv(agg, ".agg_cache.csv", row.names = F)
 }  else {
-agg = read.csv("agg_cache.csv")
+agg = read.csv(".agg_cache.csv")
 }
+agg = agg %>% mutate(phrasing = factor(phrasing))
 ```
 
 ```{r, fig.height=4, fig.width=12}
 opacity = 0.5
-agg %>% ggplot(., aes(x=dollar_amount, y=response, shape=id, colour=phrasing)) +
+agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=phrasing)) +
   geom_point(alpha=opacity) +
   # geom_line(alpha=opacity) +
   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
@@ -191,6 +193,63 @@ agg %>% ggplot(., aes(x=dollar_amount, y=response, shape=id, colour=phrasing)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ggsave("sorites_data.png", width=12, height=4)
 ```
+
+# Wording used in priors experiments
+
+give a number: i don't know Justine's design for this.
+
+experiment 02
+
+Instructions:
+
+In this experiment, we would like you to imagine that our store has compiled an inventory list for insurance purposes. Unfortunately, the store only had one copy of the paper where we wrote all this information, and that paper has been badly treated. The prices have faded away and been lost. We would like your best guess as to what those prices should be.
+
+We can get a little bit of information about the price by looking at the the color and font of each entry. Items that cost more than $2000 have to be declared seperately and require additional paperwork, so these are written in blue italics. Please only guess a price above $2000 if the entry is written in blue italics, and please only guess a price below (or equal to) $2000 if the entry is written in plain black text.
+
+Although we know that you cannot recover the original prices exactly, keep in mind that it is in the store's best interest if your guesses are as close to the original prices as possible.
+
+Prompt: Items over $CUTOFF are in blue italics.
+
+experiment 03
+
+In each scenario, someone has just bought an item. Please give your best estimate of the price of the item. You will do this by rating how likely you think it is that the actual price is within each of NBINS different ranges.
+
+NAME bought a new *ITEM*.
+
+Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
+
+experiment 04
+
+same as 2
+
+experiment 05
+
+same as 2
+
+experiment 06
+
+condition A: same as 2
+
+condition B: NAME bought new *ITEM* It was *expensive*.
+
+experiment 08
+
+same as 2, but ITEM is colored differently for different items
+
+experiment 09
+
+	
+NAME (saw|bought|met) an *ITEM*.
+OR
+NAME (saw|bought|met) an *ITEM*. NAME says, "The ITEM was *ADJECTIVE*."
+
+Please rate how likely it is that the (height|cost|age) of the ITEM is within each of the following ranges.
+
+25-30 ft
+$250-$300
+25-30 yrs
+
+# Results of priors experiments
 
 
 
