@@ -2,6 +2,9 @@
 title: "Sorites Data Summary"
 author: "Erin Bennett"
 output: "pdf_document"
+header-includes:
+   - \usepackage{tikz}
+   - \usetikzlibrary{bayesnet}
 ---
 
 ```{r global_options, include=FALSE}
@@ -194,11 +197,26 @@ agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=phrasing)) +
 ggsave("sorites_data.png", width=12, height=4)
 ```
 
-# Wording used in priors experiments
+# Priors experiments
 
 give a number: i don't know Justine's design for this.
 
+```{r}
+# give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
+#   mutate(item = ifelse(item=="coffee.maker", "coffee maker", item))
+# current_item = "coffee maker"
+# give_a_number_params = webppl(
+#   program_file = "models/prior_fits/give_a_number.wppl",
+#   data_var = "samples",
+#   data = (give_a_number %>% filter(item==current_item))$price)
+# mean((give_a_number_params %>% filter(Parameter=="mu"))$value)
+```
+
 experiment 02
+
+```{r}
+# exp2 = read.csv("data/priors/data_exp02_2013_10_08_08.csv")
+```
 
 Instructions:
 
@@ -249,9 +267,43 @@ Please rate how likely it is that the (height|cost|age) of the ITEM is within ea
 $250-$300
 25-30 yrs
 
-# Results of priors experiments
+# Model
 
+\tikz{
+  \node[latent,] (mu) {$\mu_i$};
+  \node[latent, right=of mu] (sig) {$\sigma_i$};
+  
+  \node[above=of mu] (mumax) {$\mu_{max}$};
+  \node[above=of sig] (sigmax) {$\sigma_{max}$};
+  
+  \node[right=of sig] (binwidth) {$w_i$};
+  \node[right=of binwidth] (sigbin) {$\sigma_{binned\ hist}$};
+  
+  \node[det, below=of mu, below=of sig] (pbin) {$p_{ib}$};
+  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
+  
+  \node[obs, left=of pbin] (giveanum) {$x_{i}$};
+  
+  \edge {mumax} {mu}
+  \edge {sigmax} {sig}
+  \edge {mu, sig, binwidth} {pbin}
+  \edge {mu, sig} {giveanum}
+  \edge {pbin, sigbin} {dbin}
+  
+  \plate {bin} {
+    (pbin) (dbin)
+  } {$b\in{Bins_i}$};
+  \plate {item} {
+    (mu) (sig) (binwidth)
+    (pbin) (giveanum)
+    (bin.south east)
+  } {$i\in{Objects}$};
+}
 
+* $w_i$ := width of histogram bins for item $i$
+* $x_i$ := sample in give a number trial
+* $p_{ib}$ := true probability of bin $b$ for item $i$
+* $d_{ib}$ := slider rating for bin $b$ for item $i$
 
 
 
