@@ -201,30 +201,52 @@ ggsave("sorites_data.png", width=12, height=4)
 
 give a number: i don't know Justine's design for this.
 
-```{r}
+```{r, fig.width=8, fig.height=4}
 give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
   mutate(item = ifelse(item=="coffee.maker", "coffee maker", char(item)))
 current_item = "coffee maker"
-posterior_predictive = do.call(
+iterations = 2000
+n_data = nrow(give_a_number)
+max_values = give_a_number %>% group_by(item) %>%
+  summarise(max = max(price))
+rs = do.call(
   rbind,
   lapply(
     unique(give_a_number$item),
     function(current_item) {
       give_a_number_params = webppl(
         program_file = "models/prior_fits/give_a_number.wppl",
+        inference_opts = list(method="MCMC",
+                              samples=iterations,
+                              burn=100,
+                              skip=10),
+        model_var = "model",
         data_var = "ARGS",
         data = list(
           samples=(give_a_number %>% filter(item==current_item))$price,
-          N=1)) %>%
+          N=n_data)) %>%
         mutate(item = current_item)
       return(give_a_number_params)
     }))
-# ggplot(give_a_number, aes(x=price)) +
-#   geom_density() +
-#   facet_wrap(~item, scale="free_x")
-ggplot(give_a_number, aes(x=price)) +
-  geom_density() +
-  facet_wrap(~item, scale="free_x")
+inferred_parameters = rs %>% group_by(item, Parameter) %>%
+  summarise(value = mean(value)) %>%
+  spread(Parameter, value) %>% as.data.frame
+row.names(inferred_parameters) = inferred_parameters$item
+posterior_predictive = give_a_number %>%
+  mutate(price = mapply(function(current_item) {
+    return(exp(rnorm(1,
+                 inferred_parameters[current_item, "mu"], 
+                 inferred_parameters[current_item, "sig"])))
+  }, item))
+inferred_parameters
+rbind(give_a_number %>%
+        mutate(source="give a number"),
+      posterior_predictive %>%
+        mutate(source="posterior predictive")) %>%
+  ggplot(., aes(x=price, colour=source)) +
+  geom_density(alpha=1/2) +
+  scale_colour_brewer(type="qual", palette = 3) +
+  facet_wrap(~item, scale="free")
 ```
 
 experiment 02

@@ -17,15 +17,7 @@ var model = function() {
 		).score(Math.log(price));
 		factor(prob_of_sampled_price);
 	});
-	return {
-		posterior_predictive: mapData(
-			{data: _.range(0, ARGS.N)},
-			function() {
-				return Math.exp(gaussian(params.mu, params.sig));
-			}
-		),
-		params: params
-	};
+	return params;
 };
 
 "finished";
