@@ -16,11 +16,19 @@ var model = function() {
 		var rating = datum.rating;
 		// assume log of price is normally distributed
 		// and calculate CDF within those bounds
-		var latent_prob_of_bin = 1;
+		var gaussian_params = {
+			mu: params.mu,
+			sigma: params.sig
+		};
+		var latent_prob_of_bin = (
+			utils.lognormalCDF(upper_bound, gaussian_params) -
+        	utils.lognormalCDF(lower_bound, gaussian_params)
+        );
 		// factor by likelihood of rating if Gaussian centered at that prob
 		var prob_of_sampled_price = Gaussian({
 			mu: latent_prob_of_bin,
 			sigma: params.sig_binned_hist
+
 		}).score(rating);
 		factor(prob_of_sampled_price);
 	});
