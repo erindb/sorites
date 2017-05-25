@@ -269,42 +269,105 @@ $250-$300
 
 # Model
 
+## Definitions
+
+* $w_i$ := width of histogram bins for item $i$
+* $x_i$ := sample in give a number trial
+* $p_{ib}$ := true probability of bin $b$ for item $i$
+* $d_{ib}$ := slider rating for bin $b$ for item $i$
+* $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
+* $S2(C_{iv})$ := RSA S2(expensive) for item $i$
+* $s^I_{i\varepsilon}$ := binarization of likert rating for inductive premise for item $i$ and epsilon $\varepsilon$
+* $s^C_{iv}$ := binarization of likert rating for concrete premise for item $i$ and value $v$
+* $\alpha^I_2$ := speaker rationality for S1 for inductive premise
+
+## Diagram
+
 \tikz{
   \node[latent,] (mu) {$\mu_i$};
   \node[latent, right=of mu] (sig) {$\sigma_i$};
   
-  \node[above=of mu] (mumax) {$\mu_{max}$};
-  \node[above=of sig] (sigmax) {$\sigma_{max}$};
-  
-  \node[right=of sig] (binwidth) {$w_i$};
-  \node[right=of binwidth] (sigbin) {$\sigma_{binned\ hist}$};
+  \node[above=of mu] (mumax) {$\mu^{max}$};
+  \node[above=of sig] (sigmax) {$\sigma^{max}$};
+  \node[right=4cm of sigmax] (sigbin) {$\sigma_{binned\ hist}$};
+  \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
+  \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
   
   \node[det, below=of mu, below=of sig] (pbin) {$p_{ib}$};
   \node[obs, below=of pbin] (dbin) {$d_{ib}$};
   
   \node[obs, left=of pbin] (giveanum) {$x_{i}$};
   
+  \node[latent, below=of alpha1max] (alpha2C) {$\alpha_{2}^{C}$};
+  \node[latent, below=of alpha2max] (alpha1I) {$\alpha_{1}^{I}$};
+  \node[latent, left=of alpha2C] (alpha1C) {$\alpha_{1}^{C}$};
+  \node[latent, right=of alpha1I] (alpha2I) {$\alpha_{2}^{I}$};
+  
+  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S2(C_{iv})$};
+  \node[latent, right=of s2concrete] (s2inductive) {$S2(I_{i\varepsilon})$};
+  
+  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
+  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
+  
   \edge {mumax} {mu}
   \edge {sigmax} {sig}
-  \edge {mu, sig, binwidth} {pbin}
+  \edge {mu, sig} {pbin}
   \edge {mu, sig} {giveanum}
   \edge {pbin, sigbin} {dbin}
+  \edge {pbin} {s2inductive, s2concrete}
+  \edge {s2inductive} {sI}
+  \edge {s2concrete} {sC}
+  \edge {alpha1I, alpha2I} {s2inductive}
+  \edge {alpha1C, alpha2C} {s2concrete}
+  \edge {alpha1max} {alpha1C, alpha1I}
+  \edge {alpha2max} {alpha2C, alpha2I}
   
   \plate {bin} {
     (pbin) (dbin)
   } {$b\in{Bins_i}$};
+  \plate {epsilon} {
+    (s2inductive) (sI)
+  } {$\varepsilon \in Epsilons$};
+  \plate {value} {
+    (s2concrete) (sC)
+  } {$v \in Values$};
   \plate {item} {
-    (mu) (sig) (binwidth)
-    (pbin) (giveanum)
+    (mu) (sig)
+    (giveanum)
     (bin.south east)
+    (epsilon.south east)
+    (value.south east)
+    (s2inductive) (s2concrete)
   } {$i\in{Objects}$};
 }
 
-* $w_i$ := width of histogram bins for item $i$
-* $x_i$ := sample in give a number trial
-* $p_{ib}$ := true probability of bin $b$ for item $i$
-* $d_{ib}$ := slider rating for bin $b$ for item $i$
+# Distributions/Functions/Values:
 
+Experiment design parameters:
 
+* $Objects$
+* $Bins$
+* $Epsilons$
+* $Values$
 
+Assumed model parameters:
 
+* $\mu^{max}$ = ??
+* $\sigma^{max}$ = ??
+* $\sigma_{binned\ hist}$ = ??
+* $\alpha_1^{max}$ = 20
+* $\alpha_2^{max}$ = 5
+
+Inferred Latent variables:
+
+* $\mu_i \sim \mathcal{U}\{0, \mu^{max}\}$
+* $\sigma_i \sim \mathcal{U}\{0, \sigma^{max}\}$
+* $\alpha_1^I \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+* $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+* $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+* $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+* $p_{ib} = \int_{LB_{ib}}^{UB_{ib}} \varphi(ln(t)|\mu_i, \sigma_i) dt$
+
+Observations from experimental data:
+
+* $d_{ib} \sim \mathcal{N}(p_{ib}, \sigma_{binned\ hist})$
