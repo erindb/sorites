@@ -202,14 +202,29 @@ ggsave("sorites_data.png", width=12, height=4)
 give a number: i don't know Justine's design for this.
 
 ```{r}
-# give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
-#   mutate(item = ifelse(item=="coffee.maker", "coffee maker", item))
-# current_item = "coffee maker"
-# give_a_number_params = webppl(
-#   program_file = "models/prior_fits/give_a_number.wppl",
-#   data_var = "samples",
-#   data = (give_a_number %>% filter(item==current_item))$price)
-# mean((give_a_number_params %>% filter(Parameter=="mu"))$value)
+give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
+  mutate(item = ifelse(item=="coffee.maker", "coffee maker", char(item)))
+current_item = "coffee maker"
+posterior_predictive = do.call(
+  rbind,
+  lapply(
+    unique(give_a_number$item),
+    function(current_item) {
+      give_a_number_params = webppl(
+        program_file = "models/prior_fits/give_a_number.wppl",
+        data_var = "ARGS",
+        data = list(
+          samples=(give_a_number %>% filter(item==current_item))$price,
+          N=1)) %>%
+        mutate(item = current_item)
+      return(give_a_number_params)
+    }))
+# ggplot(give_a_number, aes(x=price)) +
+#   geom_density() +
+#   facet_wrap(~item, scale="free_x")
+ggplot(give_a_number, aes(x=price)) +
+  geom_density() +
+  facet_wrap(~item, scale="free_x")
 ```
 
 experiment 02
