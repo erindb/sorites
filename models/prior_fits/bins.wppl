@@ -1,0 +1,30 @@
+/*
+Log-normal fit for binned histogram elicitation
+*/
+
+var model = function() {
+	// sample possible parameters
+	var params = {
+		mu: uniform(0, 20),
+		sig: uniform(0, 5),
+		sig_binned_hist: uniform(0, 5)
+	};
+	// factor by likelihood of responses
+	mapData({data: ARGS.responses}, function(datum) {
+		var lower_bound = datum.LB;
+		var upper_bound = datum.UB;
+		var rating = datum.rating;
+		// assume log of price is normally distributed
+		// and calculate CDF within those bounds
+		var latent_prob_of_bin = 1;
+		// factor by likelihood of rating if Gaussian centered at that prob
+		var prob_of_sampled_price = Gaussian({
+			mu: latent_prob_of_bin,
+			sigma: params.sig_binned_hist
+		}).score(rating);
+		factor(prob_of_sampled_price);
+	});
+	return params;
+};
+
+"finished";

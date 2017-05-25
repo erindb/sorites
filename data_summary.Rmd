@@ -299,18 +299,20 @@ df = do.call(rbind, list_data) %>%
          rating = num(responses))
 row.names(df) = 1:nrow(df)
 
-# rs = webppl(program_file = "models/prior_fits/bins.wppl",
-#             model_var = "model",
-#             inference_opts = list(method="MCMC",
-#                                   samples=iterations,
-#                                   burn=100,
-#                                   skip=10),
-#             data_var = "ARGS",
-#             data = list(
-#               responses=with(df, mapply(
-#                 function(lb, ub, r, i) {c(lb, ub, r, i)},
-#                 LB, UB, rating, item,
-#                 SIMPLIFY=F))))
+iterations = 1
+current_item = "coffee maker"
+rs = webppl(program_file = "models/prior_fits/bins.wppl",
+            model_var = "model",
+            inference_opts = list(method="MCMC",
+                                  samples=iterations,
+                                  burn=100,
+                                  skip=10),
+            data_var = "ARGS",
+            data = list(
+              responses=with(df %>% filter(item==current_item), mapply(
+                function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
+                LB, UB, rating,
+                SIMPLIFY=F))))
 
 df %>%
   group_by(item, bin) %>%
