@@ -199,7 +199,9 @@ ggsave("sorites_data.png", width=12, height=4)
 
 # Priors experiments
 
-give a number: i don't know Justine's design for this.
+## Give a number
+
+i don't know Justine's design for this.
 
 ```{r, fig.width=8, fig.height=4}
 give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
@@ -249,10 +251,13 @@ rbind(give_a_number %>%
   facet_wrap(~item, scale="free")
 ```
 
-experiment 02
+## Experiment 02
+
+Ignore this for now, it was an odd task.
 
 ```{r}
-# exp2 = read.csv("data/priors/data_exp02_2013_10_08_08.csv")
+# exp2 = read.csv("data/priors/data_exp02_2013_10_08_08.csv") %>%
+#   gather("var", "val", 30:53)
 ```
 
 Instructions:
@@ -265,13 +270,61 @@ Although we know that you cannot recover the original prices exactly, keep in mi
 
 Prompt: Items over $CUTOFF are in blue italics.
 
-experiment 03
+## Experiment 03
 
 In each scenario, someone has just bought an item. Please give your best estimate of the price of the item. You will do this by rating how likely you think it is that the actual price is within each of NBINS different ranges.
 
 NAME bought a new *ITEM*.
 
 Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
+
+```{r}
+exp3 = read.csv("data/priors/data_exp03_2013_12_03_05.csv") %>%
+  gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
+list_data = mapply(
+  function(response, question, workerid, a5, a6, a7, a8, a9) {
+    # char(a5) %>% fromJSON # we also collected a max price
+    rs = response %>% fromJSON %>% as.data.frame %>% 
+      mutate(workerid = workerid)
+    rs = rs %>% mutate(bin = 1:nrow(rs))
+    return(rs)
+  },
+  exp3$responses, exp3$question, exp3$workerid,
+  exp3$Answer.5, exp3$Answer.6, exp3$Answer.7, exp3$Answer.8, exp3$Answer.9,
+  SIMPLIFY=F)
+df = do.call(rbind, list_data) %>%
+  mutate(UB = num(ifelse(uppers=="infty", max, char(uppers))),
+         LB = num(lowers),
+         width = UB-LB,
+         rating = num(responses))
+row.names(df) = 1:nrow(df)
+
+# rs = webppl(program_file = "models/prior_fits/bins.wppl",
+#             model_var = "model",
+#             inference_opts = list(method="MCMC",
+#                                   samples=iterations,
+#                                   burn=100,
+#                                   skip=10),
+#             data_var = "ARGS",
+#             data = list(
+#               responses=with(df, mapply(
+#                 function(lb, ub, r, i) {c(lb, ub, r, i)},
+#                 LB, UB, rating, item,
+#                 SIMPLIFY=F))))
+
+df %>%
+  group_by(item, bin) %>%
+  summarise(
+    low = ci.low(rating),
+    high = ci.high(rating),
+    rating = mean(rating)) %>%
+  ggplot(., aes(x=bin, y=rating)) +
+  # geom_point(alpha=1/10) +
+  geom_bar(stat="identity", alpha=1/2) +
+  geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=1/2)+
+  facet_wrap(~item, scale="free")
+```
+
 
 experiment 04
 
@@ -292,7 +345,6 @@ experiment 08
 same as 2, but ITEM is colored differently for different items
 
 experiment 09
-
 	
 NAME (saw|bought|met) an *ITEM*.
 OR
