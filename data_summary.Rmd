@@ -242,9 +242,9 @@ posterior_predictive = give_a_number %>%
   }, item))
 inferred_parameters
 rbind(give_a_number %>%
-        mutate(source="give a number"),
+        mutate(source="data"),
       posterior_predictive %>%
-        mutate(source="posterior predictive")) %>%
+        mutate(source="sim")) %>%
   ggplot(., aes(x=price, colour=source)) +
   geom_density(alpha=1/2) +
   scale_colour_brewer(type="qual", palette = 3) +
@@ -279,96 +279,7 @@ NAME bought a new *ITEM*.
 Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
 
 ```{r, fig.width=8, fig.height=4}
-exp3 = read.csv("data/priors/data_exp03_2013_12_03_05.csv") %>%
-  gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
-list_data = mapply(
-  function(response, question, workerid, a5, a6, a7, a8, a9) {
-    # char(a5) %>% fromJSON # we also collected a max price
-    rs = response %>% fromJSON %>% as.data.frame %>% 
-      mutate(workerid = workerid)
-    rs = rs %>% mutate(bin = 1:nrow(rs))
-    return(rs)
-  },
-  exp3$responses, exp3$question, exp3$workerid,
-  exp3$Answer.5, exp3$Answer.6, exp3$Answer.7, exp3$Answer.8, exp3$Answer.9,
-  SIMPLIFY=F)
-df = do.call(rbind, list_data) %>%
-  group_by(item, workerid) %>%
-  mutate(UB = num(ifelse(uppers=="infty", max, char(uppers))),
-         LB = num(lowers),
-         width = UB-LB,
-         rating = num(responses)/sum(num(responses))) %>%
-  ungroup()
-row.names(df) = 1:nrow(df)
-
-iterations = 1000
-rs = do.call(
-  rbind,
-  lapply(
-    unique(df$item),
-    function(current_item) {
-      params = webppl(program_file = "models/prior_fits/bins.wppl",
-            model_var = "model",
-            packages = c("models/node_modules/utils",
-                         "models/node_modules/babyparse",
-                         "models/node_modules/babyparse"),
-            inference_opts = list(method="MCMC",
-                                  samples=iterations,
-                                  burn=100,
-                                  skip=10),
-            data_var = "ARGS",
-            data = list(
-              responses=with(df %>% filter(item==current_item), mapply(
-                function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
-                LB, UB, rating,
-                SIMPLIFY=F)))) %>%
-        mutate(item = current_item)
-      return(params)
-    }))
-inferred_parameters = rs %>% group_by(item, Parameter) %>%
-  summarise(value = mean(value)) %>%
-  spread(Parameter, value) %>% as.data.frame
-row.names(inferred_parameters) = inferred_parameters$item
-
-agg = df %>%
-  group_by(item, bin) %>%
-  summarise(
-    low = ci.low(rating),
-    high = ci.high(rating),
-    rating = mean(rating),
-    source="data")
-
-sim = merge(df, inferred_parameters) %>% 
-  group_by(item, mu, sig, UB, LB, bin) %>%
-  mutate(
-    rating = mapply(function(UB, LB, mu, sig) {
-      pnorm(log(UB), mu, sig) - pnorm(log(LB), mu, sig)
-    }, UB, LB, mu, sig),
-    source="simulated"
-  )
-
-inferred_parameters
-
-rbind(agg, sim) %>%
-  ggplot(., aes(x=bin, y=rating, fill=source)) +
-  # geom_point(alpha=1/10) +
-  geom_bar(stat="identity", alpha=1/2, position=position_dodge(0.9)) +
-  geom_errorbar(aes(ymin=low, ymax=high, colour=source),
-                width=0, position=position_dodge(0.9))+
-  facet_wrap(~item, scale="free") +
-  scale_fill_brewer(type="qual", palette = 3) +
-  scale_colour_brewer(type="qual", palette = 3)
-```
-
-
-## Experiment 04
-
-same as 2
-
-
-
-```{r, fig.width=8, fig.height=4}
-exp = read.csv("data/priors/data_exp04_2013_12_03_12.csv") %>%
+exp = read.csv("data/priors/data_exp03_2013_12_03_05.csv") %>%
   gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
 list_data = mapply(
   function(response, question, workerid, a5, a6, a7, a8, a9) {
@@ -397,20 +308,20 @@ rs = do.call(
     unique(df$item),
     function(current_item) {
       params = webppl(program_file = "models/prior_fits/bins.wppl",
-            model_var = "model",
-            packages = c("models/node_modules/utils",
-                         "models/node_modules/babyparse",
-                         "models/node_modules/babyparse"),
-            inference_opts = list(method="MCMC",
-                                  samples=iterations,
-                                  burn=100,
-                                  skip=10),
-            data_var = "ARGS",
-            data = list(
-              responses=with(df %>% filter(item==current_item), mapply(
-                function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
-                LB, UB, rating,
-                SIMPLIFY=F)))) %>%
+                      model_var = "model",
+                      packages = c("models/node_modules/utils",
+                                   "models/node_modules/babyparse",
+                                   "models/node_modules/babyparse"),
+                      inference_opts = list(method="MCMC",
+                                            samples=iterations,
+                                            burn=100,
+                                            skip=10),
+                      data_var = "ARGS",
+                      data = list(
+                        responses=with(df %>% filter(item==current_item), mapply(
+                          function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
+                          LB, UB, rating,
+                          SIMPLIFY=F)))) %>%
         mutate(item = current_item)
       return(params)
     }))
@@ -441,21 +352,201 @@ sim = merge(df, inferred_parameters) %>%
 inferred_parameters
 
 rbind(agg, sim) %>%
-  ggplot(., aes(x=bin, y=rating, fill=source)) +
-  # geom_point(alpha=1/10) +
+  ggplot(., aes(x=bin, y=rating, fill=source, colour=source)) +
   geom_bar(stat="identity", alpha=1/2, position=position_dodge(0.9)) +
-  geom_errorbar(aes(ymin=low, ymax=high, colour=source),
+  geom_errorbar(aes(ymin=low, ymax=high),
                 width=0, position=position_dodge(0.9))+
   facet_wrap(~item, scale="free") +
   scale_fill_brewer(type="qual", palette = 3) +
   scale_colour_brewer(type="qual", palette = 3)
 ```
 
-experiment 05
+## Experiment 04
 
 same as 2
 
-experiment 06
+```{r, fig.width=8, fig.height=4}
+exp = read.csv("data/priors/data_exp04_2013_12_03_12.csv") %>%
+  gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4)) %>%
+  filter(workerid != "20")
+list_data = mapply(
+  function(response, question, workerid, a5, a6, a7, a8, a9) {
+    # char(a5) %>% fromJSON # we also collected a max price
+    rs = response %>% fromJSON %>% as.data.frame %>% 
+      mutate(workerid = workerid)
+    rs = rs %>% mutate(bin = 1:nrow(rs))
+    return(rs)
+  },
+  exp$responses, exp$question, exp$workerid,
+  exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
+  SIMPLIFY=F)
+df = do.call(rbind, list_data) %>%
+  group_by(item, workerid) %>%
+  mutate(UB = num(ifelse(uppers=="infty", max, char(uppers))),
+         LB = num(lowers),
+         width = UB-LB,
+         rating = num(responses)/sum(num(responses))) %>%
+  ungroup()
+row.names(df) = 1:nrow(df)
+
+iterations = 1000
+rs = do.call(
+  rbind,
+  lapply(
+    unique(df$item),
+    function(current_item) {
+      params = webppl(program_file = "models/prior_fits/bins.wppl",
+                      model_var = "model",
+                      packages = c("models/node_modules/utils",
+                                   "models/node_modules/babyparse",
+                                   "models/node_modules/babyparse"),
+                      inference_opts = list(method="MCMC",
+                                            samples=iterations,
+                                            burn=100,
+                                            skip=10),
+                      data_var = "ARGS",
+                      data = list(
+                        responses=with(df %>% filter(item==current_item), mapply(
+                          function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
+                          LB, UB, rating,
+                          SIMPLIFY=F)))) %>%
+        mutate(item = current_item)
+      return(params)
+    }))
+inferred_parameters = rs %>% group_by(item, Parameter) %>%
+  summarise(value = mean(value)) %>%
+  spread(Parameter, value) %>% as.data.frame
+row.names(inferred_parameters) = inferred_parameters$item
+
+agg = df %>%
+  group_by(item, bin) %>%
+  summarise(
+    low = ci.low(rating),
+    high = ci.high(rating),
+    rating = mean(rating),
+    source="data")
+
+sim = merge(df, inferred_parameters) %>% 
+  group_by(item, mu, sig, UB, LB, bin) %>%
+  mutate(
+    rating = mapply(function(UB, LB, mu, sig) {
+      pnorm(log(UB), mu, sig) - pnorm(log(LB), mu, sig)
+    }, UB, LB, mu, sig),
+    source="simulated",
+    low = rating,
+    high = rating
+  )
+
+inferred_parameters
+
+rbind(agg, sim) %>%
+  ggplot(., aes(x=bin, y=rating, fill=source, colour=source)) +
+  geom_bar(stat="identity", alpha=1/2, position=position_dodge(0.9)) +
+  geom_errorbar(aes(ymin=low, ymax=high),
+                width=0, position=position_dodge(0.9))+
+  facet_wrap(~item, scale="free") +
+  scale_fill_brewer(type="qual", palette = 3) +
+  scale_colour_brewer(type="qual", palette = 3)
+ggsave("test.png", width=20, height=10)
+```
+
+## Experiment 05
+
+same as 2
+
+```{r}
+exp = read.csv("data/priors/data_exp05_2013_12_04_15.csv") %>%
+  gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
+  list_data = mapply(
+    function(response, question, workerid, a5, a6, a7, a8, a9) {
+      # char(a5) %>% fromJSON # we also collected a max price
+      rs = response %>% fromJSON %>% as.data.frame %>% 
+        mutate(workerid = workerid)
+      rs = rs %>% mutate(bin = 1:nrow(rs))
+      return(rs)
+    },
+    exp$responses, exp$question, exp$workerid,
+    exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
+    SIMPLIFY=F)
+  df = do.call(rbind, list_data) %>%
+    group_by(item, workerid) %>%
+    mutate(UB = num(ifelse(uppers=="infty", max, char(uppers))),
+           LB = num(lowers),
+           width = UB-LB,
+           rating = num(responses)/sum(num(responses))) %>%
+    ungroup()
+  row.names(df) = 1:nrow(df)
+  
+  iterations = 1000
+  rs = do.call(
+    rbind,
+    lapply(
+      unique(df$item),
+      function(current_item) {
+        params = webppl(program_file = "models/prior_fits/bins.wppl",
+                        model_var = "model",
+                        packages = c("models/node_modules/utils",
+                                     "models/node_modules/babyparse",
+                                     "models/node_modules/babyparse"),
+                        inference_opts = list(method="MCMC",
+                                              samples=iterations,
+                                              burn=100,
+                                              skip=10),
+                        data_var = "ARGS",
+                        data = list(
+                          responses=with(df %>% filter(item==current_item), mapply(
+                            function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
+                            LB, UB, rating,
+                            SIMPLIFY=F)))) %>%
+          mutate(item = current_item)
+        return(params)
+      }))
+  inferred_parameters = rs %>% group_by(item, Parameter) %>%
+    summarise(value = mean(value)) %>%
+    spread(Parameter, value) %>% as.data.frame
+  row.names(inferred_parameters) = inferred_parameters$item
+  
+  agg = df %>%
+    group_by(item, bin) %>%
+    summarise(
+      low = ci.low(rating),
+      high = ci.high(rating),
+      rating = mean(rating),
+      source="data")
+  
+  sim = merge(df, inferred_parameters) %>% 
+    group_by(item, mu, sig, UB, LB, bin) %>%
+    mutate(
+      rating = mapply(function(UB, LB, mu, sig) {
+        pnorm(log(UB), mu, sig) - pnorm(log(LB), mu, sig)
+      }, UB, LB, mu, sig),
+      source="simulated",
+      low = rating,
+      high = rating
+    )
+  
+  inferred_parameters
+  
+  p = rbind(agg, sim) %>%
+    ggplot(., aes(x=bin, y=rating, fill=source)) +
+    # geom_point(alpha=1/10) +
+    geom_bar(stat="identity", alpha=1/2, position=position_dodge(0.9)) +
+    geom_errorbar(aes(ymin=low, ymax=high, colour=source),
+                  width=0, position=position_dodge(0.9))+
+    facet_wrap(~item, scale="free") +
+    scale_fill_brewer(type="qual", palette = 3) +
+    scale_colour_brewer(type="qual", palette = 3)
+  return(list(plot=p, params=inferred_parameters))
+```
+
+
+```{r, fig.width=8, fig.height=4}
+# output = process_bins("data/priors/data_exp05_2013_12_04_15.csv")
+# print(output[["params"]])
+# print(output[["plot"]])
+```
+
+<!-- ## Experiment 06
 
 condition A: same as 2
 
@@ -476,6 +567,8 @@ Please rate how likely it is that the (height|cost|age) of the ITEM is within ea
 25-30 ft
 $250-$300
 25-30 yrs
+
+-->
 
 # Model
 
