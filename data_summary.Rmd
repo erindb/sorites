@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.widt
 ```
 
 ```{r load libraries}
-source("~/Settings/startup.R")
+source("startup.R")
 library(knitr)
 library(pander)
 ```
@@ -166,6 +166,11 @@ df = df %>% mutate(
   id = factor(id)
 )
 ```
+
+```{r}
+# df %>% select(dollar_amount, object, response, qtype)
+```
+
 
 ```{r}
 RUN_AGG = F
@@ -361,7 +366,11 @@ if (RUN_DATA_TRANSFORM) {
 ```
 
 ```{r}
-
+webppl(program_file = "models/prior_fits/bins.wppl",
+       inference_opts = list(method="incrementalMH", samples=1),
+       model_var = "model",
+       data_var = "ARGS",
+       data = prior_bins_data)
 ```
 
 ```{r, fig.width=12, fig.height=5}

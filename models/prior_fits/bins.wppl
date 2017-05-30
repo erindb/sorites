@@ -1,5 +1,8 @@
 /*
 Log-normal fit for binned histogram elicitation
+
+ARGS.items list
+ARGS.data data frame
 */
 
 var logit = function(prob) {
@@ -9,36 +12,47 @@ var logit = function(prob) {
 };
 
 var model = function() {
-	// sample possible parameters
-	var params = {
-		mu: uniform(0, 20),
-		sig: uniform(0, 5),
-		sig_binned_hist: uniform(0, 10)
-	};
-	// factor by likelihood of responses
-	mapData({data: ARGS.responses}, function(datum) {
-		var lower_bound = datum.LB;
-		var upper_bound = datum.UB;
-		var rating = datum.rating;
-		// assume log of price is normally distributed
-		// and calculate CDF within those bounds
-		var gaussian_params = {
-			mu: params.mu,
-			sigma: params.sig
-		};
-		var latent_prob_of_bin = (
-			utils.lognormalCDF(upper_bound, gaussian_params) -
-        	utils.lognormalCDF(lower_bound, gaussian_params)
-        );
-		// factor by likelihood of rating if Gaussian centered at that prob
-		var prob_of_sampled_price = Gaussian({
-			mu: logit(latent_prob_of_bin),
-			sigma: params.sig_binned_hist
-
-		}).score(logit(rating));
-		factor(prob_of_sampled_price);
-	});
-	return params;
+	var sig_binned_hist = uniform(0, 10);
+	forEach([1,2], function() {});
+	return 1;
 };
+
+// var model = function() {
+
+// 	foreach(ARGS.items, function(item) {
+// 		// sample possible parameters
+// 		var params = {
+// 			mu: uniform(0, 20),
+// 			sig: uniform(0, 5)
+// 		};
+// 		var data = _.filter(ARGS.data, {item: item});
+
+// 		// factor by likelihood of responses
+// 		mapData({data: data}, function(datum) {
+// 			var lower_bound = datum.LB;
+// 			var upper_bound = datum.UB;
+// 			var rating = datum.rating;
+// 			// assume log of price is normally distributed
+// 			// and calculate CDF within those bounds
+// 			var gaussian_params = {
+// 				mu: params.mu,
+// 				sigma: params.sig
+// 			};
+// 			var latent_prob_of_bin = (
+// 				utils.lognormalCDF(upper_bound, gaussian_params) -
+// 	        	utils.lognormalCDF(lower_bound, gaussian_params)
+// 	        );
+// 			// factor by likelihood of rating if Gaussian centered at that prob
+// 			var prob_of_sampled_price = Gaussian({
+// 				mu: logit(latent_prob_of_bin),
+// 				sigma: params.sig_binned_hist
+
+// 			}).score(logit(rating));
+// 			factor(prob_of_sampled_price);
+// 		});
+// 	});
+
+// 	return 1;
+// };
 
 "finished";
