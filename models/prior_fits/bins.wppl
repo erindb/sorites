@@ -29,7 +29,7 @@ var model = function() {
 			mu: latent_prob_of_bin,
 			sigma: params.sig_binned_hist
 
-		}).score(rating);
+		}).score(Math.log(rating/(1-rating)));
 		factor(prob_of_sampled_price);
 	});
 	return params;
