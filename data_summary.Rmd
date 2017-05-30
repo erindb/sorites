@@ -253,7 +253,7 @@ rbind(give_a_number %>%
   facet_wrap(~item, scale="free")
 ```
 
-## Experiment 02
+<!-- ## Experiment 02
 
 Ignore this for now, it was an odd task.
 
@@ -271,8 +271,9 @@ We can get a little bit of information about the price by looking at the the col
 Although we know that you cannot recover the original prices exactly, keep in mind that it is in the store's best interest if your guesses are as close to the original prices as possible.
 
 Prompt: Items over $CUTOFF are in blue italics.
+-->
 
-## Experiment 03
+## Experiment 03, 04, 05, 06, 08
 
 In each scenario, someone has just bought an item. Please give your best estimate of the price of the item. You will do this by rating how likely you think it is that the actual price is within each of NBINS different ranges.
 
@@ -280,151 +281,178 @@ NAME bought a new *ITEM*.
 
 Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
 
-```{r, fig.width=12, fig.height=5}
-analyze_bins_data = function(filename) {
-  exp = read.csv(filename) %>%
-    gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
-  list_data = mapply(
-    function(response, question, workerid, a5, a6, a7, a8, a9) {
-      # char(a5) %>% fromJSON # we also collected a max price
-      rs = response %>% fromJSON %>% as.data.frame %>% 
-        mutate(workerid = workerid)
-      rs = rs %>% mutate(bin = 1:nrow(rs))
-      return(rs)
-    },
-    exp$responses, exp$question, exp$workerid,
-    exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
-    SIMPLIFY=F)
-  df = do.call(rbind, list_data) %>%
-    group_by(item, workerid) %>%
-    mutate(UB = num(ifelse(uppers=="infty", max, char(uppers))),
-           LB = num(lowers),
-           width = UB-LB,
-           rating = num(responses)/sum(num(responses))) %>%
-    ungroup()
-  row.names(df) = 1:nrow(df)
-  
-  iterations = 1000
-  rs = do.call(
-    rbind,
-    lapply(
-      unique(df$item),
-      function(current_item) {
-        params = webppl(program_file = "models/prior_fits/bins.wppl",
-                        model_var = "model",
-                        packages = c("models/node_modules/utils",
-                                     "models/node_modules/babyparse",
-                                     "models/node_modules/babyparse"),
-                        inference_opts = list(method="MCMC",
-                                              samples=iterations,
-                                              burn=100,
-                                              skip=10),
-                        data_var = "ARGS",
-                        data = list(
-                          responses=with(df %>% filter(item==current_item), mapply(
-                            function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
-                            LB, UB, rating,
-                            SIMPLIFY=F)))) %>%
-          mutate(item = current_item)
-        return(params)
-      }))
-  inferred_parameters = rs %>% group_by(item, Parameter) %>%
-    summarise(value = mean(value)) %>%
-    spread(Parameter, value) %>% as.data.frame
-  row.names(inferred_parameters) = inferred_parameters$item
-  
-  agg = df %>%
-    group_by(item, bin) %>%
-    summarise(
-      low = ci.low(rating),
-      high = ci.high(rating),
-      rating = mean(rating),
-      source="data")
-  
-  sim = merge(df, inferred_parameters) %>% 
-    group_by(item, mu, sig, UB, LB, bin) %>%
-    mutate(
-      rating = exp(mapply(function(UB, LB, mu, sig) {
-        pnorm(log(UB), mu, sig) - pnorm(log(LB), mu, sig)
-      }, UB, LB, mu, sig)),
-      source="simulated",
-      low = rating,
-      high = rating
-    )
-  
-  inferred_parameters
-  
-  p = rbind(agg, sim) %>%
-    ggplot(., aes(x=bin, y=rating, fill=source, colour=source)) +
-    geom_bar(stat="identity", alpha=1/2, position=position_dodge(0.9)) +
-    geom_errorbar(aes(ymin=low, ymax=high),
-                  width=0, position=position_dodge(0.9))+
-    facet_wrap(~item, scale="free") +
-    scale_fill_brewer(type="qual", palette = 3) +
-    scale_colour_brewer(type="qual", palette = 3)
-  return(list(p=p, inferred_parameters=inferred_parameters))
+In the "split" condition of experiment 08, 
+
+```{r}
+RUN_DATA_TRANSFORM = F
+if (RUN_DATA_TRANSFORM) {
+  transform_upper_bounds = function(uppers) {
+    numeric_uppers = num(uppers[uppers != "infty"])
+    highest_ub = max(numeric_uppers)
+    next_highest_ub = max(numeric_uppers[numeric_uppers!=highest_ub])
+    return(ifelse(uppers=="infty",
+                  highest_ub + (highest_ub - next_highest_ub),
+                  num(uppers)))
+  }
+  process_bins_data = function(filename) {
+    raw_exp = read.csv(filename)
+    exp = raw_exp %>% filter(Answer.cond!="split") %>%
+      gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
+    if ("Answer.35" %in% names(raw_exp)) {
+      exp_split = raw_exp %>% filter(Answer.cond=="split") %>%
+        gather("question", "responses", c(
+          Answer.1, Answer.2, Answer.3, Answer.4, Answer.5,
+          Answer.6, Answer.7, Answer.8, Answer.9, Answer.10,
+          Answer.11, Answer.12, Answer.13, Answer.14, Answer.15,
+          Answer.16, Answer.17, Answer.18, Answer.19, Answer.20,
+          Answer.21, Answer.22, Answer.23, Answer.24, Answer.25,
+          Answer.26, Answer.27, Answer.28, Answer.29, Answer.30,
+          Answer.31, Answer.32, Answer.33, Answer.34, Answer.35
+        ))
+      exp = rbind(exp, exp_split)
+    }
+    list_data = mapply(
+      function(response, question, workerid, a5, a6, a7, a8, a9, condition) {
+        # char(a5) %>% fromJSON # we also collected a max price
+        rs = response %>% fromJSON %>% as.data.frame %>% 
+          mutate(workerid = workerid,
+                 condition = condition[[1]])
+        rs = rs %>% mutate(bin = 1:nrow(rs))
+        if ("lower" %in% names(rs)) {
+          rs = rs %>% rename(lowers = lower)
+        }
+        if ("upper" %in% names(rs)) {
+          rs = rs %>% rename(uppers = upper)
+        }
+        if ("response" %in% names(rs)) {
+          rs = rs %>% rename(responses = response)
+        }
+        return(rs)
+      },
+      exp$responses, exp$question, exp$workerid,
+      exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
+      exp$Answer.cond,
+      SIMPLIFY=F)
+    df = do.call(rbind, list_data) %>%
+      group_by(item) %>%
+      mutate(
+        UB = transform_upper_bounds(uppers),
+        LB = num(lowers),
+        width = UB-LB,
+        rating = num(responses)/sum(num(responses))) %>%
+      ungroup() %>%
+      select(item, bin, UB, LB, rating, condition) %>%
+      as.data.frame
+    row.names(df) = 1:nrow(df)
+    return(df)
+  }
+  df3 = process_bins_data("data/priors/data_exp03_2013_12_03_05.csv") %>% mutate(exp="03")
+  df4 = process_bins_data("data/priors/data_exp03_2013_12_03_05.csv") %>% mutate(exp="04")
+  df5 = process_bins_data("data/priors/data_exp05_2013_12_04_15.csv") %>% mutate(exp="05")
+  df6 = process_bins_data("data/priors/data_exp06_2013_12_04.csv") %>% mutate(exp="06")
+  df8 = process_bins_data("data/priors/data_exp08_2014_01_31_11.csv") %>% mutate(exp="08")
+  prior_bins_data = do.call(rbind, list(df3, df4, df5, df6, df8)) %>% as.data.frame %>%
+    mutate(exp = factor(exp),
+           condition = factor(ifelse(condition=="\"split\"", "split", "original")))
+  write.csv(prior_bins_data, ".prior_bins_data_cache.csv", row.names = F)
+} else {
+  prior_bins_data = read.csv(".prior_bins_data_cache.csv")
 }
-output = analyze_bins_data("data/priors/data_exp03_2013_12_03_05.csv")
-print(output[["inferred_parameters"]])
-print(output[["p"]])
-ggsave("exp3.png", width=8, height=4)
-```
-
-## Experiment 04
-
-same as 2
-
-```{r, fig.width=12, fig.height=5}
-output = analyze_bins_data("data/priors/data_exp04_2013_12_03_12.csv")
-print(output[["inferred_parameters"]])
-print(output[["p"]])
-ggsave("exp4.png", width=8, height=4)
-```
-
-
-```{r, fig.width=12, fig.height=5}
-# output = analyze_bins_data("data/priors/data_exp05a_2013_12_04_15.csv")
-# print(output[["inferred_parameters"]])
-# print(output[["p"]])
-# ggsave('test.png', width=20, height=10)
 ```
 
 ```{r}
-# output = analyze_bins_data("data/priors/data_exp05b_2013_12_04.csv")
+
+```
+
+```{r, fig.width=12, fig.height=5}
+# analyze_bins_data = function(filename) {
+#   exp = read.csv(filename) %>%
+#     gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
+#   list_data = mapply(
+#     function(response, question, workerid, a5, a6, a7, a8, a9) {
+#       # char(a5) %>% fromJSON # we also collected a max price
+#       rs = response %>% fromJSON %>% as.data.frame %>% 
+#         mutate(workerid = workerid)
+#       rs = rs %>% mutate(bin = 1:nrow(rs))
+#       return(rs)
+#     },
+#     exp$responses, exp$question, exp$workerid,
+#     exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
+#     SIMPLIFY=F)
+#   df = do.call(rbind, list_data) %>%
+#     group_by(item, workerid) %>%
+#     mutate(UB = num(ifelse(uppers=="infty", max, char(uppers))),
+#            LB = num(lowers),
+#            width = UB-LB,
+#            rating = num(responses)/sum(num(responses))) %>%
+#     ungroup()
+#   row.names(df) = 1:nrow(df)
+#   
+#   iterations = 1000
+#   rs = do.call(
+#     rbind,
+#     lapply(
+#       unique(df$item),
+#       function(current_item) {
+#         params = webppl(program_file = "models/prior_fits/bins.wppl",
+#                         model_var = "model",
+#                         packages = c("models/node_modules/utils",
+#                                      "models/node_modules/babyparse",
+#                                      "models/node_modules/babyparse"),
+#                         inference_opts = list(method="MCMC",
+#                                               samples=iterations,
+#                                               burn=100,
+#                                               skip=10),
+#                         data_var = "ARGS",
+#                         data = list(
+#                           responses=with(df %>% filter(item==current_item), mapply(
+#                             function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
+#                             LB, UB, rating,
+#                             SIMPLIFY=F)))) %>%
+#           mutate(item = current_item)
+#         return(params)
+#       }))
+#   inferred_parameters = rs %>% group_by(item, Parameter) %>%
+#     summarise(value = mean(value)) %>%
+#     spread(Parameter, value) %>% as.data.frame
+#   row.names(inferred_parameters) = inferred_parameters$item
+#   
+#   agg = df %>%
+#     group_by(item, bin) %>%
+#     summarise(
+#       low = ci.low(rating),
+#       high = ci.high(rating),
+#       rating = mean(rating),
+#       source="data")
+#   
+#   sim = merge(df, inferred_parameters) %>% 
+#     group_by(item, mu, sig, UB, LB, bin) %>%
+#     mutate(
+#       rating = exp(mapply(function(UB, LB, mu, sig) {
+#         pnorm(log(UB), mu, sig) - pnorm(log(LB), mu, sig)
+#       }, UB, LB, mu, sig)),
+#       source="simulated",
+#       low = rating,
+#       high = rating
+#     )
+#   
+#   inferred_parameters
+#   
+#   p = rbind(agg, sim) %>%
+#     ggplot(., aes(x=bin, y=rating, fill=source, colour=source)) +
+#     geom_bar(stat="identity", alpha=1/2, position=position_dodge(0.9)) +
+#     geom_errorbar(aes(ymin=low, ymax=high),
+#                   width=0, position=position_dodge(0.9))+
+#     facet_wrap(~item, scale="free") +
+#     scale_fill_brewer(type="qual", palette = 3) +
+#     scale_colour_brewer(type="qual", palette = 3)
+#   return(list(p=p, inferred_parameters=inferred_parameters))
+# }
+# output = analyze_bins_data("data/priors/data_exp03_2013_12_03_05.csv")
 # print(output[["inferred_parameters"]])
 # print(output[["p"]])
+# ggsave("exp3.png", width=8, height=4)
 ```
-
-
-```{r, fig.width=8, fig.height=4}
-# output = process_bins("data/priors/data_exp05_2013_12_04_15.csv")
-# print(output[["params"]])
-# print(output[["plot"]])
-```
-
-<!-- ## Experiment 06
-
-condition A: same as 2
-
-condition B: NAME bought new *ITEM* It was *expensive*.
-
-experiment 08
-
-same as 2, but ITEM is colored differently for different items
-
-experiment 09
-	
-NAME (saw|bought|met) an *ITEM*.
-OR
-NAME (saw|bought|met) an *ITEM*. NAME says, "The ITEM was *ADJECTIVE*."
-
-Please rate how likely it is that the (height|cost|age) of the ITEM is within each of the following ranges.
-
-25-30 ft
-$250-$300
-25-30 yrs
-
--->
 
 # Model
 
@@ -529,4 +557,4 @@ Inferred Latent variables:
 
 Observations from experimental data:
 
-* $d_{ib} \sim \mathcal{N}(p_{ib}, \sigma_{binned\ hist})$
+* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{binned\ hist})$
