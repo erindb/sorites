@@ -7,7 +7,7 @@ var model = function() {
 	var params = {
 		mu: uniform(0, 20),
 		sig: uniform(0, 5),
-		sig_binned_hist: uniform(0, 5)
+		sig_binned_hist: uniform(0, 10)
 	};
 	// factor by likelihood of responses
 	mapData({data: ARGS.responses}, function(datum) {
