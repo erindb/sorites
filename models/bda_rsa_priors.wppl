@@ -1,0 +1,31 @@
+// ARGS.give_a_number data frame
+// ARGS.concrete data frame
+// ARGS.objects vector of objects
+
+var model = function() {
+	var global_params = {
+		alpha1: uniform(0, 20),
+		alpha2: uniform(0, 5)
+	};
+	foreach(ARGS.objects, function(obj) {
+		var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
+		var concrete = _.filter(ARGS.concrete, {object: obj});
+
+		var item_args = {
+			mu: uniform(0, 20),
+			sig: uniform(0, 5)
+		};
+
+		// factor by likelihood of sampled responses from give-a-number task
+		mapData({data: ARGS.samples}, function(price) {
+			// assume log of price is normally distributed
+			var prob_of_sampled_price = Gaussian(
+				{mu: params.mu, sigma: params.sig}
+			).score(Math.log(price));
+			factor(prob_of_sampled_price);
+		});
+
+	});
+};
+
+"finished";

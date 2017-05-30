@@ -2,6 +2,12 @@
 Log-normal fit for binned histogram elicitation
 */
 
+var logit = function(prob) {
+	var rating_avoidEnds = prob == 0 ? 0.01 : prob == 1 ? 0.99 : prob
+	var logitRating = Math.log(rating_avoidEnds/ (1-rating_avoidEnds))
+	return logitRating;
+};
+
 var model = function() {
 	// sample possible parameters
 	var params = {
@@ -26,10 +32,10 @@ var model = function() {
         );
 		// factor by likelihood of rating if Gaussian centered at that prob
 		var prob_of_sampled_price = Gaussian({
-			mu: latent_prob_of_bin,
+			mu: logit(latent_prob_of_bin),
 			sigma: params.sig_binned_hist
 
-		}).score(Math.log(rating/(1-rating)));
+		}).score(logit(rating));
 		factor(prob_of_sampled_price);
 	});
 	return params;
