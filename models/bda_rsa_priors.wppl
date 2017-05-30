@@ -2,6 +2,17 @@
 // ARGS.concrete data frame
 // ARGS.objects vector of objects
 
+var foreach = function(lst, fn) {
+    var foreach_ = function(i) {
+        if (i < lst.length) {
+            fn(lst[i]);
+            foreach_(i + 1);
+        }
+    };
+    foreach_(0);
+};
+
+
 var model = function() {
 	var global_params = {
 		alpha1: uniform(0, 20),
