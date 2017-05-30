@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.widt
 ```
 
 ```{r load libraries}
-source("~/Settings/startup.R")
+source("startup.R")
 library(knitr)
 library(pander)
 library(tidyr)
@@ -363,7 +363,20 @@ if (RUN_DATA_TRANSFORM) {
 }
 ```
 
-```{r}
+```{r run.full.model}
+webppl(
+    program_file = "models/bda_rsa_priors.wppl",
+    inference_opts = list(method="incrementalMH",
+                          samples=iterations,
+                          burn=100,
+                          lag=1),
+    model_var = "model",
+    data_var = "ARGS",
+    data = list(priorbins = prior_bins_data, 
+                sorites = select(df, qtype, dollar_amount, object, response), 
+                give_a_number = give_a_number)
+)
+
 
 ```
 
