@@ -216,7 +216,9 @@ Get proper posterior predictive.
 ```{r, fig.width=8, fig.height=4}
 give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
   mutate(item = ifelse(item=="coffee.maker", "coffee maker", char(item)))
-current_item = "coffee maker"
+```
+
+```{r}
 iterations = 2000
 n_data = nrow(give_a_number)
 max_values = give_a_number %>% group_by(item) %>%
