@@ -209,9 +209,7 @@ ggsave("sorites_data.png", width=12, height=4)
 
 ## Give a number
 
-i don't know Justine's design for this.
-
-Get proper posterior predictive.
+I don't know Justine's exact phrasing for this, but participants were asked, for each item, a possible price for that item.
 
 ```{r, fig.width=8, fig.height=4}
 give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
@@ -219,48 +217,48 @@ give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
 ```
 
 ```{r}
-iterations = 2000
-n_data = nrow(give_a_number)
-max_values = give_a_number %>% group_by(item) %>%
-  summarise(max = max(price))
-rs = do.call(
-  rbind,
-  lapply(
-    unique(give_a_number$item),
-    function(current_item) {
-      give_a_number_params = webppl(
-        program_file = "models/prior_fits/give_a_number.wppl",
-        inference_opts = list(method="MCMC",
-                              samples=iterations,
-                              burn=100,
-                              skip=10),
-        model_var = "model",
-        data_var = "ARGS",
-        data = list(
-          samples=(give_a_number %>% filter(item==current_item))$price,
-          N=n_data)) %>%
-        mutate(item = current_item)
-      return(give_a_number_params)
-    }))
-inferred_parameters = rs %>% group_by(item, Parameter) %>%
-  summarise(value = mean(value)) %>%
-  spread(Parameter, value) %>% as.data.frame
-row.names(inferred_parameters) = inferred_parameters$item
-posterior_predictive = give_a_number %>%
-  mutate(price = mapply(function(current_item) {
-    return(exp(rnorm(1,
-                 inferred_parameters[current_item, "mu"], 
-                 inferred_parameters[current_item, "sig"])))
-  }, item))
-inferred_parameters
-rbind(give_a_number %>%
-        mutate(source="data"),
-      posterior_predictive %>%
-        mutate(source="sim")) %>%
-  ggplot(., aes(x=price, colour=source)) +
-  geom_density(alpha=1/2) +
-  scale_colour_brewer(type="qual", palette = 3) +
-  facet_wrap(~item, scale="free")
+# iterations = 2000
+# n_data = nrow(give_a_number)
+# max_values = give_a_number %>% group_by(item) %>%
+#   summarise(max = max(price))
+# rs = do.call(
+#   rbind,
+#   lapply(
+#     unique(give_a_number$item),
+#     function(current_item) {
+#       give_a_number_params = webppl(
+#         program_file = "models/prior_fits/give_a_number.wppl",
+#         inference_opts = list(method="MCMC",
+#                               samples=iterations,
+#                               burn=100,
+#                               skip=10),
+#         model_var = "model",
+#         data_var = "ARGS",
+#         data = list(
+#           samples=(give_a_number %>% filter(item==current_item))$price,
+#           N=n_data)) %>%
+#         mutate(item = current_item)
+#       return(give_a_number_params)
+#     }))
+# inferred_parameters = rs %>% group_by(item, Parameter) %>%
+#   summarise(value = mean(value)) %>%
+#   spread(Parameter, value) %>% as.data.frame
+# row.names(inferred_parameters) = inferred_parameters$item
+# posterior_predictive = give_a_number %>%
+#   mutate(price = mapply(function(current_item) {
+#     return(exp(rnorm(1,
+#                  inferred_parameters[current_item, "mu"], 
+#                  inferred_parameters[current_item, "sig"])))
+#   }, item))
+# inferred_parameters
+# rbind(give_a_number %>%
+#         mutate(source="data"),
+#       posterior_predictive %>%
+#         mutate(source="sim")) %>%
+#   ggplot(., aes(x=price, colour=source)) +
+#   geom_density(alpha=1/2) +
+#   scale_colour_brewer(type="qual", palette = 3) +
+#   facet_wrap(~item, scale="free")
 ```
 
 <!-- ## Experiment 02
@@ -283,15 +281,15 @@ Although we know that you cannot recover the original prices exactly, keep in mi
 Prompt: Items over $CUTOFF are in blue italics.
 -->
 
-## Experiment 03, 04, 05, 06, 08
+## Bins
 
-In each scenario, someone has just bought an item. Please give your best estimate of the price of the item. You will do this by rating how likely you think it is that the actual price is within each of NBINS different ranges.
+Here are the instructions participants got in all of the prior experiments:
 
-NAME bought a new *ITEM*.
-
-Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
-
-In the "split" condition of experiment 08, 
+> In each scenario, someone has just bought an item. Please give your best estimate of the price of the item. You will do this by rating how likely you think it is that the actual price is within each of NBINS different ranges.
+> 
+> NAME bought a new *ITEM*.
+> 
+> Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
 
 ```{r}
 RUN_DATA_TRANSFORM = F
@@ -368,17 +366,21 @@ if (RUN_DATA_TRANSFORM) {
 } else {
   prior_bins_data = read.csv(".prior_bins_data_cache.csv")
 }
+n_split = nrow(prior_bins_data %>% filter(condition == "split"))
 ```
 
+In the "split" condition (`r n_split` participants), participants saw one bin at a time. In all other versions, the sliders for each item were shown together.
+
 ```{r}
-webppl(program_file = "models/prior_fits/bins.wppl",
-       inference_opts = list(method="incrementalMH", samples=1),
-       model_var = "model",
-       data_var = "ARGS",
-       data = prior_bins_data)
+# webppl(program_file = "models/prior_fits/bins.wppl",
+#        inference_opts = list(method="incrementalMH", samples=1),
+#        model_var = "model",
+#        data_var = "ARGS",
+#        data = prior_bins_data)
 ```
 
 ```{r run.full.model}
+iterations = 10
 webppl(
     program_file = "models/bda_rsa_priors.wppl",
     inference_opts = list(method="incrementalMH",
@@ -387,8 +389,8 @@ webppl(
                           lag=1),
     model_var = "model",
     data_var = "ARGS",
-    data = list(priorbins = prior_bins_data, 
-                sorites = select(df, qtype, dollar_amount, object, response), 
+    data = list(priorbins = prior_bins_data,
+                sorites = select(df, qtype, dollar_amount, object, response),
                 give_a_number = give_a_number)
 )
 ```
