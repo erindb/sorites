@@ -170,10 +170,6 @@ df = df %>% mutate(
 )
 ```
 
-```{r}
-# df %>% select(dollar_amount, object, response, qtype)
-```
-
 
 ```{r}
 RUN_AGG = F
@@ -216,71 +212,6 @@ give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
   mutate(item = ifelse(item=="coffee.maker", "coffee maker", char(item)))
 ```
 
-```{r}
-# iterations = 2000
-# n_data = nrow(give_a_number)
-# max_values = give_a_number %>% group_by(item) %>%
-#   summarise(max = max(price))
-# rs = do.call(
-#   rbind,
-#   lapply(
-#     unique(give_a_number$item),
-#     function(current_item) {
-#       give_a_number_params = webppl(
-#         program_file = "models/prior_fits/give_a_number.wppl",
-#         inference_opts = list(method="MCMC",
-#                               samples=iterations,
-#                               burn=100,
-#                               skip=10),
-#         model_var = "model",
-#         data_var = "ARGS",
-#         data = list(
-#           samples=(give_a_number %>% filter(item==current_item))$price,
-#           N=n_data)) %>%
-#         mutate(item = current_item)
-#       return(give_a_number_params)
-#     }))
-# inferred_parameters = rs %>% group_by(item, Parameter) %>%
-#   summarise(value = mean(value)) %>%
-#   spread(Parameter, value) %>% as.data.frame
-# row.names(inferred_parameters) = inferred_parameters$item
-# posterior_predictive = give_a_number %>%
-#   mutate(price = mapply(function(current_item) {
-#     return(exp(rnorm(1,
-#                  inferred_parameters[current_item, "mu"], 
-#                  inferred_parameters[current_item, "sig"])))
-#   }, item))
-# inferred_parameters
-# rbind(give_a_number %>%
-#         mutate(source="data"),
-#       posterior_predictive %>%
-#         mutate(source="sim")) %>%
-#   ggplot(., aes(x=price, colour=source)) +
-#   geom_density(alpha=1/2) +
-#   scale_colour_brewer(type="qual", palette = 3) +
-#   facet_wrap(~item, scale="free")
-```
-
-<!-- ## Experiment 02
-
-Ignore this for now, it was an odd task.
-
-```{r}
-# exp2 = read.csv("data/priors/data_exp02_2013_10_08_08.csv") %>%
-#   gather("var", "val", 30:53)
-```
-
-Instructions:
-
-In this experiment, we would like you to imagine that our store has compiled an inventory list for insurance purposes. Unfortunately, the store only had one copy of the paper where we wrote all this information, and that paper has been badly treated. The prices have faded away and been lost. We would like your best guess as to what those prices should be.
-
-We can get a little bit of information about the price by looking at the the color and font of each entry. Items that cost more than $2000 have to be declared seperately and require additional paperwork, so these are written in blue italics. Please only guess a price above $2000 if the entry is written in blue italics, and please only guess a price below (or equal to) $2000 if the entry is written in plain black text.
-
-Although we know that you cannot recover the original prices exactly, keep in mind that it is in the store's best interest if your guesses are as close to the original prices as possible.
-
-Prompt: Items over $CUTOFF are in blue italics.
--->
-
 ## Bins
 
 Here are the instructions participants got in all of the prior experiments:
@@ -291,7 +222,7 @@ Here are the instructions participants got in all of the prior experiments:
 > 
 > Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
 
-```{r}
+```{r load (and reformat) prior data}
 RUN_DATA_TRANSFORM = F
 if (RUN_DATA_TRANSFORM) {
   transform_upper_bounds = function(uppers) {
@@ -349,7 +280,7 @@ if (RUN_DATA_TRANSFORM) {
         width = UB-LB,
         rating = num(responses)/sum(num(responses))) %>%
       ungroup() %>%
-      select(item, bin, UB, LB, rating, condition) %>%
+      select(workerid, item, bin, UB, LB, rating, condition) %>%
       as.data.frame
     row.names(df) = 1:nrow(df)
     return(df)
@@ -361,15 +292,161 @@ if (RUN_DATA_TRANSFORM) {
   df8 = process_bins_data("data/priors/data_exp08_2014_01_31_11.csv") %>% mutate(exp="08")
   prior_bins_data = do.call(rbind, list(df3, df4, df5, df6, df8)) %>% as.data.frame %>%
     mutate(exp = factor(exp),
-           condition = factor(ifelse(condition=="\"split\"", "split", "original")))
+           condition = factor(ifelse(condition=="\"split\"", "split", "original"))) %>%
+  group_by(workerid, item, exp, condition) %>%
+  mutate(
+    slider_total = sum(rating),
+    normed_rating = ifelse(slider_total==0, 0, rating / slider_total)) %>%
+  ungroup %>% as.data.frame
   write.csv(prior_bins_data, ".prior_bins_data_cache.csv", row.names = F)
 } else {
   prior_bins_data = read.csv(".prior_bins_data_cache.csv")
 }
-n_split = nrow(prior_bins_data %>% filter(condition == "split"))
+n_split = length(unique((prior_bins_data %>% filter(condition == "split"))$workerid))
 ```
 
-In the "split" condition (`r n_split` participants), participants saw one bin at a time. In all other versions, the sliders for each item were shown together.
+There was a "split" condition (`r n_split` participants), where participants saw one bin at a time. In all other versions, the sliders for each item were shown together. We did not collect enough data in the split condition to normalize responses.
+
+```{r}
+RUN_AGG = F
+if (RUN_AGG) {
+  agg_bins = prior_bins_data %>%
+    filter(condition!="split") %>%
+    group_by(workerid, item, exp, condition) %>%
+    mutate(
+      slider_total = sum(rating),
+      normed_rating = ifelse(slider_total==0, 0, rating / slider_total)) %>%
+    group_by(item, condition, exp, UB, LB) %>%
+    summarise(
+      low = ci.low(normed_rating),
+      high = ci.high(normed_rating),
+      y = mean(normed_rating),
+      x = (UB[[1]]+LB[[1]])/2) %>%
+    ungroup %>% as.data.frame %>% mutate(group = paste(item, condition, exp))
+  write.csv(agg_bins, ".agg_bins_cache.csv", row.names=F)
+} else {
+  agg_bins = read.csv(".agg_bins_cache.csv")
+}
+```
+
+```{r, fig.height=8, fig.width=12}
+agg_bins %>%
+  ggplot(., aes(x,y, ymin=low, ymax=high, group=group)) +
+  geom_line() +
+  geom_ribbon(alpha=1/2) +
+  facet_grid(exp~item, scale="free") +
+  xlab("bin midpoint") +
+  ylab("normalized slider response") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+# Model
+
+## Definitions
+
+* $w_i$ := width of histogram bins for item $i$
+* $x_i$ := sample in give a number trial
+* $p_{ib}$ := true probability of bin $b$ for item $i$
+* $d_{ib}$ := slider rating for bin $b$ for item $i$
+* $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
+* $S2(C_{iv})$ := RSA S2(expensive) for item $i$
+* $s^I_{i\varepsilon}$ := binarization of likert rating for inductive premise for item $i$ and epsilon $\varepsilon$
+* $s^C_{iv}$ := binarization of likert rating for concrete premise for item $i$ and value $v$
+* $\alpha^I_2$ := speaker rationality for S1 for inductive premise
+
+## Diagram
+
+\tikz{
+  \node[latent,] (mu) {$\mu_i$};
+  \node[latent, right=of mu] (sig) {$\sigma_i$};
+  
+  \node[above=of mu] (mumax) {$\mu^{max}$};
+  \node[above=of sig] (sigmax) {$\sigma^{max}$};
+  \node[right=4cm of sigmax] (sigbin) {$\sigma_{binned\ hist}$};
+  \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
+  \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
+  
+  \node[det, below=of mu, below=of sig] (pbin) {$p_{ib}$};
+  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
+  
+  \node[obs, left=of pbin] (giveanum) {$x_{i}$};
+  
+  \node[latent, below=of alpha1max] (alpha2C) {$\alpha_{2}^{C}$};
+  \node[latent, below=of alpha2max] (alpha1I) {$\alpha_{1}^{I}$};
+  \node[latent, left=of alpha2C] (alpha1C) {$\alpha_{1}^{C}$};
+  \node[latent, right=of alpha1I] (alpha2I) {$\alpha_{2}^{I}$};
+  
+  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S2(C_{iv})$};
+  \node[latent, right=of s2concrete] (s2inductive) {$S2(I_{i\varepsilon})$};
+  
+  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
+  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
+  
+  \edge {mumax} {mu}
+  \edge {sigmax} {sig}
+  \edge {mu, sig} {pbin}
+  \edge {mu, sig} {giveanum}
+  \edge {pbin, sigbin} {dbin}
+  \edge {pbin} {s2inductive, s2concrete}
+  \edge {s2inductive} {sI}
+  \edge {s2concrete} {sC}
+  \edge {alpha1I, alpha2I} {s2inductive}
+  \edge {alpha1C, alpha2C} {s2concrete}
+  \edge {alpha1max} {alpha1C, alpha1I}
+  \edge {alpha2max} {alpha2C, alpha2I}
+  
+  \plate {bin} {
+    (pbin) (dbin)
+  } {$b\in{Bins_i}$};
+  \plate {epsilon} {
+    (s2inductive) (sI)
+  } {$\varepsilon \in Epsilons$};
+  \plate {value} {
+    (s2concrete) (sC)
+  } {$v \in Values$};
+  \plate {item} {
+    (mu) (sig)
+    (giveanum)
+    (bin.south east)
+    (epsilon.south east)
+    (value.south east)
+    (s2inductive) (s2concrete)
+  } {$i\in{Objects}$};
+}
+
+# Distributions/Functions/Values:
+
+Experiment design parameters:
+
+* $Objects$
+* $Bins$
+* $Epsilons$
+* $Values$
+
+Assumed model parameters:
+
+* $\mu^{max}$ = ??
+* $\sigma^{max}$ = ??
+* $\sigma_{binned\ hist}$ = ??
+* $\alpha_1^{max}$ = 20
+* $\alpha_2^{max}$ = 5
+
+Inferred Latent variables:
+
+* $\mu_i \sim \mathcal{U}\{0, \mu^{max}\}$
+* $\sigma_i \sim \mathcal{U}\{0, \sigma^{max}\}$
+* $\alpha_1^I \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+* $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+* $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+* $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+* $logit(p_{ib}) = \int_{LB_{ib}}^{UB_{ib}} \varphi(ln(t)|\mu_i, \sigma_i) dt$
+
+Observations from experimental data:
+
+* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{binned\ hist})$
+
+
 
 ```{r}
 # webppl(program_file = "models/prior_fits/bins.wppl",
@@ -485,107 +562,6 @@ webppl(
 # ggsave("exp3.png", width=8, height=4)
 ```
 
-# Model
-
-## Definitions
-
-* $w_i$ := width of histogram bins for item $i$
-* $x_i$ := sample in give a number trial
-* $p_{ib}$ := true probability of bin $b$ for item $i$
-* $d_{ib}$ := slider rating for bin $b$ for item $i$
-* $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
-* $S2(C_{iv})$ := RSA S2(expensive) for item $i$
-* $s^I_{i\varepsilon}$ := binarization of likert rating for inductive premise for item $i$ and epsilon $\varepsilon$
-* $s^C_{iv}$ := binarization of likert rating for concrete premise for item $i$ and value $v$
-* $\alpha^I_2$ := speaker rationality for S1 for inductive premise
-
-## Diagram
-
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-  
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-  \node[right=4cm of sigmax] (sigbin) {$\sigma_{binned\ hist}$};
-  \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
-  \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
-  
-  \node[det, below=of mu, below=of sig] (pbin) {$p_{ib}$};
-  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
-  
-  \node[obs, left=of pbin] (giveanum) {$x_{i}$};
-  
-  \node[latent, below=of alpha1max] (alpha2C) {$\alpha_{2}^{C}$};
-  \node[latent, below=of alpha2max] (alpha1I) {$\alpha_{1}^{I}$};
-  \node[latent, left=of alpha2C] (alpha1C) {$\alpha_{1}^{C}$};
-  \node[latent, right=of alpha1I] (alpha2I) {$\alpha_{2}^{I}$};
-  
-  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S2(C_{iv})$};
-  \node[latent, right=of s2concrete] (s2inductive) {$S2(I_{i\varepsilon})$};
-  
-  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
-  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
-  
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {pbin}
-  \edge {mu, sig} {giveanum}
-  \edge {pbin, sigbin} {dbin}
-  \edge {pbin} {s2inductive, s2concrete}
-  \edge {s2inductive} {sI}
-  \edge {s2concrete} {sC}
-  \edge {alpha1I, alpha2I} {s2inductive}
-  \edge {alpha1C, alpha2C} {s2concrete}
-  \edge {alpha1max} {alpha1C, alpha1I}
-  \edge {alpha2max} {alpha2C, alpha2I}
-  
-  \plate {bin} {
-    (pbin) (dbin)
-  } {$b\in{Bins_i}$};
-  \plate {epsilon} {
-    (s2inductive) (sI)
-  } {$\varepsilon \in Epsilons$};
-  \plate {value} {
-    (s2concrete) (sC)
-  } {$v \in Values$};
-  \plate {item} {
-    (mu) (sig)
-    (giveanum)
-    (bin.south east)
-    (epsilon.south east)
-    (value.south east)
-    (s2inductive) (s2concrete)
-  } {$i\in{Objects}$};
-}
-
-# Distributions/Functions/Values:
-
-Experiment design parameters:
-
-* $Objects$
-* $Bins$
-* $Epsilons$
-* $Values$
-
-Assumed model parameters:
-
-* $\mu^{max}$ = ??
-* $\sigma^{max}$ = ??
-* $\sigma_{binned\ hist}$ = ??
-* $\alpha_1^{max}$ = 20
-* $\alpha_2^{max}$ = 5
-
-Inferred Latent variables:
-
-* $\mu_i \sim \mathcal{U}\{0, \mu^{max}\}$
-* $\sigma_i \sim \mathcal{U}\{0, \sigma^{max}\}$
-* $\alpha_1^I \sim \mathcal{U}\{0, \alpha_1^{max}\}$
-* $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
-* $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
-* $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
-* $logit(p_{ib}) = \int_{LB_{ib}}^{UB_{ib}} \varphi(ln(t)|\mu_i, \sigma_i) dt$
-
-Observations from experimental data:
-
-* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{binned\ hist})$
+```{r}
+# df %>% select(dollar_amount, object, response, qtype)
+```
