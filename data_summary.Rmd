@@ -378,6 +378,21 @@ webppl(program_file = "models/prior_fits/bins.wppl",
        data = prior_bins_data)
 ```
 
+```{r run.full.model}
+webppl(
+    program_file = "models/bda_rsa_priors.wppl",
+    inference_opts = list(method="incrementalMH",
+                          samples=iterations,
+                          burn=100,
+                          lag=1),
+    model_var = "model",
+    data_var = "ARGS",
+    data = list(priorbins = prior_bins_data, 
+                sorites = select(df, qtype, dollar_amount, object, response), 
+                give_a_number = give_a_number)
+)
+```
+
 ```{r, fig.width=12, fig.height=5}
 # analyze_bins_data = function(filename) {
 #   exp = read.csv(filename) %>%

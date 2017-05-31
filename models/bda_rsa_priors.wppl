@@ -2,6 +2,8 @@
 // ARGS.concrete data frame
 // ARGS.objects vector of objects
 
+//////////////////////////////////////////
+// helpers (move to package?)//////////
 var foreach = function(lst, fn) {
     var foreach_ = function(i) {
         if (i < lst.length) {
@@ -12,31 +14,200 @@ var foreach = function(lst, fn) {
     foreach_(0);
 };
 
+var levels = function(df, label){
+  return _.uniqBy(_.map(df, label));
+}
+
+// schematic bins: CHANGE TO actual prices...
+var eps = Number.EPSILON;
+var roundTo3 = function(x){
+  return Math.round(x * 1000) / 1000
+}
+var lowerBins = [
+	0,0.01,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,
+  0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,0.99
+];
+
+var upperBins = [
+  0.01,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,
+  0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,0.99, 1
+];
+
+var midBins = map2(function(b1,b2){
+  return roundTo3((b2 - b1)/2 + b1)
+}, lowerBins, upperBins)
+
+var thetaBins = map2(function(b1, b2){
+  return roundTo3((b2-b1)/2 + b1);
+}, midBins.slice(0, midBins.length-1), midBins.slice(1))
+
+var DiscretizedLognormal = function(gaussianParams){
+	return Infer({model: function(){
+    return categorical({
+      vs: midBins,
+      ps: map2(function(b1, b2){
+        return eps +
+        utils.lognormalCDF(b2, gaussianParams) -
+        utils.lognormalCDF(b1, gaussianParams)
+      }, lowerBins, upperBins)
+    })
+  }})
+}
+
+
+
+
+// TO FIX
+// var OrdinalGaussian = function(params){
+//   var thresholds = params.thresholds;
+//   var mu = params.mu, sigma = params.sigma;
+//   var bins = _.range(lowerBound, upperBound+1, binWidth);
+//
+//   var probs = mapIndexed(function(i, b){
+//     i == 0 ? gaussianCDF({x:thresholds[i], mu: mu, sigma: sigma}) :
+//     i == thresholds.length ? 1 - gaussianCDF({x:thresholds[i-1], mu: mu, sigma: sigma}) :
+//     Math.max(Number.EPSILON, gaussianCDF({x:thresholds[i], mu: mu, sigma: sigma}) -
+//                 gaussianCDF({x:thresholds[i-1], mu: mu, sigma: sigma}))
+//   }, bins)
+//
+//   return Categorical({ps: probs, vs: bins});
+// }
+///
+
+var objects = levels(ARGS.sorites, "object");
+
+// TO FIX
+// likert scale
+// var likertParams = {LB: 0, UB: 9, binWidth: 1};
+// var sampleLikertThreshold = function(b){
+// 	return b == likertParams.LB ? likertParams.LB + likertParams.binWidth/2 :
+// 				 b == (likertParams.UB-1) ? likertParams.UB - likertParams.binWidth/2 :
+// 				 gaussian(b + 0.5, 1/2)
+// }
+//
+
+
+
+var meaning = function(utt, state, theta) {
+  return utt == "expensive" ? state > theta :
+	 			 utt == "not expensive" ? state <= theta :
+         utt == "cheap" ? state < theta :
+         utt == "silence" ? true :
+         true
+}
 
 var model = function() {
-	var global_params = {
-		alpha1: uniform(0, 20),
-		alpha2: uniform(0, 5)
-	};
-	foreach(ARGS.objects, function(obj) {
-		var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
-		var concrete = _.filter(ARGS.concrete, {object: obj});
 
-		var item_args = {
-			mu: uniform(0, 20),
-			sig: uniform(0, 5)
+	var global_params = {
+		alpha1: uniformDrift({a: 0, b: 20, width: 1}),
+		alpha2: uniformDrift({a: 0, b: 5, width: 0.5}),
+		cost: uniformDrift({a: 0, b: 10, width: 0.5})
+		// TO FIX
+		// likert_thresholds: map(sampleLikertThreshold,
+		// 	_.range(likertParams.LB, likertParams.UB, likertParams.binWidth)
+		// )
+	};
+
+	var adjectiveCost = Math.exp(-global_params.cost);
+	var utterancePrior = Categorical({
+		vs: ["expensive", "silence"],
+		ps: [adjectiveCost, 1]
+	});
+
+	foreach(objects, function(obj) {
+
+		// subset each data type
+		var prior_bins = _.filter(ARGS.priorbins, {item: obj});
+		var give_a_number = _.filter(ARGS.give_a_number, {item: obj});
+
+		var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+		var inductive = _.filter(ARGS.sorites, {object: obj, qtype: "inductive"});
+
+		// priors on parameters of RSA state priors
+		var item_params = {
+			mu: uniformDrift({a: 0, b: 20, width: 1}),
+			sig: uniformDrift({a: 0, b: 5, width: 0.5})
 		};
 
 		// factor by likelihood of sampled responses from give-a-number task
-		mapData({data: ARGS.samples}, function(price) {
+		mapData({data: give_a_number}, function(d) {
 			// assume log of price is normally distributed
-			var prob_of_sampled_price = Gaussian(
-				{mu: params.mu, sigma: params.sig}
-			).score(Math.log(price));
+			var prob_of_sampled_price = Gaussian(item_params).score(
+				Math.log(d.price)
+			);
 			factor(prob_of_sampled_price);
 		});
 
+		query.add(["prior", obj, "mu"], item_params.mu)
+		query.add(["prior", obj, "sigma"], item_params.sigma)
+
+		var posterior_predictive_itemPrior = gaussian(item_params)
+		query.add(["prior", obj, "price"], posterior_predictive_itemPrior)
+
+		// FIX ME: Write a discretized lognormal function that returns an ERP
+		var statePrior = DiscretizedLognormal(item_params)
+
+		/// RSA model
+		var listener0 = cache(function(utterance, theta) {
+		  Infer({model: function(){
+		    var state = sample(statePrior)
+		    var m = meaning(utterance, state, theta)
+		    condition(m)
+		    return state
+		 }})}, 10000)
+
+		var speaker1 = cache(function(state, theta) {
+			Infer({model: function(){
+		    var utterance = sample(utterancePrior);
+		    var L0 = listener0(utterance, theta);
+		    factor(global_params.alpha1 * L0.score(state))
+		    return utterance
+			}})}, 10000)
+
+		var listener1 = cache(function(utterance) {
+			Infer({model: function(){
+		    var state = sample(statePrior);
+		    var theta = sample(thetaPrior);
+		    var S1 = speaker1(state, theta)
+		    observe(S1, utterance)
+		    return state
+			}})}, 10000)
+
+		var speaker2 = function(speakerBeliefs){
+			Infer({model: function(){
+				var utterance = sample(utterancePrior);
+		    var L1 = listener1(utterance)
+		    factor(global_params.alpha2 * L1.score(speakerBeliefs))
+		    return utterance
+		 }})}
+
+		var dollar_amounts = levels(concrete, "dollar_amount")
+
+		foreach(dollar_amounts, function(dollar_amount){
+			var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
+			var inductive_byDollar = _.filter(inductive, {dollar_amount: dollar_amount});
+
+			var concretePrediction = speaker2(dollar_amount);
+
+			mapData({data: concrete_byDollar}, function(d){
+				// for now, assume if > 5, then "YES", other NO
+				var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
+				observe(concretePrediction, binarizedResponse)
+			})
+
+			query.add(["concrete", obj, dollar_amount],
+			 			Math.exp(concretePrediction.score("expensive")))
+
+		})
+
 	});
+
+	query.add(["param", "alpha1", "NA"], global_params.alpha1)
+	query.add(["param", "alpha2", "NA"], global_params.alpha2)
+	query.add(["param", "cost", "NA"], global_params.cost)
+
+	return query
 };
+
 
 "finished";
