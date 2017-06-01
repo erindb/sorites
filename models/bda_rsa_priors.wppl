@@ -24,7 +24,7 @@ var roundTo3 = function(x){
   return Math.round(x * 1000) / 1000
 }
 var lowerBins = [
-	0,0.01,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,
+  0,0.01,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,
   0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,0.99
 ];
 
@@ -42,15 +42,15 @@ var thetaBins = map2(function(b1, b2){
 }, midBins.slice(0, midBins.length-1), midBins.slice(1))
 
 var DiscretizedLognormal = function(gaussianParams){
-	return Infer({model: function(){
-    return categorical({
-      vs: midBins,
-      ps: map2(function(b1, b2){
-        return eps +
-        utils.lognormalCDF(b2, gaussianParams) -
-        utils.lognormalCDF(b1, gaussianParams)
-      }, lowerBins, upperBins)
-    })
+  return Infer({model: function(){
+      return categorical({
+        vs: midBins,
+        ps: map2(function(b1, b2){
+          return eps +
+          utils.lognormalCDF(b2, gaussianParams) -
+          utils.lognormalCDF(b1, gaussianParams)
+        }, lowerBins, upperBins)
+      })
   }})
 }
 
@@ -80,9 +80,9 @@ var objects = levels(ARGS.sorites, "object");
 // likert scale
 // var likertParams = {LB: 0, UB: 9, binWidth: 1};
 // var sampleLikertThreshold = function(b){
-// 	return b == likertParams.LB ? likertParams.LB + likertParams.binWidth/2 :
-// 				 b == (likertParams.UB-1) ? likertParams.UB - likertParams.binWidth/2 :
-// 				 gaussian(b + 0.5, 1/2)
+//  return b == likertParams.LB ? likertParams.LB + likertParams.binWidth/2 :
+//         b == (likertParams.UB-1) ? likertParams.UB - likertParams.binWidth/2 :
+//         gaussian(b + 0.5, 1/2)
 // }
 //
 
@@ -90,160 +90,160 @@ var objects = levels(ARGS.sorites, "object");
 
 var meaning = function(utt, state, theta) {
   return utt == "expensive" ? state > theta :
-	 			 utt == "not expensive" ? state <= theta :
+         utt == "not expensive" ? state <= theta :
          utt == "cheap" ? state < theta :
          utt == "silence" ? true :
          true
 }
 
 var complex_add = function(key, val) {
-	var basic_key = {
-		type: "NA",
-		label: "NA",
-		bin: "NA",
-		object: "NA"
-	};
-	var new_key = _.extend(basic_key, key);
-	var keystring = JSON.stringify(new_key);
-	query.add(keystring, val);
+  var basic_key = {
+    type: "NA",
+    label: "NA",
+    bin: "NA",
+    object: "NA"
+  };
+  var new_key = _.extend(basic_key, key);
+  var keystring = JSON.stringify(new_key);
+  query.add(keystring, val);
 };
 
 
 var model = function() {
-	var ALPHA1MAX = 20;
-	var ALPHA2MAX = 5;
-	var COSTMAX = 10;
-	var MUMAX = 20;
-	var SIGMAX = 5;
+  var ALPHA1MAX = 20;
+  var ALPHA2MAX = 5;
+  var COSTMAX = 10;
+  var MUMAX = 20;
+  var SIGMAX = 5;
 
-	var global_params = {
-		alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
-		alpha2: uniformDrift({a: 0, b: ALPHA2MAX, width: 0.5}),
-		cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5})
-		// TO FIX
-		// likert_thresholds: map(sampleLikertThreshold,
-		// 	_.range(likertParams.LB, likertParams.UB, likertParams.binWidth)
-		// )
-	};
+  var global_params = {
+    alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
+    alpha2: uniformDrift({a: 0, b: ALPHA2MAX, width: 0.5}),
+    cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5})
+    // TO FIX
+    // likert_thresholds: map(sampleLikertThreshold,
+    //  _.range(likertParams.LB, likertParams.UB, likertParams.binWidth)
+    // )
+  };
 
-	var adjectivePriorProb = Math.exp(-global_params.cost);
-	var utterancePrior = Categorical({
-		vs: ["expensive", "silence"],
-		ps: [adjectivePriorProb, 1]
-	});
+  var adjectivePriorProb = Math.exp(-global_params.cost);
+  var utterancePrior = Categorical({
+    vs: ["expensive", "silence"],
+    ps: [adjectivePriorProb, 1]
+  });
 
-	foreach(objects, function(obj) {
+  foreach(objects, function(obj) {
 
-		// subset each data type
-		var prior_bins = _.filter(ARGS.priorbins, {item: obj});
-		var give_a_number = _.filter(ARGS.give_a_number, {item: obj});
+    // subset each data type
+    var prior_bins = _.filter(ARGS.priorbins, {item: obj});
+    var give_a_number = _.filter(ARGS.give_a_number, {item: obj});
 
-		var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
-		var inductive = _.filter(ARGS.sorites, {object: obj, qtype: "inductive"});
+    var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+    var inductive = _.filter(ARGS.sorites, {object: obj, qtype: "inductive"});
 
-		// priors on parameters of RSA state priors
-		var item_params = {
-			mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
-			sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
-		};
+    // priors on parameters of RSA state priors
+    var item_params = {
+      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+    };
 
-		// factor by likelihood of sampled responses from give-a-number task
-		mapData({data: give_a_number}, function(d) {
-			// assume log of price is normally distributed
-			var prob_of_sampled_price = Gaussian(item_params).score(
-				Math.log(d.price)
-			);
-			factor(prob_of_sampled_price);
-		});
+    // factor by likelihood of sampled responses from give-a-number task
+    mapData({data: give_a_number}, function(d) {
+      // assume log of price is normally distributed
+      var prob_of_sampled_price = Gaussian(item_params).score(
+        Math.log(d.price)
+      );
+      factor(prob_of_sampled_price);
+    });
 
-		complex_add(
-			{type: "prior", object: obj, label: "mu"},
-			item_params.mu
-		);
-		complex_add(
-			{type: "prior", object: obj, label: "sigma"},
-			item_params.sigma
-		);
+    complex_add(
+      {type: "prior", object: obj, label: "mu"},
+      item_params.mu
+    );
+    complex_add(
+      {type: "prior", object: obj, label: "sigma"},
+      item_params.sigma
+    );
 
-		var posterior_predictive_itemPrior = Math.exp(gaussian(item_params));
-		complex_add(
-			{type: "prior", object: obj, label: "price"},
-			posterior_predictive_itemPrior
-		);
+    var posterior_predictive_itemPrior = Math.exp(gaussian(item_params));
+    complex_add(
+      {type: "prior", object: obj, label: "price"},
+      posterior_predictive_itemPrior
+    );
 
-	// 	// FIX ME: Write a discretized lognormal function that returns an ERP
-	// 	var statePrior = DiscretizedLognormal(item_params);
-	// 	var thetaPrior = "undefined";
+    // FIX ME: Write a discretized lognormal function that returns an ERP
+    var statePrior = DiscretizedLognormal(item_params);
+    var thetaPrior = "undefined";
 
-	// 	/// RSA model
-	// 	var listener0 = cache(function(utterance, theta) {
-	// 	  Infer({model: function(){
-	// 	    var state = sample(statePrior)
-	// 	    var m = meaning(utterance, state, theta)
-	// 	    condition(m)
-	// 	    return state
-	// 	 }})}, 10000)
+  //  /// RSA model
+  //  var listener0 = cache(function(utterance, theta) {
+  //    Infer({model: function(){
+  //      var state = sample(statePrior)
+  //      var m = meaning(utterance, state, theta)
+  //      condition(m)
+  //      return state
+  //   }})}, 10000)
 
-	// 	var speaker1 = cache(function(state, theta) {
-	// 		Infer({model: function(){
-	// 	    var utterance = sample(utterancePrior);
-	// 	    var L0 = listener0(utterance, theta);
-	// 	    factor(global_params.alpha1 * L0.score(state))
-	// 	    return utterance
-	// 		}})}, 10000)
+  //  var speaker1 = cache(function(state, theta) {
+  //    Infer({model: function(){
+  //      var utterance = sample(utterancePrior);
+  //      var L0 = listener0(utterance, theta);
+  //      factor(global_params.alpha1 * L0.score(state))
+  //      return utterance
+  //    }})}, 10000)
 
-	// 	var listener1 = cache(function(utterance) {
-	// 		Infer({model: function(){
-	// 	    var state = sample(statePrior);
-	// 	    var theta = sample(thetaPrior);
-	// 	    var S1 = speaker1(state, theta)
-	// 	    observe(S1, utterance)
-	// 	    return state
-	// 		}})}, 10000)
+  //  var listener1 = cache(function(utterance) {
+  //    Infer({model: function(){
+  //      var state = sample(statePrior);
+  //      var theta = sample(thetaPrior);
+  //      var S1 = speaker1(state, theta)
+  //      observe(S1, utterance)
+  //      return state
+  //    }})}, 10000)
 
-	// 	var speaker2 = function(speakerBeliefs){
-	// 		Infer({model: function(){
-	// 			var utterance = sample(utterancePrior);
-	// 	    var L1 = listener1(utterance)
-	// 	    factor(global_params.alpha2 * L1.score(speakerBeliefs))
-	// 	    return utterance
-	// 	 }})}
+  //  var speaker2 = function(speakerBeliefs){
+  //    Infer({model: function(){
+  //      var utterance = sample(utterancePrior);
+  //      var L1 = listener1(utterance)
+  //      factor(global_params.alpha2 * L1.score(speakerBeliefs))
+  //      return utterance
+  //   }})}
 
-		var dollar_amounts = levels(concrete, "dollar_amount")
+    var dollar_amounts = levels(concrete, "dollar_amount")
 
-		foreach(dollar_amounts, function(dollar_amount){
-			var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
-			var inductive_byDollar = _.filter(inductive, {dollar_amount: dollar_amount});
+    foreach(dollar_amounts, function(dollar_amount){
+      var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
+      var inductive_byDollar = _.filter(inductive, {dollar_amount: dollar_amount});
 
-	// 		var concretePrediction = speaker2(dollar_amount);
+  //    var concretePrediction = speaker2(dollar_amount);
 
-	// 		mapData({data: concrete_byDollar}, function(d){
-	// 			// for now, assume if > 5, then "YES", other NO
-	// 			var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
-	// 			observe(concretePrediction, binarizedResponse)
-	// 		})
+  //    mapData({data: concrete_byDollar}, function(d){
+  //      // for now, assume if > 5, then "YES", other NO
+  //      var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
+  //      observe(concretePrediction, binarizedResponse)
+  //    })
 
-	// 		query.add(["concrete", obj, dollar_amount],
-	// 		 			Math.exp(concretePrediction.score("expensive")))
+  //    query.add(["concrete", obj, dollar_amount],
+  //          Math.exp(concretePrediction.score("expensive")))
 
-		})
+    })
 
-	});
+  });
 
-	complex_add(
-		{type: "param", label: "alpha1"},
-		global_params.alpha1
-	);
-	complex_add(
-		{type: "param", label: "alpha2"},
-		global_params.alpha2
-	);
-	complex_add(
-		{type: "param", label: "cost"},
-		global_params.cost
-	);
+  complex_add(
+    {type: "param", label: "alpha1"},
+    global_params.alpha1
+  );
+  complex_add(
+    {type: "param", label: "alpha2"},
+    global_params.alpha2
+  );
+  complex_add(
+    {type: "param", label: "cost"},
+    global_params.cost
+  );
 
-	return query;
+  return query;
 };
 
 
