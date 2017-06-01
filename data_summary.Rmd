@@ -462,6 +462,10 @@ Observations from experimental data:
 ```
 
 ```{r run.full.model}
+upper_bounds = sapply(
+  levels(prior_bins_data$item),
+  function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
+) %>% as.list
 iterations = 10
 raw_rs = webppl(
     program_file = "models/bda_rsa_priors.wppl",
@@ -474,17 +478,19 @@ raw_rs = webppl(
     packages = c("models/node_modules/utils/"),
     data = list(priorbins = prior_bins_data,
                 sorites = select(df, qtype, dollar_amount, object, response),
-                give_a_number = give_a_number)
+                give_a_number = give_a_number,
+                upper_bounds = upper_bounds)
 )
 rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
   select(-Parameter)
 ```
 
-```{r}
+```{r, fig.height=3, fig.width=12}
 rs %>% filter(type=="prior", label=="price") %>%
   ggplot(., aes(x=value)) +
   geom_histogram() +
-  facet_wrap(~object)
+  facet_grid(~object) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
 

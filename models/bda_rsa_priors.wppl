@@ -16,7 +16,7 @@ var foreach = function(lst, fn) {
 
 var levels = function(df, label){
   return _.uniqBy(_.map(df, label));
-}
+};
 
 // schematic bins: CHANGE TO actual prices...
 var eps = Number.EPSILON;
@@ -41,7 +41,14 @@ var thetaBins = map2(function(b1, b2){
   return roundTo3((b2-b1)/2 + b1);
 }, midBins.slice(0, midBins.length-1), midBins.slice(1))
 
-var DiscretizedLognormal = function(gaussianParams){
+var NBINS = 10;
+var get_bins = function(upper_bound) {
+  // bin in log space, even for uniform distribution
+  var lowers = _.range(0, upper_bound, step);
+  map(function(x) {return {LB: x, UB: x+step};}, lowers);
+};
+
+var DiscretizedLognormal = function(gaussianParams, upper_bound){
   return Infer({model: function(){
       return categorical({
         vs: midBins,
@@ -53,9 +60,7 @@ var DiscretizedLognormal = function(gaussianParams){
       })
   }})
 }
-
-
-
+var DiscretizedUniform = function(upper_bound) {};
 
 // TO FIX
 // var OrdinalGaussian = function(params){
@@ -172,8 +177,8 @@ var model = function() {
     );
 
     // FIX ME: Write a discretized lognormal function that returns an ERP
-    var statePrior = DiscretizedLognormal(item_params);
-    var thetaPrior = "undefined";
+    var statePrior = DiscretizedLognormal(item_params, ARGS.upper_bounds[obj]);
+    var thetaPrior = DiscretizedUniform(ARGS.upper_bounds[obj]);
 
   //  /// RSA model
   //  var listener0 = cache(function(utterance, theta) {
