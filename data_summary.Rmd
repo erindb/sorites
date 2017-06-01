@@ -478,8 +478,15 @@ raw_rs = webppl(
 )
 rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
   select(-Parameter)
-rs
 ```
+
+```{r}
+rs %>% filter(type=="prior", label=="price") %>%
+  ggplot(., aes(x=value)) +
+  geom_histogram() +
+  facet_wrap(~object)
+```
+
 
 ```{r, fig.width=12, fig.height=5}
 # analyze_bins_data = function(filename) {
