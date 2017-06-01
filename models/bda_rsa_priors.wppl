@@ -51,17 +51,25 @@ var get_bins = function(real_upper_bound) {
 
 var DiscretizedLognormal = function(gaussianParams, upper_bound){
   return Infer({model: function(){
-      return categorical({
-        vs: midBins,
-        ps: map2(function(b1, b2){
-          return eps +
-          utils.lognormalCDF(b2, gaussianParams) -
-          utils.lognormalCDF(b1, gaussianParams)
-        }, lowerBins, upperBins)
-      })
+    var bins = get_bins(upper_bound);
+    return categorical({
+      vs: map(function(bin) {return (bin.UB+bin.LB)/2;}, bins),
+      ps: map(function(bin){
+        var ub = bin.UB;
+        var lb = bin.LB;
+        return eps +
+        utils.lognormalCDF(ub, gaussianParams) -
+        utils.lognormalCDF(lb, gaussianParams)
+      }, bins)
+    })
   }})
-}
-var DiscretizedUniform = function(upper_bound) {};
+};
+
+var DiscretizedUniform = function(upper_bound) {
+  return Infer({model: function(){
+    return uniformDraw(get_bins(upper_bound));
+  }});
+};
 
 // TO FIX
 // var OrdinalGaussian = function(params){
