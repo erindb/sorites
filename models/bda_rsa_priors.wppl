@@ -254,11 +254,11 @@ var model = function() {
 
       var concretePrediction = speaker2(discretized_dollar_amount);
 
-     // mapData({data: concrete_byDollar}, function(d){
-     //   // for now, assume if > 5, then "YES", other NO
-     //   var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
-     //   observe(concretePrediction, binarizedResponse)
-     // })
+      mapData({data: concrete_byDollar}, function(d){
+        // for now, assume if > 5, then "YES", other NO
+        var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
+        observe(concretePrediction, binarizedResponse)
+      })
 
       var concrete_prob = Math.exp(concretePrediction.score("expensive"));
       complex_add(

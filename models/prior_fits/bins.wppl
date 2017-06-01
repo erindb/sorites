@@ -5,6 +5,16 @@ ARGS.items list
 ARGS.data data frame
 */
 
+var foreach = function(lst, fn) {
+    var foreach_ = function(i) {
+        if (i < lst.length) {
+            fn(lst[i]);
+            foreach_(i + 1);
+        }
+    };
+    foreach_(0);
+};
+
 var logit = function(prob) {
 	var rating_avoidEnds = prob == 0 ? 0.01 : prob == 1 ? 0.99 : prob
 	var logitRating = Math.log(rating_avoidEnds/ (1-rating_avoidEnds))
@@ -13,8 +23,10 @@ var logit = function(prob) {
 
 var model = function() {
 	var sig_binned_hist = uniform(0, 10);
-	forEach([1,2], function() {});
-	return 1;
+	foreach(ARGS.items, function() {
+		query.add({a: 1})
+	});
+	return query;
 };
 
 // var model = function() {
