@@ -212,6 +212,14 @@ give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
   mutate(item = ifelse(item=="coffee.maker", "coffee maker", char(item)))
 ```
 
+```{r, fig.height=3, fig.width=5}
+give_a_number %>%
+  ggplot(., aes(x=price)) +
+  geom_density() +
+  facet_wrap(~item, scale="free")
+```
+
+
 ## Bins
 
 Here are the instructions participants got in all of the prior experiments:
@@ -479,10 +487,12 @@ raw_rs = webppl(
     data = list(priorbins = prior_bins_data,
                 sorites = select(df, qtype, dollar_amount, object, response),
                 give_a_number = give_a_number,
-                upper_bounds = upper_bounds)
+                upper_bounds = upper_bounds,
+                nbins = 10)
 )
 rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
-  select(-Parameter)
+  select(-Parameter) %>%
+  mutate(dollar_amount = num(dollar_amount))
 ```
 
 ```{r, fig.height=3, fig.width=12}
@@ -490,6 +500,16 @@ rs %>% filter(type=="prior", label=="price") %>%
   ggplot(., aes(x=value)) +
   geom_histogram() +
   facet_grid(~object) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+```{r, fig.height=3, fig.width=12}
+opacity = 1/iterations
+rs %>% filter(type=="concrete") %>%
+  ggplot(., aes(x=dollar_amount, y=value)) +
+  geom_point(alpha=opacity) +
+  facet_grid(~object, scale="free_x") +
+  ylim(0, 1) +
+  # scale_colour_brewer(type="qual", palette = 3) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 

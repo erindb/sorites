@@ -41,35 +41,55 @@ var thetaBins = map2(function(b1, b2){
   return roundTo3((b2-b1)/2 + b1);
 }, midBins.slice(0, midBins.length-1), midBins.slice(1))
 
-var get_bins = function(real_upper_bound) {
+var get_bins = cache(function(obj) {
   // bin in log space, even for uniform distribution
-  var upper_bound = Math.log(real_upper_bound);
+  var true_upper_bound = ARGS.upper_bounds[obj];
+  var upper_bound = Math.log(true_upper_bound);
   var step = upper_bound/ARGS.nbins;
   var lowers = _.range(0, upper_bound, step);
-  return map(function(x) {return {LB: Math.exp(x), UB: Math.exp(x+step)};}, lowers);
-};
+  return map(function(x) {
+    var lb = Math.exp(x);
+    var ub = Math.exp(x+step);
+    var mid = (ub + lb) / 2;
+    return {
+      LB: lb,
+      mid: mid,
+      UB: ub
+    };
+  }, lowers);
+});
 
-var DiscretizedLognormal = function(gaussianParams, upper_bound){
+var convert_to_bin = cache(function(dollar_amount, bins) {
+  return reduce(function(bin, best_so_far) {
+    if (bin.LB <= dollar_amount && dollar_amount <= bin.UB) {
+      return bin.mid;
+    } else {
+      return best_so_far;
+    };
+  }, false, bins);
+});
+
+var DiscretizedLognormal = cache(function(gaussianParams, bins){
+  var probabilities = map(function(bin){
+    var ub = bin.UB;
+    var lb = bin.LB;
+    return eps +
+    utils.lognormalCDF(ub, gaussianParams) -
+    utils.lognormalCDF(lb, gaussianParams)
+  }, bins);
   return Infer({model: function(){
-    var bins = get_bins(upper_bound);
     return categorical({
-      vs: map(function(bin) {return (bin.UB+bin.LB)/2;}, bins),
-      ps: map(function(bin){
-        var ub = bin.UB;
-        var lb = bin.LB;
-        return eps +
-        utils.lognormalCDF(ub, gaussianParams) -
-        utils.lognormalCDF(lb, gaussianParams)
-      }, bins)
+      vs: map(function(bin) {return bin.mid;}, bins),
+      ps: probabilities
     })
   }})
-};
+});
 
-var DiscretizedUniform = function(upper_bound) {
+var DiscretizedUniform = cache(function(bins) {
   return Infer({model: function(){
-    return uniformDraw(get_bins(upper_bound));
+    return uniformDraw(map(function(x) {return x.LB;}, bins));
   }});
-};
+});
 
 // TO FIX
 // var OrdinalGaussian = function(params){
@@ -114,7 +134,7 @@ var complex_add = function(key, val) {
   var basic_key = {
     type: "NA",
     label: "NA",
-    bin: "NA",
+    dollar_amount: "NA",
     object: "NA"
   };
   var new_key = _.extend(basic_key, key);
@@ -186,42 +206,43 @@ var model = function() {
     );
 
     // FIX ME: Write a discretized lognormal function that returns an ERP
-    var statePrior = DiscretizedLognormal(item_params, ARGS.upper_bounds[obj]);
-    var thetaPrior = DiscretizedUniform(ARGS.upper_bounds[obj]);
+    var bins = get_bins(obj);
+    var statePrior = DiscretizedLognormal(item_params, bins);
+    var thetaPrior = DiscretizedUniform(bins);
 
-  //  /// RSA model
-  //  var listener0 = cache(function(utterance, theta) {
-  //    Infer({model: function(){
-  //      var state = sample(statePrior)
-  //      var m = meaning(utterance, state, theta)
-  //      condition(m)
-  //      return state
-  //   }})}, 10000)
+   /// RSA model
+   var listener0 = cache(function(utterance, theta) {
+     Infer({model: function(){
+       var state = sample(statePrior)
+       var m = meaning(utterance, state, theta)
+       condition(m)
+       return state
+    }})}, 10000)
 
-  //  var speaker1 = cache(function(state, theta) {
-  //    Infer({model: function(){
-  //      var utterance = sample(utterancePrior);
-  //      var L0 = listener0(utterance, theta);
-  //      factor(global_params.alpha1 * L0.score(state))
-  //      return utterance
-  //    }})}, 10000)
+   var speaker1 = cache(function(state, theta) {
+     Infer({model: function(){
+       var utterance = sample(utterancePrior);
+       var L0 = listener0(utterance, theta);
+       factor(global_params.alpha1 * L0.score(state))
+       return utterance
+     }})}, 10000)
 
-  //  var listener1 = cache(function(utterance) {
-  //    Infer({model: function(){
-  //      var state = sample(statePrior);
-  //      var theta = sample(thetaPrior);
-  //      var S1 = speaker1(state, theta)
-  //      observe(S1, utterance)
-  //      return state
-  //    }})}, 10000)
+   var listener1 = cache(function(utterance) {
+     Infer({model: function(){
+       var state = sample(statePrior);
+       var theta = sample(thetaPrior);
+       var S1 = speaker1(state, theta)
+       observe(S1, utterance)
+       return state
+     }})}, 10000)
 
-  //  var speaker2 = function(speakerBeliefs){
-  //    Infer({model: function(){
-  //      var utterance = sample(utterancePrior);
-  //      var L1 = listener1(utterance)
-  //      factor(global_params.alpha2 * L1.score(speakerBeliefs))
-  //      return utterance
-  //   }})}
+   var speaker2 = function(speakerBeliefs){
+     Infer({model: function(){
+       var utterance = sample(utterancePrior);
+       var L1 = listener1(utterance)
+       factor(global_params.alpha2 * L1.score(speakerBeliefs))
+       return utterance
+    }})}
 
     var dollar_amounts = levels(concrete, "dollar_amount")
 
@@ -229,16 +250,21 @@ var model = function() {
       var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
       var inductive_byDollar = _.filter(inductive, {dollar_amount: dollar_amount});
 
-  //    var concretePrediction = speaker2(dollar_amount);
+      var discretized_dollar_amount = convert_to_bin(dollar_amount, bins);
 
-  //    mapData({data: concrete_byDollar}, function(d){
-  //      // for now, assume if > 5, then "YES", other NO
-  //      var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
-  //      observe(concretePrediction, binarizedResponse)
-  //    })
+      var concretePrediction = speaker2(discretized_dollar_amount);
 
-  //    query.add(["concrete", obj, dollar_amount],
-  //          Math.exp(concretePrediction.score("expensive")))
+     // mapData({data: concrete_byDollar}, function(d){
+     //   // for now, assume if > 5, then "YES", other NO
+     //   var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
+     //   observe(concretePrediction, binarizedResponse)
+     // })
+
+      var concrete_prob = Math.exp(concretePrediction.score("expensive"));
+      complex_add(
+        {type: "concrete", object: obj, dollar_amount: JSON.stringify(dollar_amount)},
+        concrete_prob
+      );
 
     })
 
