@@ -41,11 +41,12 @@ var thetaBins = map2(function(b1, b2){
   return roundTo3((b2-b1)/2 + b1);
 }, midBins.slice(0, midBins.length-1), midBins.slice(1))
 
-var NBINS = 10;
-var get_bins = function(upper_bound) {
+var get_bins = function(real_upper_bound) {
   // bin in log space, even for uniform distribution
+  var upper_bound = Math.log(real_upper_bound);
+  var step = upper_bound/ARGS.nbins;
   var lowers = _.range(0, upper_bound, step);
-  map(function(x) {return {LB: x, UB: x+step};}, lowers);
+  return map(function(x) {return {LB: Math.exp(x), UB: Math.exp(x+step)};}, lowers);
 };
 
 var DiscretizedLognormal = function(gaussianParams, upper_bound){
