@@ -13,12 +13,25 @@ knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.widt
 ```
 
 ```{r load libraries}
-source("startup.R")
-library(knitr)
-library(pander)
+library(rwebppl)
+library(ggplot2)
 library(tidyr)
 library(dplyr)
-library(ggplot2)
+library(jsonlite)
+library(ggthemes)
+library(pander)
+
+char = as.character
+num = function(v) {return(as.numeric(as.character(v)))}
+
+theme.new = theme_set(theme_few(12))
+
+# for bootstrapping 95% confidence intervals
+theta <- function(x,xdata) {mean(xdata[x])}
+ci.low <- function(x) {
+  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.025)}
+ci.high <- function(x) {
+  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.975)}
 ```
 
 # Wording used in sorites experiments
