@@ -1,0 +1,83 @@
+<html><head><script src='jquery.js'></script>
+<script src='underscore.js'></script>
+<script src='browserCheck.js'></script>
+<link href='cocolab-style.css' rel='stylesheet' type='text/css'/>
+<script src='cocomd.js'></script>
+<script src='mmturkey.js'></script>
+<script src='exp3-sorites.js'></script></head><body><div class='slide' id='instructions'>
+
+<h3>Instructions</h3>
+
+<p>In this experiment, we would like you to give us your opinion about some statements. Each statment is about the prices of different household items.</p>
+
+<p>For each question, please indicate how much you agree with the statement. Choose a circle that is closer to the words "Completely agree" if you agree and choose a circle that is closer to the words "Completely disagree" if you disagree.</p>
+
+<p>Please click "Begin" when you're ready to start.</p>
+
+<p><button type='button' onclick='state.next()'>Begin</button></p>
+
+</div>
+
+<div class='slide' id='trial'>
+
+<p><br/></p>
+
+<h3><span id='sentence'>{{sentence}}</span></h3>
+
+<p>Please indicate how much you agree with the above statement.</p>
+
+<p>Complete disagree<input name='rating' type='radio' value='0'> <input name='rating' type='radio' value='1'> <input name='rating' type='radio' value='2'> <input name='rating' type='radio' value='3'> <input name='rating' type='radio' value='4'> <input name='rating' type='radio' value='5'> <input name='rating' type='radio' value='6'> <input name='rating' type='radio' value='7'> <input name='rating' type='radio' value='8'>Completely agree	</p>
+
+<p><button type='button' onclick='state.next()'>Continue</button></p>
+
+</div>
+
+<div class='slide' id='intro'>
+
+<h3>Stanford CoCoLab</h3>
+
+<p><img alt='Stanford' src='stanford.png' id='stanford_logo'/></p>
+	<img alt='CoCoLab' src='cocologo.png' id='cocologo'/>
+
+<p>You will see some scenarios and be asked some questions about them. The HIT should take ~<span id='length_in_minutes'>{{length_in_minutes}}</span> minutes to complete. There are <span id='length_in_questions'>{{length_in_questions}}</span> questions. Please pay attention, thanks!</p>
+
+<p><button type='button' onclick='state.next()'>Start Experiment</button></p>
+
+<p id='legal'>Legal information: By answering the following questions, you are participating in a study being performed by cognitive scientists in the Stanford Department of Psychology. If you have questions about this research, please contact Erin Bennett at <a href="mailto:<br/>erindb@stanford.edu">erindb@stanford.edu</a> or Noah Goodman, at ngoodman@stanford.edu. You must be  at least 18 years old to participate. Your participation in this research is voluntary. You may decline to answer any or all of the following questions. You may decline further participation, at any time, without adverse consequences. Your anonymity is assured; the researchers who have requested your participation will not receive any personal information about you. </p>
+
+</div>
+
+<div class='slide' id='questionnaire'>
+
+<p>Answering these questions is optional, but will help us understand your answers.</p>
+
+<p>Did you read the instructions and do you think you did the HIT correctly?<input name='assess' type='radio' value='0'>No<input name='radio0' type='radio' value='0'>Yes<input name='radio1' type='radio' value='0'>I was confused </p>
+
+<p>Gender:<input name='gender' type='radio' value='0'>Female<input name='radio2' type='radio' value='0'>Male<input name='radio3' type='radio' value='0'>Other </p>
+
+<p>Age: <input type='text' id='age'></input> </p>
+
+<p>Level of Education: <select id='education'><label><option value='-1'/></label><label><option value='0'/> Some High School </label><label><option value='1'/> Graduated High School </label><label><option value='2'/> Some College </label><label><option value='3'/> Graduated College </label><label><option value='4'/> Hold a higher degree  </label></select> </p>
+
+<p>Native Language: <input type='text' id='language'></input> </p>
+
+<p>Did you enjoy the hit? <select id='enjoy'><label><option value='-1'/></label><label><option value='0'/> Worse than the Average HIT </label><label><option value='1'/> An Average HIT </label><label><option value='2'/> Better than average HIT  </label></select> </p>
+
+<p>We would be interested in any comments you have about this experiment. Please type them here:</p>
+	<textarea id='comments' cols='50' rows='3'></textarea> 
+
+<p><button type='button' onclick='state.next()'>Submit</button></p>
+
+</div>
+
+<div class='slide' id='thanks'>
+
+<p id='submitting'>Submitting to mTurk...	</p>
+
+</div><div class="progress">
+    <span>Progress:</span>
+    <div class="bar-wrapper">
+      <div class="bar" width="0%">
+      </div>
+    </div>
+  </div></body></html>
