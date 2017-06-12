@@ -69,6 +69,8 @@ Consistent across all experiments:
 
 # Results of sorites experiments
 
+The range of values asked about in the experiment affected responses a bit. For smaller ranges, participants gave higher responses for lower prices (that were at the top range within the experiment).
+
 ```{r load (and reformat) data}
 ## this is the script for reformatting sorites data into one single datafile
 RUN_REFORMAT = F
@@ -178,7 +180,7 @@ df = df %>% mutate(
   phrasing = ifelse(phrasing=='"relative"', "relative", phrasing),
   phrasing = ifelse(phrasing=="relative_clause", "relative", phrasing),
   phrasing = ifelse(phrasing=='"conditional"', "conditional", phrasing),
-  phrasing = factor(phrasing),
+  phrasing = factor(as.character(phrasing)),
   id = factor(id)
 )
 ```
@@ -193,7 +195,8 @@ if (RUN_AGG) {
   group_by(id, qtype, phrasing, object, dollar_amount) %>%
   summarise(low = ci.low(response),
             high = ci.high(response),
-            response = mean(response))
+            response = mean(response)) %>%
+    ungroup
 write.csv(agg, ".agg_cache.csv", row.names = F)
 }  else {
 agg = read.csv(".agg_cache.csv")
@@ -203,7 +206,8 @@ agg = agg %>% mutate(phrasing = factor(phrasing))
 
 ```{r, fig.height=4, fig.width=12}
 opacity = 0.5
-agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=phrasing)) +
+agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=phrasing, group=id)) +
+  geom_line(alpha=opacity) +
   geom_point(alpha=opacity) +
   # geom_line(alpha=opacity) +
   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
