@@ -19,7 +19,7 @@ var levels = function(df, label){
 };
 
 // schematic bins: CHANGE TO actual prices...
-var eps = Number.EPSILON;
+var EPS = Number.EPSILON;
 var roundTo3 = function(x){
   return Math.round(x * 1000) / 1000
 }
@@ -69,13 +69,17 @@ var convert_to_bin = cache(function(dollar_amount, bins) {
   }, false, bins);
 });
 
+var lognormal_prob_bin = function(gaussianParams, lb, ub) {
+  return EPS +
+      utils.lognormalCDF(ub, gaussianParams) -
+      utils.lognormalCDF(lb, gaussianParams)
+};
+
 var DiscretizedLognormal = cache(function(gaussianParams, bins){
   var probabilities = map(function(bin){
     var ub = bin.UB;
     var lb = bin.LB;
-    return eps +
-    utils.lognormalCDF(ub, gaussianParams) -
-    utils.lognormalCDF(lb, gaussianParams)
+    return lognormal_prob_bin(gaussianParams, lb, ub);
   }, bins);
   return Infer({model: function(){
     return categorical({
@@ -120,8 +124,6 @@ var objects = levels(ARGS.sorites, "object");
 // }
 //
 
-
-
 var meaning = function(utt, state, theta) {
   return utt == "expensive" ? state > theta :
          utt == "not expensive" ? state <= theta :
@@ -149,11 +151,13 @@ var model = function() {
   var COSTMAX = 10;
   var MUMAX = 20;
   var SIGMAX = 5;
+  var SIGBINMAX = 5;
 
   var global_params = {
     alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
     alpha2: uniformDrift({a: 0, b: ALPHA2MAX, width: 0.5}),
-    cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5})
+    cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
+    sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
     // TO FIX
     // likert_thresholds: map(sampleLikertThreshold,
     //  _.range(likertParams.LB, likertParams.UB, likertParams.binWidth)
@@ -188,6 +192,16 @@ var model = function() {
         Math.log(d.price)
       );
       factor(prob_of_sampled_price);
+    });
+
+    mapData({data: prior_bins}, function(d) {
+      var ub = d.UB;
+      var lb = d.LB;
+      var human_response = d.normed_rating;
+      var actual_prob = lognormal_prob_bin(item_params, lb, ub);
+      factor(Gaussian(
+        {mu: actual_prob, sigma: global_params.sigbin}
+      ).score(human_response));
     });
 
     complex_add(
