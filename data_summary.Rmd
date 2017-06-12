@@ -234,9 +234,11 @@ give_a_number = read.csv("data/priors/give-a-number.csv") %>%
 
 ```{r, fig.height=3, fig.width=5}
 give_a_number %>%
-  ggplot(., aes(x=price)) +
-  geom_density() +
-  facet_wrap(~object, scale="free")
+  ggplot(., aes(x=price, colour=object, fill=object)) +
+  geom_density(alpha=1/2) +
+  facet_wrap(~object, scale="free") +
+  scale_colour_brewer(type="qual", palette = 6) +
+  scale_fill_brewer(type="qual", palette = 6)
 ```
 
 
@@ -481,7 +483,7 @@ Observations from experimental data:
 
 # Model fit
 
-Model fit for Give a Number and sorites concrete premise. Model results are in black, actual data is in red.
+Model fit with 1000 samples for Give a Number and sorites concrete premise.
 
 ```{r run.full.model}
 upper_bounds = sapply(
@@ -521,30 +523,49 @@ rs %>% filter(type=="prior", label=="price") %>%
   group_by(object) %>%
   filter(value < upper_bounds[[object[[1]]]]/10) %>%
   ggplot(., aes(x=value)) +
-  geom_density(colour="black", alpha=opacity) +
+  geom_density(aes(colour="model", fill="model"), alpha=opacity) +
   facet_grid(~object) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  geom_density(data=give_a_number, aes(x=price), colour="red", alpha=opacity)
+  geom_density(data=give_a_number, aes(x=price, fill="data", colour="data"), alpha=opacity) +
+  scale_colour_brewer(type="qual", palette = 6) +
+  scale_fill_brewer(type="qual", palette = 6)
 
 ```
 ```{r, fig.height=3, fig.width=12}
 opacity = 1/150
 rs %>% filter(type=="concrete") %>%
   ggplot(., aes(x=dollar_amount, y=value)) +
-  geom_point(alpha=opacity) +
+  geom_point(alpha=opacity, aes(colour="model")) +
   facet_grid(~object, scale="free_x") +
   ylim(0, 1) +
   # scale_colour_brewer(type="qual", palette = 3) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  geom_point(data=agg %>% filter(qtype=="concrete"), aes(x=dollar_amount, y=(response-1)/8),
-             colour="red", alpha=1/2) +
+  geom_point(data=agg %>% filter(qtype=="concrete"), 
+             aes(x=dollar_amount, 
+                 y=(response-1)/8,
+                 colour="data"),
+             alpha=1/2) +
   geom_errorbar(data=agg %>% filter(qtype=="concrete"), 
                 aes(x=dollar_amount, 
                     y=(response-1)/8, 
                     ymin=(low-1)/8,
-                    ymax=(high-1)/8),
-                colour="red", alpha=1/2)
+                    ymax=(high-1)/8,
+                    colour="data"),
+                alpha=1/2) +
+  scale_colour_brewer(type="qual", palette = 6)
 ```
+
+Graphs of inferred model parameters:
+
+```{r}
+rs %>% filter(type!="concrete" & label!="price") %>%
+  ggplot(., aes(x=value, colour=label, fill=label)) +
+  geom_density(alpha=1/2) +
+  facet_wrap(~label, scale="free") +
+  scale_colour_brewer(type="qual", palette = 6) +
+  scale_fill_brewer(type="qual", palette = 6)
+```
+
 
 <!-- ### Questions
 
