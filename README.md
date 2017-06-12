@@ -10,6 +10,8 @@
 	- `priors/`: data from experiments where we elicit prior probabilities of items costing different amounts
 	- each experiment is labeled with a unique number as an identifier.
 	- data filenames are `data_exp{NUMBER}_{YEAR}_{MONTH}_{DATE}_{HOUR}.csv`
+* `experiments/`: contains html files to run experiment as participants saw them
+* `models/`: contains webppl models
 
 ## Motivation
 
