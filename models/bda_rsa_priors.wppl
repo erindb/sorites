@@ -170,7 +170,7 @@ var model = function() {
 
     // subset each data type
     var prior_bins = _.filter(ARGS.priorbins, {item: obj});
-    var give_a_number = _.filter(ARGS.give_a_number, {item: obj});
+    var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
 
     var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
     var inductive = _.filter(ARGS.sorites, {object: obj, qtype: "inductive"});

@@ -225,15 +225,18 @@ ggsave("sorites_data.png", width=12, height=4)
 I don't know Justine's exact phrasing for this, but participants were asked, for each item, a possible price for that item.
 
 ```{r, fig.width=8, fig.height=4}
-give_a_number = read.csv("data/priors/give-a-number.csv") %>% select(-X) %>%
-  mutate(item = ifelse(item=="coffee.maker", "coffee maker", char(item)))
+give_a_number = read.csv("data/priors/give-a-number.csv") %>%
+  filter(item != "electric.kettle") %>%
+  select(-X) %>%
+  mutate(object = ifelse(item=="coffee.maker", "coffee maker", char(item))) %>%
+  select(-item)
 ```
 
 ```{r, fig.height=3, fig.width=5}
 give_a_number %>%
   ggplot(., aes(x=price)) +
   geom_density() +
-  facet_wrap(~item, scale="free")
+  facet_wrap(~object, scale="free")
 ```
 
 
@@ -456,8 +459,8 @@ Experiment design parameters:
 
 Assumed model parameters:
 
-* $\mu^{max}$ = ??
-* $\sigma^{max}$ = ??
+* $\mu^{max}$ = 20
+* $\sigma^{max}$ = 5
 * $\sigma_{binned\ hist}$ = ??
 * $\alpha_1^{max}$ = 20
 * $\alpha_2^{max}$ = 5
@@ -478,13 +481,7 @@ Observations from experimental data:
 
 # Model fit
 
-```{r}
-# webppl(program_file = "models/prior_fits/bins.wppl",
-#        inference_opts = list(method="incrementalMH", samples=1),
-#        model_var = "model",
-#        data_var = "ARGS",
-#        data = prior_bins_data)
-```
+Model fit for Give a Number and sorites concrete premise. Model results are in black, actual data is in red.
 
 ```{r run.full.model}
 upper_bounds = sapply(
@@ -519,116 +516,47 @@ if (RUN_MODEL) {
 ```
 
 ```{r, fig.height=3, fig.width=12}
+opacity = 1/3
 rs %>% filter(type=="prior", label=="price") %>%
   group_by(object) %>%
   filter(value < upper_bounds[[object[[1]]]]/10) %>%
   ggplot(., aes(x=value)) +
-  geom_histogram() +
+  geom_density(colour="black", alpha=opacity) +
   facet_grid(~object) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_density(data=give_a_number, aes(x=price), colour="red", alpha=opacity)
+
 ```
 ```{r, fig.height=3, fig.width=12}
-opacity = 1/100
+opacity = 1/150
 rs %>% filter(type=="concrete") %>%
   ggplot(., aes(x=dollar_amount, y=value)) +
   geom_point(alpha=opacity) +
   facet_grid(~object, scale="free_x") +
   ylim(0, 1) +
   # scale_colour_brewer(type="qual", palette = 3) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_point(data=agg %>% filter(qtype=="concrete"), aes(x=dollar_amount, y=(response-1)/8),
+             colour="red", alpha=1/2) +
+  geom_errorbar(data=agg %>% filter(qtype=="concrete"), 
+                aes(x=dollar_amount, 
+                    y=(response-1)/8, 
+                    ymin=(low-1)/8,
+                    ymax=(high-1)/8),
+                colour="red", alpha=1/2)
 ```
 
+<!-- ### Questions
 
-```{r, fig.width=12, fig.height=5}
-# analyze_bins_data = function(filename) {
-#   exp = read.csv(filename) %>%
-#     gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
-#   list_data = mapply(
-#     function(response, question, workerid, a5, a6, a7, a8, a9) {
-#       # char(a5) %>% fromJSON # we also collected a max price
-#       rs = response %>% fromJSON %>% as.data.frame %>% 
-#         mutate(workerid = workerid)
-#       rs = rs %>% mutate(bin = 1:nrow(rs))
-#       return(rs)
-#     },
-#     exp$responses, exp$question, exp$workerid,
-#     exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
-#     SIMPLIFY=F)
-#   df = do.call(rbind, list_data) %>%
-#     group_by(item, workerid) %>%
-#     mutate(UB = num(ifelse(uppers=="infty", max, char(uppers))),
-#            LB = num(lowers),
-#            width = UB-LB,
-#            rating = num(responses)/sum(num(responses))) %>%
-#     ungroup()
-#   row.names(df) = 1:nrow(df)
-#   
-#   iterations = 1000
-#   rs = do.call(
-#     rbind,
-#     lapply(
-#       unique(df$item),
-#       function(current_item) {
-#         params = webppl(program_file = "models/prior_fits/bins.wppl",
-#                         model_var = "model",
-#                         packages = c("models/node_modules/utils",
-#                                      "models/node_modules/babyparse",
-#                                      "models/node_modules/babyparse"),
-#                         inference_opts = list(method="MCMC",
-#                                               samples=iterations,
-#                                               burn=100,
-#                                               skip=10),
-#                         data_var = "ARGS",
-#                         data = list(
-#                           responses=with(df %>% filter(item==current_item), mapply(
-#                             function(lb, ub, r) {list(LB=lb, UB=ub, rating=r)},
-#                             LB, UB, rating,
-#                             SIMPLIFY=F)))) %>%
-#           mutate(item = current_item)
-#         return(params)
-#       }))
-#   inferred_parameters = rs %>% group_by(item, Parameter) %>%
-#     summarise(value = mean(value)) %>%
-#     spread(Parameter, value) %>% as.data.frame
-#   row.names(inferred_parameters) = inferred_parameters$item
-#   
-#   agg = df %>%
-#     group_by(item, bin) %>%
-#     summarise(
-#       low = ci.low(rating),
-#       high = ci.high(rating),
-#       rating = mean(rating),
-#       source="data")
-#   
-#   sim = merge(df, inferred_parameters) %>% 
-#     group_by(item, mu, sig, UB, LB, bin) %>%
-#     mutate(
-#       rating = exp(mapply(function(UB, LB, mu, sig) {
-#         pnorm(log(UB), mu, sig) - pnorm(log(LB), mu, sig)
-#       }, UB, LB, mu, sig)),
-#       source="simulated",
-#       low = rating,
-#       high = rating
-#     )
-#   
-#   inferred_parameters
-#   
-#   p = rbind(agg, sim) %>%
-#     ggplot(., aes(x=bin, y=rating, fill=source, colour=source)) +
-#     geom_bar(stat="identity", alpha=1/2, position=position_dodge(0.9)) +
-#     geom_errorbar(aes(ymin=low, ymax=high),
-#                   width=0, position=position_dodge(0.9))+
-#     facet_wrap(~item, scale="free") +
-#     scale_fill_brewer(type="qual", palette = 3) +
-#     scale_colour_brewer(type="qual", palette = 3)
-#   return(list(p=p, inferred_parameters=inferred_parameters))
-# }
-# output = analyze_bins_data("data/priors/data_exp03_2013_12_03_05.csv")
-# print(output[["inferred_parameters"]])
-# print(output[["p"]])
-# ggsave("exp3.png", width=8, height=4)
-```
+1. concrete -> inductive and inductive -> concrete
+    - if you don't have a constrained way to get from priors to posteriors, then you will overfit (bayes factor)
+2. priors -> threshold distributions
+    - 
 
-```{r}
-# df %>% select(dollar_amount, object, response, qtype)
-```
+* If we lesion data from the model can we infer it?
+* Is there a regression to compare to?
+* Can we argue that RSA is necessary?
+* What other thresholds could be used?
+    - quantiles
+* priors + rsa arrrrrrrow posteriors to fit data
+* stone model not from priors -->

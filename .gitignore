@@ -9,3 +9,7 @@ __cached
 *.Rhistory
 *.DS_Store
 data/raw_data
+data_summary_*
+data_summary-*
+models/node_modules/babyparse/
+models/node_modules/jStat/
