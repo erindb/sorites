@@ -137,7 +137,10 @@ var complex_add = function(key, val) {
     type: "NA",
     label: "NA",
     dollar_amount: "NA",
-    object: "NA"
+    object: "NA",
+    mid: "NA",
+    UB: "NA",
+    LB: "NA"
   };
   var new_key = _.extend(basic_key, key);
   var keystring = JSON.stringify(new_key);
@@ -203,6 +206,11 @@ var model = function() {
         {mu: actual_prob, sigma: global_params.sigbin}
       ).score(human_response));
     });
+    // var posterior_predictive_itemPrior = Math.exp(gaussian(item_params));
+    // complex_add(
+    //   {type: "prior", object: obj, label: "price"},
+    //   posterior_predictive_itemPrior
+    // );
 
     complex_add(
       {type: "prior", object: obj, label: "mu"},
@@ -219,10 +227,30 @@ var model = function() {
       posterior_predictive_itemPrior
     );
 
-    // FIX ME: Write a discretized lognormal function that returns an ERP
     var bins = get_bins(obj);
     var statePrior = DiscretizedLognormal(item_params, bins);
     var thetaPrior = DiscretizedUniform(bins);
+
+    // get posterior predtive for prior ratings for bins
+    foreach(bins, function(bin) {
+      var ub = bin.UB;
+      var lb = bin.LB;
+      var actual_prob = lognormal_prob_bin(item_params, lb, ub);
+      var posterior_predictive_bin_rating = gaussian(
+        {mu: actual_prob, sigma: global_params.sigbin}
+      );
+      complex_add(
+        {
+          type: "prior", 
+          object: obj, 
+          label: "bins", 
+          mid: JSON.stringify(bin.mid), 
+          UB: JSON.stringify(ub), 
+          LB: JSON.stringify(lb)
+        },
+        posterior_predictive_bin_rating
+      );
+    });
 
    /// RSA model
    var listener0 = cache(function(utterance, theta) {

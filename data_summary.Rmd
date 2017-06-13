@@ -377,7 +377,7 @@ agg_bins %>%
 
 * $w_i$ := width of histogram bins for item $i$
 * $x_i$ := sample in give a number trial
-* $p_{ib}$ := true probability of bin $b$ for item $i$
+* $P_{ib}$ := true probability of bin $b$ for item $i$
 * $d_{ib}$ := slider rating for bin $b$ for item $i$
 * $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
 * $S2(C_{iv})$ := RSA S2(expensive) for item $i$
@@ -394,12 +394,12 @@ agg_bins %>%
   \node[above=of mu] (mumax) {$\mu^{max}$};
   \node[above=of sig] (sigmax) {$\sigma^{max}$};
   
-  \node[right=4cm of sigmax] (sigbin) {$\sigma_{binned\ hist}$};
+  \node[latent, right=4cm of sigmax] (sigbin) {$\sigma_{bin}$};
   \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
   \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
   \node[right=of alpha2max, xshift=2cm] (costmax) {$c_{max}$};
   
-  \node[det, below=of mu, below=of sig] (pbin) {$p_{ib}$};
+  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
   \node[obs, below=of pbin] (dbin) {$d_{ib}$};
   
   \node[obs, left=of pbin] (giveanum) {$x_{i}$};
@@ -416,6 +416,8 @@ agg_bins %>%
   \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
   \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
   
+  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
+  
   \edge {mumax} {mu}
   \edge {sigmax} {sig}
   \edge {mu, sig} {pbin}
@@ -430,6 +432,7 @@ agg_bins %>%
   \edge {alpha2max} {alpha2C, alpha2I}
   \edge {cost} {s2concrete, s2inductive}
   \edge {costmax} {cost}
+  \edge {sigbinmax} {sigbin}
   
   \plate {bin} {
     (pbin) (dbin)
@@ -466,6 +469,7 @@ Assumed model parameters:
 * $\sigma_{binned\ hist}$ = ??
 * $\alpha_1^{max}$ = 20
 * $\alpha_2^{max}$ = 5
+* $\sigma_{bin}^{max}$ = 5
 
 Inferred Latent variables:
 
@@ -475,24 +479,28 @@ Inferred Latent variables:
 * $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
 * $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
 * $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
-* $logit(p_{ib}) = \int_{LB_{ib}}^{UB_{ib}} \varphi(ln(t)|\mu_i, \sigma_i) dt$
+* $\sigma_{bin} \sim \mathcal{U}\{0, \sigma_{bin}^{max}\}$
+* $P_{ib} = \int_{LB_{ib}}^{UB_{ib}} \varphi(\ln(t)|\mu_i, \sigma_i) dt$
 
 Observations from experimental data:
 
-* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{binned\ hist})$
+* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{bin})$
+* $\ln(x_i) \sim \mathcal{N}(\mu_i, \sigma_i)$
+* $s_{iv}^C$
+* $s_{i\varepsilon}^I$
 
 # Model fit
 
 Model fit with 1000 samples for Give a Number and sorites concrete premise.
 
 ```{r run.full.model}
+iterations = 1000
 upper_bounds = sapply(
   levels(prior_bins_data$item),
   function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
 ) %>% as.list
 RUN_MODEL = F
 if (RUN_MODEL) {
-  iterations = 1000
   raw_rs = webppl(
       program_file = "models/bda_rsa_priors.wppl",
       inference_opts = list(method="incrementalMH",
@@ -511,9 +519,11 @@ if (RUN_MODEL) {
     rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
       select(-Parameter) %>%
       mutate(dollar_amount = num(dollar_amount))
-    write.csv(rs, ".model_cache.csv", row.names = F)
+    write.csv(rs,
+              paste(".model_cache", iterations, ".csv", sep=""),
+              row.names = F)
 } else {
-  rs = read.csv(".model_cache.csv")
+  rs = read.csv(paste(".model_cache", iterations, ".csv", sep=""))
 }
 ```
 
@@ -531,8 +541,9 @@ rs %>% filter(type=="prior", label=="price") %>%
   scale_fill_brewer(type="qual", palette = 6)
 
 ```
+
 ```{r, fig.height=3, fig.width=12}
-opacity = 1/150
+opacity = 1/(iterations/10)
 rs %>% filter(type=="concrete") %>%
   ggplot(., aes(x=dollar_amount, y=value)) +
   geom_point(alpha=opacity, aes(colour="model")) +
@@ -562,8 +573,8 @@ rs %>% filter(type!="concrete" & label!="price") %>%
   ggplot(., aes(x=value, colour=label, fill=label)) +
   geom_density(alpha=1/2) +
   facet_wrap(~label, scale="free") +
-  scale_colour_brewer(type="qual", palette = 6) +
-  scale_fill_brewer(type="qual", palette = 6)
+  scale_colour_brewer(type="qual", palette = 2) +
+  scale_fill_brewer(type="qual", palette = 2)
 ```
 
 
