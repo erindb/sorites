@@ -232,11 +232,11 @@ give_a_number = read.csv("data/priors/give-a-number.csv") %>%
   select(-item)
 ```
 
-```{r, fig.height=3, fig.width=5}
+```{r, fig.height=2, fig.width=12}
 give_a_number %>%
   ggplot(., aes(x=price, colour=object, fill=object)) +
   geom_density(alpha=1/2) +
-  facet_wrap(~object, scale="free") +
+  facet_wrap(~object, scale="free", ncol=5) +
   scale_colour_brewer(type="qual", palette = 6) +
   scale_fill_brewer(type="qual", palette = 6)
 ```
@@ -357,17 +357,26 @@ if (RUN_AGG) {
 } else {
   agg_bins = read.csv(".agg_bins_cache.csv")
 }
+agg_bins = agg_bins %>% rename(object=item)
 ```
 
-```{r, fig.height=8, fig.width=12}
+```{r, fig.height=3, fig.width=12}
 agg_bins %>%
-  ggplot(., aes(x,y, ymin=low, ymax=high, group=group)) +
-  geom_line() +
-  geom_ribbon(alpha=1/2) +
-  facet_grid(exp~item, scale="free") +
+  group_by(group) %>%
+  mutate(y = y * length(y),
+         low = low * length(y),
+         high = high * length(y)) %>%
+  ggplot(., aes(x,y, ymin=low, ymax=high, group=group, fill=object)) +
+  geom_line(aes(colour=object), alpha=1/2) +
+  geom_ribbon(alpha=1/5) +
+  facet_wrap(~object, scale="free", ncol=5) +
   xlab("bin midpoint") +
-  ylab("normalized slider response") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  ylab("relative probability") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_brewer(type="qual", palette = 6) +
+  scale_colour_brewer(type="qual", palette = 6) +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
 ```
 
 
@@ -491,7 +500,7 @@ Observations from experimental data:
 
 # Model fit
 
-Model fit with 1000 samples for Give a Number and sorites concrete premise.
+Model fit with 1000 samples for Give a Number, bins data, and sorites concrete premise.
 
 ```{r run.full.model}
 iterations = 1000
@@ -525,6 +534,11 @@ if (RUN_MODEL) {
 } else {
   rs = read.csv(paste(".model_cache", iterations, ".csv", sep=""))
 }
+rs = rs %>% mutate(
+  UB = num(UB),
+  LB = num(LB),
+  mid = num(mid)
+)
 ```
 
 ```{r, fig.height=3, fig.width=12}
@@ -541,6 +555,15 @@ rs %>% filter(type=="prior", label=="price") %>%
   scale_fill_brewer(type="qual", palette = 6)
 
 ```
+
+```{r, fig.width=12, fig.height=2}
+opacity = 1/(iterations/9)
+rs %>% filter(type=="prior" & label=="bins") %>%
+  ggplot(., aes(x=mid, y=value, colour=object, fill=object)) +
+  geom_point(alpha=opacity) +
+  facet_wrap(~object, scale="free", ncol=5)
+```
+
 
 ```{r, fig.height=3, fig.width=12}
 opacity = 1/(iterations/10)

@@ -154,7 +154,7 @@ var model = function() {
   var COSTMAX = 10;
   var MUMAX = 20;
   var SIGMAX = 5;
-  var SIGBINMAX = 5;
+  var SIGBINMAX = .5;
 
   var global_params = {
     alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
@@ -323,6 +323,10 @@ var model = function() {
   complex_add(
     {type: "param", label: "cost"},
     global_params.cost
+  );
+  complex_add(
+    {type: "param", label: "sigbin"},
+    global_params.sigbin
   );
 
   return query;
