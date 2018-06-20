@@ -1,0 +1,70 @@
+
+
+```{r}
+source("~/Settings/startup.R")
+
+parse_my_data_format = function(df_raw) {
+  df = data.frame()
+  for (i in 1:nrow(df_raw)) {
+    qnstring = char(df_raw$Answer.questions)[[i]]
+    subdf = fromJSON(qnstring) %>% as.data.frame %>% mutate(workerid=i)
+    df = rbind(df, subdf)
+  }
+  return(df)
+}
+```
+
+```{r}
+give_a_number_data = read.csv("../../data/free_response_priors.csv") %>%
+  mutate(item=ifelse(item=="coffee.maker", "coffee maker", char(item)))
+write.csv(give_a_number_data, "give_a_number_data.csv", row.names=F)
+```
+
+```{r}
+df0 = read.csv("../../data/experiment0-and-experiment1.csv")[1:30,] %>% parse_my_data_format
+df1 = read.csv("../../data/experiment0-and-experiment1.csv")[31:80,] %>%
+  parse_my_data_format %>% 
+  select(-rt)
+
+sorites_experiments = list(df0, df1)
+
+sorites_designs = do.call(rbind, lapply(1:length(sorites_experiments), function(i) {
+  df = sorites_experiments[[i]]
+  df %>% group_by(qType, item, dollarAmt) %>%
+    summarise() %>%
+    mutate(experiment = paste("experiment", i-1, sep=""))
+}))
+write.csv(sorites_designs, "sorites_designs.csv", row.names=F)
+
+silent = lapply(1:length(sorites_experiments), function(i) {
+  df = sorites_experiments[[i]]
+  filename = paste("experiment", i-1, ".csv", sep="")
+  write.csv(df, filename, row.names=F)
+})
+```
+
+```{r}
+rs = webppl(
+  program_file = "all_the_things.wppl",
+  packages = c("../../model/node_modules/simpleCSV"),
+  model_var = "model",
+  inference_opts = list(method="MCMC", samples=1000, lag=10)
+)
+
+rs %>% spread(Parameter, value) %>% 
+  gather(
+    "Parameter",
+    "value",
+    c(
+      #-rationality_of_human_sampler,
+      -Iteration, -Chain
+    )
+  ) %>%
+  separate(Parameter, c("item", "parameter"), sep="\\.") %>%
+  group_by(item, parameter) %>%
+  summarise(# rationality_of_human_sampler = rationality_of_human_sampler[[1]]
+    value = mean(value)
+  ) %>%
+  spread(parameter, value)
+```
+

@@ -1,0 +1,124 @@
+---
+title: "Sorites Experiment 8"
+output:
+  pdf_document:
+    toc: true
+    highlight: zenburn
+    toc_depth: 3
+---
+
+```{r load libraries, echo=F, message=F, warning=F}
+library(rjson)
+library(plyr)
+library(fitdistrplus)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(grid)
+library(ggthemes)
+library(languageR)
+library(psych)
+library(lme4)
+library(lmerTest)
+library(diagram)
+library(boot)
+char = as.character
+num = function(x) {return(as.numeric(char(x)))}
+grab = function(colname) { return(function(lst) { return(unlist(lst[[colname]])) }) }
+options(digits=3)
+mean.sd = funs(mean, sd)
+samplemean <- function(x, d) {
+  return(mean(x[d]))
+}
+ci = function(vals) {
+  if(length(vals)<2) {return(data.frame(mean=mean(vals), ci.low=NA, ci.high=NA, N=length(vals)))}
+  cis = boot.ci(boot(vals, samplemean, 1000), type="bca")
+  low = cis$bca[1,4]
+  high = cis$bca[1,5]
+  return(data.frame(mean=mean(vals),
+                    ci.low=low,
+                    ci.high=high,
+                    N=length(vals)))
+}
+```
+
+## Description of experiment
+
+This was a prior elicitation experiment with bins in which we had two presentation conditions: the original presentation condition, where all of the bins for an item were presented at once, in sequence from left to right, and a new condition where each bin was asked about on its own slide. The resolution was relatively low and varied by item. A copy of the experiment can be found at [`experiments/experiment8/morebins.html`](../experiments/experiment8/morebins.html).
+
+There were N participants in this version, N in the prior condition and N in the posterior condition.
+
+```{r load data, echo=F, warning=F, message=F}
+## combine two data files together:
+d0.raw = read.csv('../data/experiment8.csv') %>%
+  mutate(workerid = factor(workerid)) %>%
+  rename(language=Answer.language,
+         age=Answer.age,
+         comments=Answer.comments,
+         presentation.condition=Answer.cond) %>%
+  mutate(language = factor(sub('"', '', sub('"', '', char(language)))),
+         presentation.condition = factor(sub('"', '', sub('"', '', char(presentation.condition))))) %>%
+  gather('qnumber', 'question.data', 31:66) %>%
+  select(workerid, presentation.condition, qnumber, question.data) %>%
+  mutate(qnumber = sapply(.$qnumber, function(q) {return(substring(q, 8))}),
+         qnumber = num(qnumber))
+         
+## extract lame data collection into long form
+d0 = ldply(lapply(1:nrow(d0.raw), function(i) {
+  if (d0.raw[i, 'question.data'] == '') {
+    return(data.frame(
+      workerid = d0.raw[i, 'workerid'],
+      qnumber = d0.raw[i, 'qnumber'],
+      presentation.condition=d0.raw[i, 'presentation.condition'],
+      item=NA,
+      response=NA,
+      lower=NA))}
+  question.data = fromJSON(d0.raw[i, 'question.data'])
+  presentation.condition = d0.raw[i, 'presentation.condition']
+  if (presentation.condition == 'original') {
+    workerid = d0.raw[i, 'workerid']
+    qnumber = d0.raw[i, 'qnumber']
+    item = question.data$item
+    response = question.data$responses
+    lower = question.data$lowers
+    } else {
+      workerid = d0.raw[i, 'workerid']
+      qnumber = d0.raw[i, 'qnumber']
+      item = question.data$item
+      response = question.data$response
+    lower = question.data$lower
+  }
+  return(data.frame(workerid=workerid,
+                    qnumber=qnumber,
+                    presentation.condition=presentation.condition,
+                    item=item,
+                    response=response,
+                    lower=lower))
+}), rbind)
+```
+
+## Results
+
+The distributions elicited with bins split across trials were different. They were less peaky than the distributions elicited all at once.
+
+```{r plotdensities, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
+aggr = d0 %>% filter(!is.na(response)) %>%
+  group_by(presentation.condition, item, workerid) %>%
+  mutate(normed.response = response / sum(response)) %>%
+  as.data.frame %>%
+  group_by(presentation.condition, item, lower) %>%
+  do(ci(.$normed.response)) %>%
+#   summarise(mean = mean(normed.response)) %>%
+  rename(response=mean) %>% as.data.frame
+
+ggplot(aggr, aes(x=lower, y=response, colour=presentation.condition, fill=presentation.condition)) +
+#   geom_bar(stat='identity') +
+  geom_line() +
+  geom_ribbon(aes(ymin=ci.low,ymax=ci.high),alpha=0.5,lwd=0) +
+  facet_grid(~item, scale='free') +
+  theme_few() + scale_colour_brewer(type='qual') + scale_fill_brewer(type='qual')
+```
+
+```{r plotmax, echo=F, message=F, warning=F, fig.width=8, fig.height=3}
+## plot max
+```

@@ -1,0 +1,3 @@
+* try out different epsilons and see how that affects model results
+  ---> model_sorites_varyEps.R
+* graph pdf vs. kernel (pdf has the epsilon added, kernel doesn't)

@@ -1,0 +1,167 @@
+var DEBUG = true;
+var debug = function(x) {if (DEBUG) {display(x)}}
+
+var warn = function(msg) { display("warning " + msg); };
+
+var meaning = function(utterance, value, theta) {
+	if (utterance=="null") {
+		return true;
+	} else if (utterance=="adjective") {
+		return value > theta;
+	} else {
+		warn("836294");
+	}
+};
+
+var utterancePriorMaker = cache(function(cost) {
+	return function() {
+		var erp = Infer({method: "enumerate"}, function() {
+			var utterance = uniformDraw(["adjective", "null"]);
+			factor(utterance=="adjective" ? -cost : 0);
+			return utterance;
+		});
+		return sample(erp);
+	};
+});
+
+///~~~~~~item specific model follows
+
+
+var defaultInferenceOpts = {
+	listener: {method: "MCMC", samples: 100},
+	s1: {method: "MCMC", samples: 100}
+};
+
+var adjectivesModel = function(params) {
+	var item = params.item ? params.item : "";
+	var utterance = params.utterance ? params.utterance : "";
+
+	if (item=="") { warn("209384"); };
+	if (utterance=="") { warn("8723540"); };
+
+	var cost = params.cost ? params.cost : 1;
+	var alpha = params.alpha ? params.alpha : 1;
+
+	var inferenceOpts = (
+		params.inferenceOpts ?
+		params.inferenceOpts :
+		defaultInferenceOpts
+	);
+
+	var directory = params.priors_dir ? params.priors_dir : "";
+	if (!(directory=="3domain-bins-priors" ||
+		directory=="justine-priors-lognormal-fit" ||
+		directory=="aggregate-bins-priors" ||
+		directory=="5item-bins")) {
+		warn("35469 -- directory=" + directory);
+	};
+
+	var items = (directory=='3domain-bins-priors' ?
+		[
+			'college student', 'new parent', 'New Yorker',
+			'tree', 'building', 'mountain', 'coffee maker', 'watch', 'laptop'
+		] :
+		[
+			'coffee maker', 'sweater', 'watch', 'laptop', 'headphones'
+		]
+	);
+
+	var priorParams = (function() {
+		var raw = simpleCSV.readCSV(directory + '/prior-params.csv');
+		return _.object(map(function(item) {
+			var data = raw.data;
+			var header = data[0];
+			var paramline = filter(function(line) {return line[0] == item}, data)[0];
+			var meanlog = global.parseFloat(paramline[header.indexOf('meanlog')]);
+			var sdlog = global.parseFloat(paramline[header.indexOf('sdlog')]);
+			var params = {meanlog: meanlog, sdlog: sdlog}
+			return [item, params];
+		}, items));
+	})();	
+
+	var utterancePrior = utterancePriorMaker(cost);
+
+	var prior = function() {
+		var itemParams = priorParams[item];
+		var meanlog = itemParams.meanlog;
+		var sdlog = itemParams.sdlog;
+		var samplelog = gaussian(meanlog, sdlog);
+		return Math.exp(samplelog);
+	};
+
+	var thetaPrior = function() {
+		var itemParams = priorParams[item];
+		var meanlog = itemParams.meanlog;
+		var sdlog = itemParams.sdlog;
+		// sample theta from 4 standard deviations out
+		return uniform(0, Math.exp(meanlog + 2*sdlog));
+	};
+
+	var literal = function(utterance, theta) {
+		return function() {
+			var value = prior();
+			condition(meaning(utterance, value, theta));
+			return value;
+		};
+	};
+	var literalERP = function(utterance, theta, inferenceOpts) {
+		if (inferenceOpts.literal) {
+			return Infer(
+				inferenceOpts.literal,
+				literal(utterance, theta)
+			);
+		} else { warn(827645); }
+	};
+
+	var s1 = function(value, theta) {
+		return function() {
+			var utterance = utterancePrior();
+			// caching ERP wouldn't really help much here I think...
+			var interpretation = (literal(utterance, theta))();
+			// punish interpretations that are far from the actual value
+			factor(- Math.abs(interpretation - value) * alpha);
+			return utterance;
+		};
+	};
+	var s1ERP = cache(function(value, theta) {
+		return Infer(inferenceOpts.s1, s1(value, theta));
+	});
+
+	var listener = function(utterance) {
+		return function () {
+			var value = prior();
+			var theta = thetaPrior();
+			var descriptionERP = s1ERP(value, theta);
+
+			// punish worlds where the speaker would have been unlikely
+			// to say the given utterance.
+			var descriptionFactor = descriptionERP.score(utterance);
+			factor( descriptionFactor );
+			return {
+				item: item,
+				cost: cost,
+				utterance: utterance,
+				alpha: alpha,
+				value: value,
+				theta: theta
+			};
+		};
+	};
+
+	return listener(utterance);
+};
+
+// var results = Infer(
+// 	defaultInferenceOpts.listener,
+// 	adjectivesModel({
+// 		item: "coffee maker",
+// 		utterance: "adjective",
+// 		inferenceOpts: {
+// 			listener: {method: "MCMC", samples: 100},
+// 			s1: {method: "MCMC", samples: 100}
+// 		}
+// 	})
+// );
+// display(results);
+
+"finished";

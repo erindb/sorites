@@ -1,0 +1,160 @@
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.800812
+[1] "misses since last cache clear:"
+[1] 7254
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.8192908
+[1] "misses since last cache clear:"
+[1] 7323
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7572279
+[1] "misses since last cache clear:"
+[1] 6972
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.877054
+[1] "misses since last cache clear:"
+[1] 7407
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.8147844
+[1] "misses since last cache clear:"
+[1] 7233
+[1] 0.9522992
+[1] "n = 100 cor = 0.888296588417235"
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7914992
+[1] "misses since last cache clear:"
+[1] 7110
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7813798
+[1] "misses since last cache clear:"
+[1] 7215
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7128906
+[1] "misses since last cache clear:"
+[1] 7302
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.8980661
+[1] "misses since last cache clear:"
+[1] 7428
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7386823
+[1] "misses since last cache clear:"
+[1] 7212
+[1] 0.8995522
+[1] "n = 200 cor = 0.842678781301352"
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7660674
+[1] "misses since last cache clear:"
+[1] 7359
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7908525
+[1] "misses since last cache clear:"
+[1] 7236
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.6915185
+[1] "misses since last cache clear:"
+[1] 7221
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.899986
+[1] "misses since last cache clear:"
+[1] 7449
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7316428
+[1] "misses since last cache clear:"
+[1] 7236
+[1] 0.9506148
+[1] "n = 500 cor = 0.877471538627093"
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7720937
+[1] "misses since last cache clear:"
+[1] 7407
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7742735
+[1] "misses since last cache clear:"
+[1] 7179
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.6779793
+[1] "misses since last cache clear:"
+[1] 7215
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.9038658
+[1] "misses since last cache clear:"
+[1] 7455
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7727403
+[1] "misses since last cache clear:"
+[1] 7137
+[1] 0.9443896
+[1] "n = 1000 cor = 0.871602032206155"
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7653807
+[1] "misses since last cache clear:"
+[1] 7356
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.7857129
+[1] "misses since last cache clear:"
+[1] 7356
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.6689799
+[1] "misses since last cache clear:"
+[1] 7146
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.8874934
+[1] "misses since last cache clear:"
+[1] 7407
+[1] "initializing"
+[1] "running mcmc"
+[1] "acceptance rate:"
+[1] 0.6788126
+[1] "misses since last cache clear:"
+[1] 7383
+[1] 0.9145573
+[1] "n = 2000 cor = 0.84719763238298"

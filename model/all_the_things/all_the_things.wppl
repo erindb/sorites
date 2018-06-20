@@ -1,0 +1,69 @@
+var data = simpleCSV.readCSV("give_a_number_data.csv");
+var items = ["coffee maker", "headphones", "laptop", "sweater", "watch"];
+var give_a_number_data = _.fromPairs(map(function(item) {
+	var prices = map(
+		function(d) {return d.price;},
+		filter(function(d) {return d.item==item}, data)
+	);
+	return [item, prices];
+}, items));
+
+
+// incremental MH
+// with foreach (look at MH's models):
+// communicating generalizations/models/habituals/utils
+// grab makeLogNormalDiscrete (js library for computing cdfs)
+// query table!!
+// use uniform drift (usually width 10%)
+var model = function() {
+
+	var speakerOptimality = uniformDrift({a: 0, b: 20, width:2});
+
+	// get results for each item, based on give-a-number data
+	var results = _.fromPairs(mapData({data: items}, function(item) {
+
+		// sample possible parameters
+		var mu = uniform(0, 20);
+		var sig = uniform(0, 5);
+
+		// factor by likelihood of sampled responses from give-a-number task
+		mapData({data: give_a_number_data[item]}, function(price) {
+			// assume log of price is normally distributed
+			var prob_of_sampled_price = Gaussian(
+				{mu: mu, sigma: sig}
+			).score(Math.log(price));
+			factor(prob_of_sampled_price);
+		});
+
+		// factor by likelihood of _____ from _____ task
+
+		var statePrior = makeLogNormalDiscrete(mu, sig);
+
+		var listener0 = ...
+		var speaker1 = ...
+		var listener1 = ...
+
+		map(function(inductive_delta){
+			var relevantData = _.filter(allData, 
+				{delta: inductive_delta})
+
+			var modelPredictions = listener1(inductive_delta);
+
+			mapData({data: relevantData}, function(d){
+				observe(modelPredictions, d.endorsement)
+			})
+
+			return expectation(modelPredictions)
+
+		}, all_inductives_deltas)
+
+		return [item, {
+			// rationality_of_human_sampler: rationality_of_human_sampler,
+			mu: mu,
+			sig: sig
+		}];
+
+	}));
+
+	return results;
+};
