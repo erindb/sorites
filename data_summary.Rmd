@@ -589,6 +589,24 @@ rs %>% filter(type=="concrete") %>%
   scale_colour_brewer(type="qual", palette = 6)
 ```
 
+```{r}
+model_values = rs %>% group_by(type, object, dollar_amount) %>%
+  summarise(value = mean(value))
+data_values = agg %>% group_by(qtype, object, dollar_amount) %>%
+  summarise(response = mean(response))
+comparison_values = merge(model_values, data_values)
+comparison_values %>%
+  ggplot(., aes(x=value, y=response)) +
+  geom_point()
+all_comparison = merge(rs %>% select(type, object, dollar_amount, value),
+                       agg %>% select(qtype, object, dollar_amount, response))
+all_comparison %>%
+  ggplot(., aes(x=value, y=response)) +
+  geom_point(alpha=1/100)
+cor(all_comparison$value, all_comparison$response)
+```
+
+
 Graphs of inferred model parameters:
 
 ```{r}
