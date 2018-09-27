@@ -14,9 +14,10 @@ knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.widt
 
 ```{r load libraries}
 library(rwebppl)
-library(ggplot2)
-library(tidyr)
-library(dplyr)
+library(tidyverse)
+# library(ggplot2)
+# library(tidyr)
+# library(dplyr)
 library(jsonlite)
 library(ggthemes)
 library(pander)
@@ -503,18 +504,20 @@ Observations from experimental data:
 Model fit with 1000 samples for Give a Number, bins data, and sorites concrete premise.
 
 ```{r run.full.model}
-iterations = 1000
+iterations = 5000
 upper_bounds = sapply(
   levels(prior_bins_data$item),
   function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
 ) %>% as.list
-RUN_MODEL = F
+RUN_MODEL = T
 if (RUN_MODEL) {
   raw_rs = webppl(
       program_file = "models/bda_rsa_priors.wppl",
       inference_opts = list(method="incrementalMH",
                             samples=iterations,
-                            burn=100,
+                            burn=iterations/2,
+                            verbose = T,
+                            verboseLag = iterations / 10,
                             lag=1),
       model_var = "model",
       data_var = "ARGS",
@@ -541,6 +544,98 @@ rs = rs %>% mutate(
 )
 ```
 
+```{r}
+rs %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+ # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, color=src)) +
+  stat_ecdf(geom="step") +
+  facet_wrap(~object, scales="free", ncol=5)+
+  xlim(0, 1000)
+```
+
+```{r}
+rs %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+ # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, fill=src)) +
+  geom_histogram()+
+  facet_wrap(src~object, scales="free", ncol=5)+
+  xlim(0, 1000)
+```
+
+
+```{r}
+rs %>% filter(type=="prior" & (label=="mu" | label=="sigma"), 
+              object == "laptop") %>%
+ # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price)) +
+  geom_histogram()
+
+```
+
+```{r}
+rs %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+  ggplot(., aes(x=value)) +
+  geom_histogram() +
+  facet_grid(label~object, scales="free")
+```
+
+```{r}
+give_a_number %>% ggplot(., aes(x=price)) +
+  geom_histogram() +
+  facet_grid(~object, scales="free")
+```
+
+
+
+```{r}
+# %>%
+#   ggplot(., aes(x = sample, colour=object, fill = object)) +
+#   geom_histogram(alpha=1/2) +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   geom_histogram(data=(give_a_number %>% mutate(src="data")), aes(x=price, colour=object, fill=object), alpha=opacity) +
+#   facet_wrap(~object, scale="free") +
+#   xlim(0, 500)
+# # rs %>% filter(type=="prior", label=="price") %>%
+# #   group_by(object) %>%
+# #   filter(value < upper_bounds[[object[[1]]]]/10) %>%
+# #   ggplot(., aes(x=value)) +
+# #   geom_density(aes(colour="model", fill="model"), alpha=opacity) +
+# #   facet_grid(~object) +
+# #   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+# #   geom_density(data=give_a_number, aes(x=price, fill="data", colour="data"), alpha=opacity) +
+# #   scale_colour_brewer(type="qual", palette = 6) +
+# #   scale_fill_brewer(type="qual", palette = 6)+
+# #   xlim(0, 500)
+```
+
+
 ```{r, fig.height=3, fig.width=12}
 opacity = 1/3
 rs %>% filter(type=="prior", label=="price") %>%
@@ -552,9 +647,20 @@ rs %>% filter(type=="prior", label=="price") %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   geom_density(data=give_a_number, aes(x=price, fill="data", colour="data"), alpha=opacity) +
   scale_colour_brewer(type="qual", palette = 6) +
-  scale_fill_brewer(type="qual", palette = 6)
+  scale_fill_brewer(type="qual", palette = 6)+
+  xlim(0, 500)
 
 ```
+
+```{r}
+give_a_number %>%
+  ggplot(., aes(x=price, colour=object, fill=object)) +
+  geom_histogram(alpha=1/2) +
+  facet_wrap(~object, scale="free", ncol=5) +
+  scale_colour_brewer(type="qual", palette = 6) +
+  scale_fill_brewer(type="qual", palette = 6)
+```
+
 
 ```{r, fig.width=12, fig.height=2}
 opacity = 1/(iterations/9)
