@@ -148,6 +148,185 @@ var complex_add = function(key, val) {
 };
 
 
+var give_a_number_model = function() {
+  var MUMAX = 10;
+  var SIGMAX = 3;
+
+  foreach(objects, function(obj) {
+
+    // subset each data type
+    // var prior_bins = _.filter(ARGS.priorbins, {item: obj});
+    var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
+
+    // var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+    // var inductive = _.filter(ARGS.sorites, {object: obj, qtype: "inductive"});
+
+    // priors on parameters of RSA state priors
+    var item_params = {
+      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+    };
+
+    // factor by likelihood of sampled responses from give-a-number task
+    mapData({data: give_a_number}, function(d) {
+      // assume log of price is normally distributed
+      var prob_of_sampled_price = Gaussian(item_params).score(
+        Math.log(d.price)
+      );
+      factor(prob_of_sampled_price);
+    });
+
+    complex_add(
+      {type: "prior", object: obj, label: "mu"},
+      item_params.mu
+    );
+    complex_add(
+      {type: "prior", object: obj, label: "sigma"},
+      item_params.sigma
+    );
+
+  });
+
+  return query;
+};
+
+var concrete_premise_model = function() {
+  var ALPHA1MAX = 20;
+  var ALPHA2MAX = 5;
+  var COSTMAX = 10;
+  var MUMAX = 10;
+  var SIGMAX = 3;
+  var SIGBINMAX = .5;
+
+  var global_params = {
+    alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
+    alpha2: uniformDrift({a: 0, b: ALPHA2MAX, width: 0.5}),
+    cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
+    sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
+    // TO FIX
+    // likert_thresholds: map(sampleLikertThreshold,
+    //  _.range(likertParams.LB, likertParams.UB, likertParams.binWidth)
+    // )
+  };
+
+  var adjectivePriorProb = Math.exp(-global_params.cost);
+  var utterancePrior = Categorical({
+    vs: ["expensive", "silence"],
+    ps: [adjectivePriorProb, 1]
+  });
+
+  foreach(objects, function(obj) {
+
+    // subset each data type
+    var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
+
+    var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+
+    // priors on parameters of RSA state priors
+    var item_params = {
+      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+    };
+
+    // factor by likelihood of sampled responses from give-a-number task
+    mapData({data: give_a_number}, function(d) {
+      // assume log of price is normally distributed
+      var prob_of_sampled_price = Gaussian(item_params).score(
+        Math.log(d.price)
+      );
+      factor(prob_of_sampled_price);
+    });
+
+    complex_add(
+      {type: "prior", object: obj, label: "mu"},
+      item_params.mu
+    );
+    complex_add(
+      {type: "prior", object: obj, label: "sigma"},
+      item_params.sigma
+    );
+
+    // depending on the binning for this experiment, discretize the prior distribution
+    // over prices.
+    var bins = get_bins(obj);
+    var statePrior = DiscretizedLognormal(item_params, bins);
+    var thetaPrior = DiscretizedUniform(bins);
+
+   /// RSA model
+   var listener0 = cache(function(utterance, theta) {
+     Infer({model: function(){
+       var state = sample(statePrior)
+       var m = meaning(utterance, state, theta)
+       condition(m)
+       return state
+    }})}, 10000)
+
+   var speaker1 = cache(function(state, theta) {
+     Infer({model: function(){
+       var utterance = sample(utterancePrior);
+       var L0 = listener0(utterance, theta);
+       factor(global_params.alpha1 * L0.score(state))
+       return utterance
+     }})}, 10000)
+
+   var listener1 = cache(function(utterance) {
+     Infer({model: function(){
+       var state = sample(statePrior);
+       var theta = sample(thetaPrior);
+       var S1 = speaker1(state, theta)
+       observe(S1, utterance)
+       return state
+     }})}, 10000)
+
+   var speaker2 = function(speakerBeliefs){
+     Infer({model: function(){
+       var utterance = sample(utterancePrior);
+       var L1 = listener1(utterance)
+       factor(global_params.alpha2 * L1.score(speakerBeliefs))
+       return utterance
+    }})}
+
+    var dollar_amounts = levels(concrete, "dollar_amount")
+
+    foreach(dollar_amounts, function(dollar_amount){
+      var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
+
+      var discretized_dollar_amount = convert_to_bin(dollar_amount, bins);
+
+      var concretePrediction = speaker2(discretized_dollar_amount);
+
+      mapData({data: concrete_byDollar}, function(d){
+        // for now, assume if > 5, then "YES", other NO
+        var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
+        observe(concretePrediction, binarizedResponse)
+      })
+
+      var concrete_prob = Math.exp(concretePrediction.score("expensive"));
+      complex_add(
+        {type: "concrete", object: obj, dollar_amount: JSON.stringify(dollar_amount)},
+        concrete_prob
+      );
+
+    })
+
+  });
+
+  complex_add(
+    {type: "param", label: "alpha1"},
+    global_params.alpha1
+  );
+  complex_add(
+    {type: "param", label: "alpha2"},
+    global_params.alpha2
+  );
+  complex_add(
+    {type: "param", label: "cost"},
+    global_params.cost
+  );
+
+  return query;
+};
+
 var model = function() {
   var ALPHA1MAX = 20;
   var ALPHA2MAX = 5;
