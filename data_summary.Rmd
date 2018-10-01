@@ -15,9 +15,6 @@ knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.widt
 ```{r load libraries}
 library(rwebppl)
 library(tidyverse)
-# library(ggplot2)
-# library(tidyr)
-# library(dplyr)
 library(jsonlite)
 library(ggthemes)
 library(pander)
@@ -538,7 +535,7 @@ upper_bounds = sapply(
   levels(prior_bins_data$item),
   function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
 ) %>% as.list
-RUN_MODEL = F
+RUN_MODEL = T
 if (RUN_MODEL) {
   raw_rs = webppl(
       program_file = "models/bda_rsa_priors.wppl",
@@ -561,10 +558,10 @@ if (RUN_MODEL) {
       select(-Parameter) %>%
       mutate(dollar_amount = num(dollar_amount))
     write.csv(rs,
-              paste(".model_cache", iterations, ".csv", sep=""),
+              paste(".give_a_number_model_cache", iterations, ".csv", sep=""),
               row.names = F)
 } else {
-  rs = read.csv(paste(".model_cache", iterations, ".csv", sep=""))
+  rs = read.csv(paste(".give_a_number_model_cache", iterations, ".csv", sep=""))
 }
 give_a_number_fit = rs %>% mutate(
   UB = num(UB),
@@ -648,16 +645,35 @@ if (RUN_MODEL) {
       select(-Parameter) %>%
       mutate(dollar_amount = num(dollar_amount))
     write.csv(rs,
-              paste(".model_cache", iterations, ".csv", sep=""),
+              paste(".concrete_model_cache", iterations, ".csv", sep=""),
               row.names = F)
 } else {
-  rs = read.csv(paste(".model_cache", iterations, ".csv", sep=""))
+  rs = read.csv(paste(".concrete_model_cache", iterations, ".csv", sep=""))
 }
 concrete_premise_fit = rs %>% mutate(
   UB = num(UB),
   LB = num(LB),
   mid = num(mid)
 )
+```
+
+```{r, fig.width=10, fig.height=2}
+concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+ # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, color=src)) +
+  stat_ecdf(geom="step") +
+  facet_wrap(~object, scales="free", ncol=5)+
+  xlim(0, 1000)
 ```
 
 <!-- ### Questions
