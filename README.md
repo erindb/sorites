@@ -65,19 +65,11 @@ We do all of this in the domain of prices.
 
 # To do
 
-* get Justine's data and check lognormal fit against inferred parameters for Experiment 6a and Experiment 9 [E]
-* implement alternative models [M]
-* look at distributions of responses for sorites [M] 
-
-Bayesian data analysis and model comparison.
-
-Alternative models:
-
-* quantile model
-* unlifted threshold variable
-* listener models + transformation:
-	* literal (L0) model
-	* listener (L1) model
-* speaker models:
-	* s1
-	* s2
+* [x] Document nicely give a number
+* [] add in concrete premise
+	* [] compare model to empirical for concrete
+	* [] compare prior dist params with and without joint inference
+* [] Model comparison with unlifted L1 and L0 versions of speaker models
+	* [] use webppl AIS (use sherlock)
+	* [] could run into variance issues. if so, we could simplify prior param inference (e.g. outside of AIS, empirical, MAP)
+* [] pin down semantics of inductive premise
