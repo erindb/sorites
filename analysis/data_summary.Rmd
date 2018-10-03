@@ -8,28 +8,17 @@ output: pdf_document
 ---
 
 ```{r global_options, include=FALSE}
-rm(list=ls())
-knitr::opts_chunk$set(echo=F, warning=F, cache=F, message=F, sanitiz=F, fig.width = 5, fig.height = 3)
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
 ```
 
-```{r load libraries}
-library(rwebppl)
-library(tidyverse)
-library(jsonlite)
-library(ggthemes)
-library(pander)
-
-char = as.character
-num = function(v) {return(as.numeric(as.character(v)))}
-
-theme.new = theme_set(theme_few(12))
-
-# for bootstrapping 95% confidence intervals
-theta <- function(x,xdata) {mean(xdata[x])}
-ci.low <- function(x) {
-  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.025)}
-ci.high <- function(x) {
-  quantile(bootstrap::bootstrap(1:length(x),1000,theta,x)$thetastar,.975)}
+```{r load (and reformat) data}
+source("utils.R")
+source("reformatting_data.R")
+df = load_sorites(T)
+give_a_number = load_give_a_number(T)
+prior_bins_data = load_priors(T)
 ```
 
 # Experiments
@@ -37,18 +26,18 @@ ci.high <- function(x) {
 ## Wording used in sorites experiments
 
 ```{r load design descriptions}
-sorites_designs = read.csv("data/sorites/sorites_designs.csv",
+sorites_designs = read.csv(data_dir( "/sorites/sorites_designs.csv"),
                            stringsAsFactors = F)
 sorites_designs %>%
   select(-prompt, -left, -right, -concrete, -inductive) %>%
   rename(`inductive phrasing` = inductive_label) %>%
   pander(.,
-       caption="Sorites variations",
-       align=rep("l", ncol(sorites_designs)))
+       caption = "Sorites variations",
+       align = rep("l", ncol(sorites_designs)))
 lookup_phrasing = function(inductive_phrasing) {
   return((
     sorites_designs %>%
-      filter(inductive_label==inductive_phrasing)
+      filter(inductive_label == inductive_phrasing)
   )$inductive[[1]])
 }
 ```
@@ -71,123 +60,9 @@ Consistent across all experiments:
 
 The range of values asked about in the experiment affected responses a bit. For smaller ranges, participants gave higher responses for lower prices (that were at the top range within the experiment).
 
-```{r load (and reformat) data}
-## this is the script for reformatting sorites data into one single datafile
-RUN_REFORMAT = F
-if (RUN_REFORMAT) {
-  lookup_date = function(experiment_id) {
-    return((
-      sorites_designs %>%
-        filter(char(id)==experiment_id)
-    )$date[[1]])
-  }
-  find_sorites_filename = function(experiment_id) {
-    directory = "data/sorites/"
-    filenames = list.files(directory)
-    filename = filenames[
-      grep(paste("data_exp", experiment_id, sep=""),
-           filenames)
-      ]
-    return(paste(directory, filename, sep=""))
-  }
-  read_sorites_data = function(experiment_id) {
-    raw_df_all_columns = read.csv(
-      find_sorites_filename(experiment_id),
-      stringsAsFactors = F
-    )
-    
-    ## for experiment 10 data format:
-    if ("Answer.responses" %in% names(raw_df_all_columns)) {
-      raw_df_all_columns$Answer.questions = raw_df_all_columns$Answer.responses
-    }
-    if (!("Answer.phrasing" %in% names(raw_df_all_columns))) {
-      raw_df_all_columns$Answer.phrasing = NA
-    }
-    if ("Answer.time_in_minutes" %in% names(raw_df_all_columns)) {
-      raw_df_all_columns$time_in_minutes = raw_df_all_columns$Answer.time_in_minutes
-    } else {
-      raw_df_all_columns$time_in_minutes = NA
-    }
-    if ("Answer.subj_data" %in% names(raw_df_all_columns)) {
-      subj_data = do.call(rbind, lapply(raw_df_all_columns$Answer.subj_data, fromJSON)) %>%
-        as.data.frame
-      raw_df_all_columns$Answer.comments = unlist(subj_data$comments)
-      raw_df_all_columns$Answer.language = unlist(subj_data$language)
-      raw_df_all_columns$Answer.education = unlist(subj_data$education)
-      raw_df_all_columns$Answer.age = unlist(subj_data$age)
-    } else {
-      raw_df_all_columns$Answer.education = NA
-    }
-    
-    ## select only the useful columns
-    raw_df = raw_df_all_columns %>%
-      rename(comments = Answer.comments,
-             language = Answer.language,
-             questions = Answer.questions,
-             education = Answer.education,
-             phrasing = Answer.phrasing,
-             age = Answer.age) %>%
-      select(workerid, reward, comments,
-             age, language, questions) %>%
-      mutate(workerid = paste(workerid, experiment_id, sep="_"))
-    
-    reformatted_df = do.call(rbind, mapply(function(qn, workerid_for_merge) {
-      return(fromJSON(qn) %>% mutate(workerid=workerid_for_merge))
-    }, raw_df$questions, raw_df$workerid, SIMPLIFY = F) %>% unname) 
-    ## some versions collect reaction time, etc.:
-    if (!("rt" %in% names(reformatted_df))) { reformatted_df$rt = NA }
-    if (!("level" %in% names(reformatted_df))) { reformatted_df$level = NA }
-    if (!("sigs" %in% names(reformatted_df))) { reformatted_df$sigs = NA }
-    if (!("qNumber" %in% names(reformatted_df))) { reformatted_df$qNumber = NA }
-    if ("qType" %in% names(reformatted_df)) { reformatted_df = reformatted_df%>%rename(qtype=qType) }
-    if ("dollarAmt" %in% names(reformatted_df)) {
-      reformatted_df = reformatted_df%>%rename(dollar_amount=dollarAmt)
-    }
-    if ("item" %in% names(reformatted_df)) {
-      reformatted_df = reformatted_df%>%rename(object=item)
-    }
-    df = merge(
-      raw_df %>% select(-questions),
-      reformatted_df,
-      by=c("workerid")
-    ) %>%
-      mutate(id = experiment_id,
-             date = lookup_date(experiment_id))
-    if (!("phrasing" %in% names(df))) { df$phrasing = NA }
-    return(df)
-  }
-  df = do.call(rbind, lapply(c("00", "01", "07a", "07b", "07c", "10", "11"), read_sorites_data)) %>%
-    as.data.frame %>% flatten %>% ungroup %>% mutate(
-    dollar_amount = as.numeric(unname(sapply(char(dollar_amount), function(money_string) {
-      if (substr(money_string, 1, 1)=="$") {
-        return(substr(money_string, start=2, stop=nchar(money_string)))
-      } else {
-        return(money_string)
-      }
-    }))),
-    qtype = ifelse(qtype=="eps", "inductive", qtype),
-    qtype = ifelse(qtype=="val", "concrete", qtype),
-    qtype = factor(qtype),
-    phrasing = ifelse(id %in% c("00", "01"), "relative", phrasing),
-    response = num(response)
-  )
-  
-  write.csv(df, "data/sorites/combined_reformatted_sorites_data.csv", row.names = F)
-} else {
-  df = read.csv("data/sorites/combined_reformatted_sorites_data.csv")
-}
-df = df %>% mutate(
-  phrasing = ifelse(phrasing=='"relative"', "relative", phrasing),
-  phrasing = ifelse(phrasing=="relative_clause", "relative", phrasing),
-  phrasing = ifelse(phrasing=='"conditional"', "conditional", phrasing),
-  phrasing = factor(as.character(phrasing)),
-  id = factor(id)
-)
-```
-
 
 ```{r}
-RUN_AGG = F
+RUN_AGG = T
 ## computing confidence intervals takes a long time.
 ## so just cache the results of this most of the time
 if (RUN_AGG) {
@@ -197,25 +72,24 @@ if (RUN_AGG) {
             high = ci.high(response),
             response = mean(response)) %>%
     ungroup
-write.csv(agg, ".agg_cache.csv", row.names = F)
+write.csv(agg, cache_dir("agg_cache.csv"), row.names = F)
 }  else {
-agg = read.csv(".agg_cache.csv")
+agg = read.csv(cache_dir("agg_cache.csv"))
 }
 agg = agg %>% mutate(phrasing = factor(phrasing))
 ```
 
 ```{r, fig.height=4, fig.width=12}
 opacity = 0.5
-agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=phrasing, group=id)) +
+agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=id, group=id)) +
   geom_line(alpha=opacity) +
   geom_point(alpha=opacity) +
   # geom_line(alpha=opacity) +
   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
   facet_grid(qtype~object, scale="free_x") +
   ylim(1, 9) +
-  # scale_colour_brewer(type="qual", palette = 3) +
+  scale_colour_brewer(type="qual", palette = 2) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
-ggsave("sorites_data.png", width=12, height=4)
 ```
 
 ## Priors experiments
@@ -223,14 +97,6 @@ ggsave("sorites_data.png", width=12, height=4)
 ### Give a number
 
 I don't know Justine's exact phrasing for this, but participants were asked, for each item, a possible price for that item.
-
-```{r, fig.width=8, fig.height=4}
-give_a_number = read.csv("data/priors/give-a-number.csv") %>%
-  filter(item != "electric.kettle") %>%
-  select(-X) %>%
-  mutate(object = ifelse(item=="coffee.maker", "coffee maker", char(item))) %>%
-  select(-item)
-```
 
 ```{r, fig.height=2, fig.width=12}
 give_a_number %>%
@@ -253,93 +119,14 @@ Here are the instructions participants got in all of the prior experiments:
 > 
 > Please rate how likely it is that the cost of the *ITEM* is within each of the following ranges.
 
-```{r load (and reformat) prior data}
-RUN_DATA_TRANSFORM = F
-if (RUN_DATA_TRANSFORM) {
-  transform_upper_bounds = function(uppers) {
-    numeric_uppers = num(uppers[uppers != "infty"])
-    highest_ub = max(numeric_uppers)
-    next_highest_ub = max(numeric_uppers[numeric_uppers!=highest_ub])
-    return(ifelse(uppers=="infty",
-                  highest_ub + (highest_ub - next_highest_ub),
-                  num(uppers)))
-  }
-  process_bins_data = function(filename) {
-    raw_exp = read.csv(filename)
-    exp = raw_exp %>% filter(Answer.cond!="split") %>%
-      gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
-    if ("Answer.35" %in% names(raw_exp)) {
-      exp_split = raw_exp %>% filter(Answer.cond=="split") %>%
-        gather("question", "responses", c(
-          Answer.1, Answer.2, Answer.3, Answer.4, Answer.5,
-          Answer.6, Answer.7, Answer.8, Answer.9, Answer.10,
-          Answer.11, Answer.12, Answer.13, Answer.14, Answer.15,
-          Answer.16, Answer.17, Answer.18, Answer.19, Answer.20,
-          Answer.21, Answer.22, Answer.23, Answer.24, Answer.25,
-          Answer.26, Answer.27, Answer.28, Answer.29, Answer.30,
-          Answer.31, Answer.32, Answer.33, Answer.34, Answer.35
-        ))
-      exp = rbind(exp, exp_split)
-    }
-    list_data = mapply(
-      function(response, question, workerid, a5, a6, a7, a8, a9, condition) {
-        # char(a5) %>% fromJSON # we also collected a max price
-        rs = response %>% fromJSON %>% as.data.frame %>% 
-          mutate(workerid = workerid,
-                 condition = condition[[1]])
-        rs = rs %>% mutate(bin = 1:nrow(rs))
-        if ("lower" %in% names(rs)) {
-          rs = rs %>% rename(lowers = lower)
-        }
-        if ("upper" %in% names(rs)) {
-          rs = rs %>% rename(uppers = upper)
-        }
-        if ("response" %in% names(rs)) {
-          rs = rs %>% rename(responses = response)
-        }
-        return(rs)
-      },
-      exp$responses, exp$question, exp$workerid,
-      exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
-      exp$Answer.cond,
-      SIMPLIFY=F)
-    df = do.call(rbind, list_data) %>%
-      group_by(item) %>%
-      mutate(
-        UB = transform_upper_bounds(uppers),
-        LB = num(lowers),
-        width = UB-LB,
-        rating = num(responses)/sum(num(responses))) %>%
-      ungroup() %>%
-      select(workerid, item, bin, UB, LB, rating, condition) %>%
-      as.data.frame
-    row.names(df) = 1:nrow(df)
-    return(df)
-  }
-  df3 = process_bins_data("data/priors/data_exp03_2013_12_03_05.csv") %>% mutate(exp="03")
-  df4 = process_bins_data("data/priors/data_exp03_2013_12_03_05.csv") %>% mutate(exp="04")
-  df5 = process_bins_data("data/priors/data_exp05_2013_12_04_15.csv") %>% mutate(exp="05")
-  df6 = process_bins_data("data/priors/data_exp06_2013_12_04.csv") %>% mutate(exp="06")
-  df8 = process_bins_data("data/priors/data_exp08_2014_01_31_11.csv") %>% mutate(exp="08")
-  prior_bins_data = do.call(rbind, list(df3, df4, df5, df6, df8)) %>% as.data.frame %>%
-    mutate(exp = factor(exp),
-           condition = factor(ifelse(condition=="\"split\"", "split", "original"))) %>%
-  group_by(workerid, item, exp, condition) %>%
-  mutate(
-    slider_total = sum(rating),
-    normed_rating = ifelse(slider_total==0, 0, rating / slider_total)) %>%
-  ungroup %>% as.data.frame
-  write.csv(prior_bins_data, ".prior_bins_data_cache.csv", row.names = F)
-} else {
-  prior_bins_data = read.csv(".prior_bins_data_cache.csv")
-}
+```{r}
 n_split = length(unique((prior_bins_data %>% filter(condition == "split"))$workerid))
 ```
 
 There was a "split" condition (`r n_split` participants), where participants saw one bin at a time. In all other versions, the sliders for each item were shown together. We did not collect enough data in the split condition to normalize responses.
 
 ```{r}
-RUN_AGG = F
+RUN_AGG = T
 if (RUN_AGG) {
   agg_bins = prior_bins_data %>%
     filter(condition!="split") %>%
@@ -354,9 +141,9 @@ if (RUN_AGG) {
       y = mean(normed_rating),
       x = (UB[[1]]+LB[[1]])/2) %>%
     ungroup %>% as.data.frame %>% mutate(group = paste(item, condition, exp))
-  write.csv(agg_bins, ".agg_bins_cache.csv", row.names=F)
+  write.csv(agg_bins, cache_dir("agg_bins_cache.csv"), row.names=F)
 } else {
-  agg_bins = read.csv(".agg_bins_cache.csv")
+  agg_bins = read.csv(cache_dir("agg_bins_cache.csv"))
 }
 agg_bins = agg_bins %>% rename(object=item)
 ```
@@ -380,313 +167,3 @@ agg_bins %>%
         axis.ticks.y=element_blank())
 ```
 
-
-# Model
-
-## Definitions
-
-* $w_i$ := width of histogram bins for item $i$
-* $x_i$ := sample in give a number trial
-* $P_{ib}$ := true probability of bin $b$ for item $i$
-* $d_{ib}$ := slider rating for bin $b$ for item $i$
-* $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
-* $S2(C_{iv})$ := RSA S2(expensive) for item $i$
-* $s^I_{i\varepsilon}$ := binarization of likert rating for inductive premise for item $i$ and epsilon $\varepsilon$
-* $s^C_{iv}$ := binarization of likert rating for concrete premise for item $i$ and value $v$
-* $\alpha^I_2$ := speaker rationality for S1 for inductive premise
-
-## Diagram
-
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-  
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-  
-  \node[latent, right=4cm of sigmax] (sigbin) {$\sigma_{bin}$};
-  \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
-  \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
-  \node[right=of alpha2max, xshift=2cm] (costmax) {$c_{max}$};
-  
-  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
-  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
-  
-  \node[obs, left=of pbin] (giveanum) {$x_{i}$};
-  
-  \node[latent, below=of costmax] (cost) {$c$};
-  \node[latent, below=of alpha1max] (alpha2C) {$\alpha_{2}^{C}$};
-  \node[latent, below=of alpha2max] (alpha1I) {$\alpha_{1}^{I}$};
-  \node[latent, left=of alpha2C] (alpha1C) {$\alpha_{1}^{C}$};
-  \node[latent, right=of alpha1I] (alpha2I) {$\alpha_{2}^{I}$};
-  
-  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S2(C_{iv})$};
-  \node[latent, right=of s2concrete] (s2inductive) {$S2(I_{i\varepsilon})$};
-  
-  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
-  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
-  
-  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
-  
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {pbin}
-  \edge {mu, sig} {giveanum}
-  \edge {pbin, sigbin} {dbin}
-  \edge {pbin} {s2inductive, s2concrete}
-  \edge {s2inductive} {sI}
-  \edge {s2concrete} {sC}
-  \edge {alpha1I, alpha2I} {s2inductive}
-  \edge {alpha1C, alpha2C} {s2concrete}
-  \edge {alpha1max} {alpha1C, alpha1I}
-  \edge {alpha2max} {alpha2C, alpha2I}
-  \edge {cost} {s2concrete, s2inductive}
-  \edge {costmax} {cost}
-  \edge {sigbinmax} {sigbin}
-  
-  \plate {bin} {
-    (pbin) (dbin)
-  } {$b\in{Bins_i}$};
-  \plate {epsilon} {
-    (s2inductive) (sI)
-  } {$\varepsilon \in Epsilons$};
-  \plate {value} {
-    (s2concrete) (sC)
-  } {$v \in Values$};
-  \plate {item} {
-    (mu) (sig)
-    (giveanum)
-    (bin.south east)
-    (epsilon.south east)
-    (value.south east)
-    (s2inductive) (s2concrete)
-  } {$i\in{Objects}$};
-}
-
-## Distributions/Functions/Values:
-
-Experiment design parameters:
-
-* $Objects$
-* $Bins$
-* $Epsilons$
-* $Values$
-
-Assumed model parameters:
-
-* $\mu^{max}$ = 20
-* $\sigma^{max}$ = 5
-* $\sigma_{binned\ hist}$ = ??
-* $\alpha_1^{max}$ = 20
-* $\alpha_2^{max}$ = 5
-* $\sigma_{bin}^{max}$ = 5
-
-Inferred Latent variables:
-
-* $\mu_i \sim \mathcal{U}\{0, \mu^{max}\}$
-* $\sigma_i \sim \mathcal{U}\{0, \sigma^{max}\}$
-* $\alpha_1^I \sim \mathcal{U}\{0, \alpha_1^{max}\}$
-* $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
-* $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
-* $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
-* $\sigma_{bin} \sim \mathcal{U}\{0, \sigma_{bin}^{max}\}$
-* $P_{ib} = \int_{LB_{ib}}^{UB_{ib}} \varphi(\ln(t)|\mu_i, \sigma_i) dt$
-
-Observations from experimental data:
-
-* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{bin})$
-* $\ln(x_i) \sim \mathcal{N}(\mu_i, \sigma_i)$
-* $s_{iv}^C$
-* $s_{i\varepsilon}^I$
-
-# Model fit
-
-## Give a Number ~ Log Normal
-
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-  
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-  
-  \node[obs] (giveanum) {$x_{i}$};
-  
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {giveanum}
-  
-  \plate {item} {
-    (mu) (sig)
-    (giveanum)
-  } {$i\in{Objects}$};
-}
-
-Model fit for Give a Number as log normal using Incremental MH.
-
-```{r params, echo = T}
-iterations = 5000
-burn = iterations/2
-lag = 1
-```
-
-```{r run.full.model}
-upper_bounds = sapply(
-  levels(prior_bins_data$item),
-  function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
-) %>% as.list
-RUN_MODEL = T
-if (RUN_MODEL) {
-  raw_rs = webppl(
-      program_file = "models/bda_rsa_priors.wppl",
-      inference_opts = list(method="incrementalMH",
-                            samples=iterations,
-                            burn=burn,
-                            verbose = T,
-                            verboseLag = iterations / 10,
-                            lag=lag),
-      model_var = "give_a_number_model",
-      data_var = "ARGS",
-        packages = c("models/node_modules/utils/"),
-        data = list(priorbins = prior_bins_data,
-                    sorites = select(df, qtype, dollar_amount, object, response),
-                    give_a_number = give_a_number,
-                    upper_bounds = upper_bounds,
-                    nbins = 10)
-    )
-    rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
-      select(-Parameter) %>%
-      mutate(dollar_amount = num(dollar_amount))
-    write.csv(rs,
-              paste(".give_a_number_model_cache", iterations, ".csv", sep=""),
-              row.names = F)
-} else {
-  rs = read.csv(paste(".give_a_number_model_cache", iterations, ".csv", sep=""))
-}
-give_a_number_fit = rs %>% mutate(
-  UB = num(UB),
-  LB = num(LB),
-  mid = num(mid)
-)
-```
-
-```{r, fig.width=10, fig.height=2}
-give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
- # group_by(Iteration, label, object) %>%
-  #summarise(value = mean(value)) %>%
-  spread(label, value) %>%
-  rowwise() %>%
-  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-         price = exp(log_price),
-         src = "model") %>%
-  as.data.frame %>%
-  select(price, object, src) %>%
-  rbind(., (give_a_number %>% mutate(src="data"))) %>%
-  as.data.frame %>%
-  ggplot(., aes(x=price, color=src)) +
-  stat_ecdf(geom="step") +
-  facet_wrap(~object, scales="free", ncol=5)+
-  xlim(0, 1000)
-```
-
-```{r, fig.width=10, fig.height=4}
-give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
- # group_by(Iteration, label, object) %>%
-  #summarise(value = mean(value)) %>%
-  spread(label, value) %>%
-  rowwise() %>%
-  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-         price = exp(log_price),
-         src = "model") %>%
-  as.data.frame %>%
-  select(price, object, src) %>%
-  rbind(., (give_a_number %>% mutate(src="data"))) %>%
-  as.data.frame %>%
-  ggplot(., aes(x=price, fill=src)) +
-  geom_histogram()+
-  facet_wrap(src~object, scales="free", ncol=5)+
-  xlim(0, 1000)
-```
-
-```{r, fig.width=7, fig.height=3}
-give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
-  ggplot(., aes(x=value)) +
-  geom_histogram() +
-  facet_grid(label~object, scales="free")
-```
-
-## Concrete Premise ~ lifted L1
-
-```{r run.full.model}
-upper_bounds = sapply(
-  levels(prior_bins_data$item),
-  function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
-) %>% as.list
-RUN_MODEL = T
-if (RUN_MODEL) {
-  raw_rs = webppl(
-      program_file = "models/bda_rsa_priors.wppl",
-      inference_opts = list(method="incrementalMH",
-                            samples=iterations,
-                            burn=burn,
-                            verbose = T,
-                            verboseLag = iterations / 10,
-                            lag=lag),
-      model_var = "concrete_premise_model",
-      data_var = "ARGS",
-        packages = c("models/node_modules/utils/"),
-        data = list(priorbins = prior_bins_data,
-                    sorites = select(df, qtype, dollar_amount, object, response),
-                    give_a_number = give_a_number,
-                    upper_bounds = upper_bounds,
-                    nbins = 10)
-    )
-    rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
-      select(-Parameter) %>%
-      mutate(dollar_amount = num(dollar_amount))
-    write.csv(rs,
-              paste(".concrete_model_cache", iterations, ".csv", sep=""),
-              row.names = F)
-} else {
-  rs = read.csv(paste(".concrete_model_cache", iterations, ".csv", sep=""))
-}
-concrete_premise_fit = rs %>% mutate(
-  UB = num(UB),
-  LB = num(LB),
-  mid = num(mid)
-)
-```
-
-```{r, fig.width=10, fig.height=2}
-concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
- # group_by(Iteration, label, object) %>%
-  #summarise(value = mean(value)) %>%
-  spread(label, value) %>%
-  rowwise() %>%
-  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-         price = exp(log_price),
-         src = "model") %>%
-  as.data.frame %>%
-  select(price, object, src) %>%
-  rbind(., (give_a_number %>% mutate(src="data"))) %>%
-  as.data.frame %>%
-  ggplot(., aes(x=price, color=src)) +
-  stat_ecdf(geom="step") +
-  facet_wrap(~object, scales="free", ncol=5)+
-  xlim(0, 1000)
-```
-
-<!-- ### Questions
-
-1. concrete -> inductive and inductive -> concrete
-    - if you don't have a constrained way to get from priors to posteriors, then you will overfit (bayes factor)
-2. priors -> threshold distributions
-    - 
-
-* If we lesion data from the model can we infer it?
-* Is there a regression to compare to?
-* Can we argue that RSA is necessary?
-* What other thresholds could be used?
-    - quantiles
-* priors + rsa arrrrrrrow posteriors to fit data
-* stone model not from priors -->

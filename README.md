@@ -66,10 +66,10 @@ We do all of this in the domain of prices.
 # To do
 
 * [x] Document nicely give a number
-* [] add in concrete premise
-	* [] compare model to empirical for concrete
-	* [] compare prior dist params with and without joint inference
-* [] Model comparison with unlifted L1 and L0 versions of speaker models
-	* [] use webppl AIS (use sherlock)
-	* [] could run into variance issues. if so, we could simplify prior param inference (e.g. outside of AIS, empirical, MAP)
-* [] pin down semantics of inductive premise
+* [ ] add in concrete premise
+	* [ ] compare model to empirical for concrete
+	* [ ] compare prior dist params with and without joint inference
+* [ ] Model comparison with unlifted L1 and L0 versions of speaker models
+	* [ ] use webppl AIS (use sherlock)
+	* [ ] could run into variance issues. if so, we could simplify prior param inference (e.g. outside of AIS, empirical, MAP)
+* [ ] pin down semantics of inductive premise

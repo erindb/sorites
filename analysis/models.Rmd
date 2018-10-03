@@ -1,0 +1,390 @@
+---
+title: "Sorites Model Fits"
+author: "Erin Bennett"
+header-includes:
+   - \usepackage{tikz}
+   - \usetikzlibrary{bayesnet}
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
+
+```{r load (and reformat) data}
+source("utils.R")
+source("reformatting_data.R")
+df = load_sorites(F)
+give_a_number = load_give_a_number(F)
+prior_bins_data = load_priors(F)
+```
+
+# Model
+
+## Definitions
+
+* $w_i$ := width of histogram bins for item $i$
+* $x_i$ := sample in give a number trial
+* $P_{ib}$ := true probability of bin $b$ for item $i$
+* $d_{ib}$ := slider rating for bin $b$ for item $i$
+* $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
+* $S2(C_{iv})$ := RSA S2(expensive) for item $i$
+* $s^I_{i\varepsilon}$ := binarization of likert rating for inductive premise for item $i$ and epsilon $\varepsilon$
+* $s^C_{iv}$ := binarization of likert rating for concrete premise for item $i$ and value $v$
+* $\alpha^I_2$ := speaker rationality for S1 for inductive premise
+
+## Diagram
+
+\tikz{
+  \node[latent,] (mu) {$\mu_i$};
+  \node[latent, right=of mu] (sig) {$\sigma_i$};
+  
+  \node[above=of mu] (mumax) {$\mu^{max}$};
+  \node[above=of sig] (sigmax) {$\sigma^{max}$};
+  
+  \node[latent, right=4cm of sigmax] (sigbin) {$\sigma_{bin}$};
+  \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
+  \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
+  \node[right=of alpha2max, xshift=2cm] (costmax) {$c_{max}$};
+  
+  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
+  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
+  
+  \node[obs, left=of pbin] (giveanum) {$x_{i}$};
+  
+  \node[latent, below=of costmax] (cost) {$c$};
+  \node[latent, below=of alpha1max] (alpha2C) {$\alpha_{2}^{C}$};
+  \node[latent, below=of alpha2max] (alpha1I) {$\alpha_{1}^{I}$};
+  \node[latent, left=of alpha2C] (alpha1C) {$\alpha_{1}^{C}$};
+  \node[latent, right=of alpha1I] (alpha2I) {$\alpha_{2}^{I}$};
+  
+  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S2(C_{iv})$};
+  \node[latent, right=of s2concrete] (s2inductive) {$S2(I_{i\varepsilon})$};
+  
+  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
+  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
+  
+  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
+  
+  \edge {mumax} {mu}
+  \edge {sigmax} {sig}
+  \edge {mu, sig} {pbin}
+  \edge {mu, sig} {giveanum}
+  \edge {pbin, sigbin} {dbin}
+  \edge {pbin} {s2inductive, s2concrete}
+  \edge {s2inductive} {sI}
+  \edge {s2concrete} {sC}
+  \edge {alpha1I, alpha2I} {s2inductive}
+  \edge {alpha1C, alpha2C} {s2concrete}
+  \edge {alpha1max} {alpha1C, alpha1I}
+  \edge {alpha2max} {alpha2C, alpha2I}
+  \edge {cost} {s2concrete, s2inductive}
+  \edge {costmax} {cost}
+  \edge {sigbinmax} {sigbin}
+  
+  \plate {bin} {
+    (pbin) (dbin)
+  } {$b\in{Bins_i}$};
+  \plate {epsilon} {
+    (s2inductive) (sI)
+  } {$\varepsilon \in Epsilons$};
+  \plate {value} {
+    (s2concrete) (sC)
+  } {$v \in Values$};
+  \plate {item} {
+    (mu) (sig)
+    (giveanum)
+    (bin.south east)
+    (epsilon.south east)
+    (value.south east)
+    (s2inductive) (s2concrete)
+  } {$i\in{Objects}$};
+}
+
+## Distributions/Functions/Values:
+
+Experiment design parameters:
+
+* $Objects$
+* $Bins$
+* $Epsilons$
+* $Values$
+
+Assumed model parameters:
+
+* $\mu^{max}$ = 20
+* $\sigma^{max}$ = 5
+* $\sigma_{binned\ hist}$ = ??
+* $\alpha_1^{max}$ = 20
+* $\alpha_2^{max}$ = 5
+* $\sigma_{bin}^{max}$ = 5
+
+Inferred Latent variables:
+
+* $\mu_i \sim \mathcal{U}\{0, \mu^{max}\}$
+* $\sigma_i \sim \mathcal{U}\{0, \sigma^{max}\}$
+* $\alpha_1^I \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+* $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+* $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+* $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+* $\sigma_{bin} \sim \mathcal{U}\{0, \sigma_{bin}^{max}\}$
+* $P_{ib} = \int_{LB_{ib}}^{UB_{ib}} \varphi(\ln(t)|\mu_i, \sigma_i) dt$
+
+Observations from experimental data:
+
+* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{bin})$
+* $\ln(x_i) \sim \mathcal{N}(\mu_i, \sigma_i)$
+* $s_{iv}^C$
+* $s_{i\varepsilon}^I$
+
+# Model fit
+
+## Give a Number ~ Log Normal
+
+\tikz{
+  \node[latent,] (mu) {$\mu_i$};
+  \node[latent, right=of mu] (sig) {$\sigma_i$};
+  
+  \node[above=of mu] (mumax) {$\mu^{max}$};
+  \node[above=of sig] (sigmax) {$\sigma^{max}$};
+  
+  \node[obs] (giveanum) {$x_{i}$};
+  
+  \edge {mumax} {mu}
+  \edge {sigmax} {sig}
+  \edge {mu, sig} {giveanum}
+  
+  \plate {item} {
+    (mu) (sig)
+    (giveanum)
+  } {$i\in{Objects}$};
+}
+
+Model fit for Give a Number as log normal using Incremental MH.
+
+```{r, echo = T}
+iterations = 5000
+burn = iterations/2
+lag = 1
+```
+
+```{r}
+upper_bounds = sapply(
+  levels(prior_bins_data$item),
+  function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
+) %>% as.list
+RUN_MODEL = F
+if (RUN_MODEL) {
+  raw_rs = webppl(
+      program_file = model_dir("bda_rsa_priors.wppl"),
+      inference_opts = list(method="incrementalMH",
+                            samples=iterations,
+                            burn=burn,
+                            verbose = T,
+                            verboseLag = iterations / 10,
+                            lag=lag),
+      model_var = "give_a_number_model",
+      data_var = "ARGS",
+        packages = c(model_dir("/node_modules/utils/")),
+        data = list(priorbins = prior_bins_data,
+                    sorites = select(df, qtype, dollar_amount, object, response),
+                    give_a_number = give_a_number,
+                    upper_bounds = upper_bounds,
+                    nbins = 10)
+    )
+    rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
+      select(-Parameter) %>%
+      mutate(dollar_amount = num(dollar_amount))
+    write.csv(rs,
+              cache_dir(paste("give_a_number_model_cache", iterations, ".csv", sep="")),
+              row.names = F)
+} else {
+  rs = read.csv(cache_dir(paste("give_a_number_model_cache", iterations, ".csv", sep="")))
+}
+give_a_number_fit = rs %>% mutate(
+  UB = num(UB),
+  LB = num(LB),
+  mid = num(mid)
+)
+```
+
+```{r, fig.width=10, fig.height=2}
+give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+ # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, color=src)) +
+  stat_ecdf(geom="step") +
+  facet_wrap(~object, scales="free", ncol=5)+
+  xlim(0, 1000)
+ggsave("images/give_a_number_fit.png", width=10, height=2)
+```
+
+```{r, fig.width=10, fig.height=4}
+give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+ # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, fill=src)) +
+  geom_histogram()+
+  facet_wrap(src~object, scales="free", ncol=5)+
+  xlim(0, 1000)
+ggsave("images/give_a_number_fit2.png", width=10, height=4)
+```
+
+```{r, fig.width=7, fig.height=3}
+# give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+#   ggplot(., aes(x=value)) +
+#   geom_histogram() +
+#   facet_grid(label~object, scales="free")
+```
+
+## Concrete Premise ~ lifted L1
+
+1. figure out efficient way to use continuous params
+  a) should I cache within the recursion, given that there are continuous parameters for the distribution?
+    i) empirically:
+      - With incremental MH, 10 iterations for every layer of recursion, and caching at S1, L1, and S2 (and not L0), the model takes ~9.3 minutes to run on my laptop.
+      - With incremental MH, 10 iterations for every layer of recursion, and caching at only L1, the model takes >10 minutes to run on my laptop.
+      - With incremental MH, 10 iterations for every layer of recursion, and caching at L1 and get_score, the model takes ~1.9 minutes to run on my laptop.
+    ii) thinking through:
+      s2: there's one model output per experimental condition per iteration. so, we're only running s2 with the same parameters once for each set of lognormal params. should we cache S2? S2 depends on the lognormal parameters and the condition. the lognormal parameters are continuous and that's good. so keep them that way. which means we don't cache s2.
+      l1: l1 only has one discrete parameter, and it's getting called for each experimental condition, so definitely cache it! the code for estimating the score is getting re-run a bunch, though, maybe cache that, too? because the same dollar amounts will be input. coolcool.
+      s1: s1 has a continuous parameter, theta. we could use drift here?
+  b) what parameters should i use for internal recursion?
+    i) emirically:
+      - With incremental MH, 10 iterations for every layer of recursion, and caching at L1 and get_score, the model takes ~1.9 minutes to run on my laptop.
+      - With incremental MH, 10 outer iterations and 100 inner iterations, and caching at L1 and get_score, the model takes ~X minutes to run on my laptop.
+      - actually, this is so many layers of loops, it's better to bin the space and do enumeration
+
+```{r params, echo = T}
+# iterations = 10#5000
+# burn = iterations/2
+# lag = 1
+```
+
+```{r run.concrete.model}
+# RUN_MODEL = T
+# if (RUN_MODEL) {
+#   start_time = Sys.time()
+#   raw_rs = webppl(
+#     program_file = "models/bda_rsa_priors.wppl",
+#     inference_opts = list(method="incrementalMH",
+#                           samples=iterations,
+#                           burn=burn,
+#                           verbose = T,
+#                           verboseLag = iterations / 10,
+#                           lag=lag),
+#     model_var = "concrete_premise_model",
+#     data_var = "ARGS",
+#     packages = c("models/node_modules/utils/"),
+#     data = list(priorbins = prior_bins_data,
+#                 sorites = select(df, qtype, dollar_amount, object, response),
+#                 give_a_number = give_a_number,
+#                 upper_bounds = upper_bounds,
+#                 internal_iterations = 100)
+#   )
+#   end_time = Sys.time()
+#   print(end_time - start_time)
+#   rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
+#     select(-Parameter) %>%
+#     mutate(dollar_amount = num(dollar_amount))
+#   write.csv(rs,
+#             paste(".concrete_model_cache", iterations, ".csv", sep=""),
+#             row.names = F)
+# } else {
+#   rs = read.csv(paste(".concrete_model_cache", iterations, ".csv", sep=""))
+# }
+# concrete_premise_fit = rs %>% mutate(
+#   UB = num(UB),
+#   LB = num(LB),
+#   mid = num(mid)
+# )
+```
+
+```{r}
+# RUN_CONCRETE_AGG = T
+# if (RUN_CONCRETE_AGG) {
+#   concrete_model_agg = concrete_premise_fit %>% filter(type=="concrete") %>%
+#     group_by(object, dollar_amount) %>%
+#     summarise(low = ci.low(value),
+#               high = ci.high(value),
+#               value = mean(value))
+#   write.csv(concrete_model_agg,
+#             paste(".concrete_model_agg_cache", iterations, ".csv", sep=""),
+#             row.names = F)
+# } else {
+#   concrete_model_agg = read.csv(paste(".concrete_model_agg_cache", iterations, ".csv", sep=""))
+# }
+# concrete_model_agg %>%
+#   ggplot(., aes(x=dollar_amount, y=value)) +
+#   geom_point(alpha=opacity) +
+#   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+#   facet_grid(~object, scales="free")
+# # unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
+```
+
+```{r, fig.width=12, fig.height=3}
+# df %>% filter(qtype=="concrete") %>% select(object, dollar_amount, response) %>%
+#   mutate(src = "data") %>%
+#   rbind(., concrete_premise_fit %>% filter(type=="concrete") %>%
+#           mutate(response = value, src = "model") %>%
+#           select(object, dollar_amount, response, src)) %>%
+#   as.data.frame %>%
+#   ggplot(., aes(x=dollar_amount, color=src)) +
+#   stat_ecdf(geom="step") +
+#   facet_wrap(~object, scales="free", ncol=5)
+```
+
+
+```{r, fig.width=10, fig.height=2}
+# concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+#  # group_by(Iteration, label, object) %>%
+#   #summarise(value = mean(value)) %>%
+#   spread(label, value) %>%
+#   rowwise() %>%
+#   mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+#          price = exp(log_price),
+#          src = "model") %>%
+#   as.data.frame %>%
+#   select(price, object, src) %>%
+#   rbind(., (give_a_number %>% mutate(src="data"))) %>%
+#   as.data.frame %>%
+#   ggplot(., aes(x=price, color=src)) +
+#   stat_ecdf(geom="step") +
+#   facet_wrap(~object, scales="free", ncol=5)+
+#   xlim(0, 1000)
+```
+
+<!-- ### Questions
+
+1. concrete -> inductive and inductive -> concrete
+    - if you don't have a constrained way to get from priors to posteriors, then you will overfit (bayes factor)
+2. priors -> threshold distributions
+    - 
+
+* If we lesion data from the model can we infer it?
+* Is there a regression to compare to?
+* Can we argue that RSA is necessary?
+* What other thresholds could be used?
+    - quantiles
+* priors + rsa arrrrrrrow posteriors to fit data
+* stone model not from priors -->
