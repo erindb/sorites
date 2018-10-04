@@ -1,10 +1,13 @@
 ---
 title: "Sorites Model Fits"
 author: "Erin Bennett"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 header-includes:
-   - \usepackage{tikz}
-   - \usetikzlibrary{bayesnet}
-output: pdf_document
+- \usepackage{tikz}
+- \usetikzlibrary{bayesnet}
 ---
 
 ```{r global_options, include=FALSE}
@@ -171,11 +174,7 @@ lag = 1
 ```
 
 ```{r}
-upper_bounds = sapply(
-  levels(prior_bins_data$item),
-  function(i) {max((prior_bins_data %>% filter(item==item))$UB)}
-) %>% as.list
-RUN_MODEL = F
+RUN_MODEL = T
 if (RUN_MODEL) {
   raw_rs = webppl(
       program_file = model_dir("bda_rsa_priors.wppl"),
@@ -251,29 +250,51 @@ ggsave("images/give_a_number_fit2.png", width=10, height=4)
 ```
 
 ```{r, fig.width=7, fig.height=3}
-# give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
-#   ggplot(., aes(x=value)) +
-#   geom_histogram() +
-#   facet_grid(label~object, scales="free")
+give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+  ggplot(., aes(x=value)) +
+  geom_histogram() +
+  facet_grid(label~object, scales="free")
 ```
 
 ## Concrete Premise ~ lifted L1
 
-1. figure out efficient way to use continuous params
-  a) should I cache within the recursion, given that there are continuous parameters for the distribution?
-    i) empirically:
-      - With incremental MH, 10 iterations for every layer of recursion, and caching at S1, L1, and S2 (and not L0), the model takes ~9.3 minutes to run on my laptop.
-      - With incremental MH, 10 iterations for every layer of recursion, and caching at only L1, the model takes >10 minutes to run on my laptop.
-      - With incremental MH, 10 iterations for every layer of recursion, and caching at L1 and get_score, the model takes ~1.9 minutes to run on my laptop.
-    ii) thinking through:
-      s2: there's one model output per experimental condition per iteration. so, we're only running s2 with the same parameters once for each set of lognormal params. should we cache S2? S2 depends on the lognormal parameters and the condition. the lognormal parameters are continuous and that's good. so keep them that way. which means we don't cache s2.
-      l1: l1 only has one discrete parameter, and it's getting called for each experimental condition, so definitely cache it! the code for estimating the score is getting re-run a bunch, though, maybe cache that, too? because the same dollar amounts will be input. coolcool.
-      s1: s1 has a continuous parameter, theta. we could use drift here?
-  b) what parameters should i use for internal recursion?
-    i) emirically:
-      - With incremental MH, 10 iterations for every layer of recursion, and caching at L1 and get_score, the model takes ~1.9 minutes to run on my laptop.
-      - With incremental MH, 10 outer iterations and 100 inner iterations, and caching at L1 and get_score, the model takes ~X minutes to run on my laptop.
-      - actually, this is so many layers of loops, it's better to bin the space and do enumeration
+I'm pretty sure I need to bin in order for this to be tractable.
+
+Here's the median L0 distribution for laptops:
+
+
+```{r}
+params = give_a_number_fit %>%
+  filter(type == "prior" &
+           (label == "mu" | label=="sigma") &
+           object == "laptop") %>%
+  group_by(object, label) %>%
+  summarise(value = median(value)) %>%
+  named_vec(label, value)
+price_cdf = function(x) {
+  return(plnorm(x, params["mu"], params["sigma"]))
+}
+max_value = 2000
+bin_width = 200
+x = seq(0, max_value, 1)
+b = seq(bin_width/2, max_value, bin_width)
+upper = b + (bin_width/2)
+lower = b - (bin_width/2)
+px = dlnorm(x, params["mu"], params["sigma"])
+pb = price_cdf(upper) - price_cdf(lower)
+pb[length(pb)] = 1 - price_cdf(lower[length(lower)])
+cdf_max = max(pb)
+df_max = max(px)
+px = cdf_max/df_max * px
+ggplot() +
+  geom_bar(aes(x=b, y=pb), stat = "identity", fill = "gray") +
+  geom_line(aes(x=x, y=px))
+```
+
+
+What the speaker actually cares about is $P(x | u)$, the listener's probability density of choosing price $x$ given utterance $u$. But if I bin, what I *have* is $P(b | u)$, the probability that the listener will choose the bin $b$ containing $x$.
+
+$$P(x | b) \approx $$
 
 ```{r params, echo = T}
 # iterations = 10#5000

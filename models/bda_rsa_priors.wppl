@@ -56,6 +56,20 @@ var add_output_datapoint = function(key, val) {
   query.add(keystring, val);
 };
 
+// same # digits as webppl/src/math/numeric.ad.js
+var LOG_2PI = 1.8378770664093453
+
+// if this doesn't make sense, see "mistakes_i_made.Rmd"
+// log of lognormal density
+var lognormal_score = function(x, params) {
+  var mu = params.mu;
+  var sigma = params.sigma;
+  return ((-Math.log(x)) +
+          (-Math.log(sigma)) +
+          (-0.5*LOG_2PI) +
+          (-( Math.pow((Math.log(x) - mu), 2) /
+              (2 * Math.pow(sigma, 2)) )));
+};
 
 var give_a_number_model = function() {
   var MUMAX = 10;
@@ -79,9 +93,9 @@ var give_a_number_model = function() {
     // factor by likelihood of sampled responses from give-a-number task
     mapData({data: give_a_number}, function(d) {
       // assume log of price is normally distributed
-      var prob_of_sampled_price = Gaussian(item_params).score(
-        Math.log(d.price)
-      );
+      // so use lognormal density function
+      // (see "mistakes_i_made.html" if in the future this doesn't make sense)
+      var prob_of_sampled_price = lognormal_score(d.price, item_params);
       factor(prob_of_sampled_price);
     });
 
