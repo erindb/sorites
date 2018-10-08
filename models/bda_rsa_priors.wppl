@@ -95,8 +95,7 @@ var give_a_number_model = function() {
       // assume log of price is normally distributed
       // so use lognormal density function
       // (see "mistakes_i_made.html" if in the future this doesn't make sense)
-      var prob_of_sampled_price = lognormal_score(d.price, item_params);
-      factor(prob_of_sampled_price);
+      factor(lognormal_score(d.price, item_params));
     });
 
     add_output_datapoint(
@@ -125,6 +124,10 @@ var get_score = function(erp, value) {
   return (below_score + above_score) / 2;
 };
 
+var score_mass_above_theta = function(theta, item_params) {
+  1 - lognormal_score(theta, item_params);
+}
+
 var concrete_premise_model = function() {
   var ALPHA1MAX = 20;
   var ALPHA2MAX = 5;
@@ -138,7 +141,7 @@ var concrete_premise_model = function() {
     alpha2: uniformDrift({a: 0, b: ALPHA2MAX, width: 0.5}),
     cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
     sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
-    // TO FIX
+    // TODO
     // likert_thresholds: map(sampleLikertThreshold,
     //  _.range(likertParams.LB, likertParams.UB, likertParams.binWidth)
     // )
@@ -166,10 +169,7 @@ var concrete_premise_model = function() {
     // factor by likelihood of sampled responses from give-a-number task
     mapData({data: give_a_number}, function(d) {
       // assume log of price is normally distributed
-      var prob_of_sampled_price = Gaussian(item_params).score(
-        Math.log(d.price)
-      );
-      factor(prob_of_sampled_price);
+      factor(lognormal_score(d.price, item_params));
     });
 
     add_output_datapoint(
@@ -186,37 +186,28 @@ var concrete_premise_model = function() {
     var max_price = utils.max(dollar_amounts);
 
    /// RSA model
-   var listener0 = function(utterance, theta) {
-     Infer({
-      method: "incrementalMH",
-      samples: ARGS.internal_iterations,
-      lag: 1,
-      burn: ARGS.internal_iterations/2,
-      model: function(){
-        var log_price = gaussian(item_params);
-        var price = Math.exp(log_price);
-        var state = price;
-         var m = meaning(utterance, state, theta);
-         condition(m);
-         return state;
-      }})};
 
-   var speaker1 = function(state, theta) {
-     Infer({
-      method: "incrementalMH",
-      samples: ARGS.internal_iterations,
-      lag: 1,
-      burn: ARGS.internal_iterations/2,
-      model: function(){
-         var utterance = sample(utterancePrior);
-         var L0 = listener0(utterance, theta);
-         // look for the closest item in the support and get the score of that.
-         // actually, maybe we can just rescale lognormal somehow.
-         factor(global_params.alpha1 * get_score(L0, state));
-         return utterance;
-       }})};
+   var speaker1_score = function(utterance, state, theta) {
+     if (state > theta) {
+      if (utterance == "expensive") {
+        var prob_greater_than_theta = 1 - Math.exp(lognormal_score(theta));
+        var informativity = -global_params.alpha1 * (Math.log(prob_greater_than_theta));
+        var cost_of_expensive = global_params.cost;
+        return informativity - cost_of_expensive;
+      } else {
+        return 0; // cost of no utterance is 0
+      }
+     } else {
+       // if x \leq \theta, then the utterance *cannot* be "expensive"
+      if (utterance == "expensive") {
+        return -Infinity;
+      } else {
+        return 0;
+      }
+     }
+   };
 
-     // no continuous parameters, so caching makes sense.
+   // no continuous parameters, so caching makes sense.
    var listener1 = cache(function(utterance) {
      Infer({
       method: "incrementalMH",
@@ -226,16 +217,17 @@ var concrete_premise_model = function() {
       verbose: true,
       verboseLag: ARGS.internal_iterations / 10,
       model: function(){
+        // log is normally distributed
         var log_price = gaussian(item_params);
         var price = Math.exp(log_price);
         var state = price;
         var theta = uniform({a: 0, b: max_price});
-         var S1 = speaker1(state, theta);
-         observe(S1, utterance);
-         return state;
+        factor(speaker1_score(utterance, state, theta));
+        return state;
        }})});
 
     var cached_get_score = cache(get_score);
+    // listener distribution is cached, so we just try both utterances
    var speaker2 = function(speaker_belief_dollar_amount){
      Infer({
       method: "enumerate",

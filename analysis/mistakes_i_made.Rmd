@@ -32,7 +32,7 @@ df2_max = max(px2)
 px = df2_max/df_max * px
 ggplot() +
   geom_line(aes(x=x, y=px)) +
-  geom_line(aes(x=x, y=px2), colour="red")+
+  geom_line(aes(x=x, y=px2), colour="red") +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank())

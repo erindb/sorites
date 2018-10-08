@@ -8,6 +8,8 @@ output:
 header-includes:
 - \usepackage{tikz}
 - \usetikzlibrary{bayesnet}
+- \usepackage{amsmath}
+- \usepackage[makeroom]{cancel}
 ---
 
 ```{r global_options, include=FALSE}
@@ -174,7 +176,7 @@ lag = 1
 ```
 
 ```{r}
-RUN_MODEL = T
+RUN_MODEL = F
 if (RUN_MODEL) {
   raw_rs = webppl(
       program_file = model_dir("bda_rsa_priors.wppl"),
@@ -190,7 +192,6 @@ if (RUN_MODEL) {
         data = list(priorbins = prior_bins_data,
                     sorites = select(df, qtype, dollar_amount, object, response),
                     give_a_number = give_a_number,
-                    upper_bounds = upper_bounds,
                     nbins = 10)
     )
     rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
@@ -202,11 +203,7 @@ if (RUN_MODEL) {
 } else {
   rs = read.csv(cache_dir(paste("give_a_number_model_cache", iterations, ".csv", sep="")))
 }
-give_a_number_fit = rs %>% mutate(
-  UB = num(UB),
-  LB = num(LB),
-  mid = num(mid)
-)
+give_a_number_fit = rs
 ```
 
 ```{r, fig.width=10, fig.height=2}
@@ -243,7 +240,7 @@ give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
   rbind(., (give_a_number %>% mutate(src="data"))) %>%
   as.data.frame %>%
   ggplot(., aes(x=price, fill=src)) +
-  geom_histogram()+
+  geom_histogram(bins=30)+
   facet_wrap(src~object, scales="free", ncol=5)+
   xlim(0, 1000)
 ggsave("images/give_a_number_fit2.png", width=10, height=4)
@@ -258,10 +255,76 @@ give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
 
 ## Concrete Premise ~ lifted L1
 
+For a lifted $L_1$ model, we need to some nested inference. But there's some simplification we can do.
+
+$$
+\begin{aligned}
+L_0(x \ | \ u, \theta) \ &\propto \ P(x) \cdot \delta_{x, u, \theta}
+  \\
+  &L_0(x \ | \ \text{expensive}, \theta) = 
+    \begin{cases}
+     \frac{1}{\int_\theta^\infty P(x)dx} \cdot P(x) & \text{if } x>\theta \\
+     0 & \text{otherwise}
+    \end{cases}
+  \\ \\
+  &L_0(x \ | \ \text{no utterance}, \theta) = P(x)
+  \\ \\
+S_1(u \ | \ x, \theta) &\propto P(u) \cdot \left(L_0(x \ | \ u, \theta)\right)^{\alpha_1}
+  \\ \\
+  &S_1(\text{expensive} \ | \ x > \theta) \propto P(\text{expensive}) \cdot \left(\frac{1}{\int_\theta^\infty P(x)dx}\right)^{\alpha_1} \cancel{\left(P(x)\right)^{\alpha_1}} \\
+  &S_1(\text{no utterance} \ | \ x > \theta) \propto P(\text{no utterance}) \cdot \cancel{\left(P(x)\right)^{\alpha_1}}
+  \\ \\
+  &S_1(\text{expensive} \ | \ x \leq \theta) = 0 \\
+  &S_1(\text{no utterance} \ | \ x \leq \theta) = 1
+\end{aligned}
+$$
+
+So the $S_1$ score for expensive is:
+
+$$
+\begin{aligned}
+\log\left(
+  P(\text{expensive}) \cdot
+  \left( \frac{1}{\int_\theta^\infty P(x)dx} \right)^{\alpha_1}
+\right) &= -cost(\text{expensive}) +
+\log\left(
+  \left( \frac{1}{\int_\theta^\infty P(x)dx} \right)^{\alpha_1}
+\right)\\
+&= -cost(\text{expensive}) -\alpha_1
+\log\left(\int_\theta^\infty P(x)dx
+\right)\\
+&= -cost(\text{expensive}) -\alpha_1
+\log\left( P(x > \theta) \right)
+\end{aligned}
+$$
+
+
+<!--
+$$
+  
+  
+S_1(u \ | \ x, \theta) \propto P(u) \cdot &L_0(x \ | \ u, \theta)
+  &L_0(x \ | \ \text{no utterance}, \theta) = P(x) \\ & \\
+  
+S_1(u | x, \theta) \propto &P(u) \cdot L_0(x | u, \theta) \\ &
+
+S_1(u | x, \theta) \propto &P(u) \cdot L_0(x | u, \theta) \\ \\
+
+&S_1(\text{``expensive''} | x > \theta) \propto 
+  P(\text{``expensive''})\frac{1}{\int_\theta^\infty P(x)dx} P(x) \\
+&S_1(\text{\emph{no utterance}} | x > \theta) \propto
+  P(\text{\emph{no utterance}})P(x) \\ \\
+
+&S_1(\text{``expensive''} | x \leq \theta) \propto 0 \\
+&S_1(\text{\emph{no utterance}} | x \leq \theta) \propto P(x) \\
+\end{aligned}
+$$
+-->
+
+<!--
 I'm pretty sure I need to bin in order for this to be tractable.
 
-Here's the median L0 distribution for laptops:
-
+Here's the median prior distribution for laptops:
 
 ```{r}
 params = give_a_number_fit %>%
@@ -274,7 +337,7 @@ params = give_a_number_fit %>%
 price_cdf = function(x) {
   return(plnorm(x, params["mu"], params["sigma"]))
 }
-max_value = 2000
+max_value = 1000
 bin_width = 200
 x = seq(0, max_value, 1)
 b = seq(bin_width/2, max_value, bin_width)
@@ -292,9 +355,87 @@ ggplot() +
 ```
 
 
-What the speaker actually cares about is $P(x | u)$, the listener's probability density of choosing price $x$ given utterance $u$. But if I bin, what I *have* is $P(b | u)$, the probability that the listener will choose the bin $b$ containing $x$.
+What the speaker actually cares about is $L(x | u)$, the listener's probability density of choosing price $x$ given utterance $u$. But if I bin, what I *have* is $L(b | u)$, the probability that the listener will choose the bin $b$ containing $x$.
+
+$L_0(x | u, \theta) \propto Pr(x) \cdot \delta_{\text{truth value}(u | x, \theta)}$
+
+So for no utterance:
+$L_0(x | \text{no utterance}, \theta) = Pr(x)$
+
+And for "expensive":
+$L_0(x | \text{expensive}, \theta) = \left\{ \frac{1}{M} Pr(x) \right\}$
+
+And then:
+
+$S_1(u | x, \theta) \propto Pr(u) \cdot L_0(x | u, \theta)$
+
+so:
+
+$S_1(\text{no utterance} | x, \theta) \propto Pr(\text{no utterance}) \cdot Pr(x)$
+
+and
+
+$S_1(\text{expensive} | x, \theta) \propto Pr(\text{expensive}) \cdot \frac{1}{M} Pr(x)$
+
+$L_0$ always just thresholds and re-scales based on the probability mass above the threshold. For the continuous version, this probability mass (call it $M$) is the exact probability mass above the threshold, so $S1(\text{expensive} | x, \theta) \propto Pr(u)Pr(x)$. For the binned version, 
+
+
+This isn't really affected by different binning methods. That is $P(b | u)$ is scaled by $M$ and $P(x | u)$ is also scaled by $M$ (or at least, an approcimation of $M$).
+
+If the bins are all equal widths, I think this is fine. Why do I think this is fine?
+
+Let's say $\theta=500$. Then when the utterance is null, the L0 dist is:
+
+```{r, fig.width=3, fig.height=2}
+price_cdf = function(x) {
+  return(plnorm(x, params["mu"], params["sigma"]))
+}
+max_value = 1000
+bin_width = 200
+x = seq(0, max_value, 1)
+cutoffs = c(0, 400, 450, 500, 700, 750, 900, 1000)
+upper = cutoffs[2:length(cutoffs)]
+lower = cutoffs[1:(length(cutoffs)-1)]
+b = (lower + upper) / 2
+px = dlnorm(x, params["mu"], params["sigma"])
+pb = price_cdf(upper) - price_cdf(lower)
+pb[length(pb)] = 1 - price_cdf(lower[length(lower)])
+cdf_max = max(pb)
+df_max = max(px)
+px = cdf_max/df_max * px
+lookup_bins = named_vec(NULL, upper, pb)
+xb = c(matrix(c(lower, b, upper), ncol = 3, byrow = F) %>% t)
+pbins = rep(pb, each=3)
+ggplot() +
+  geom_line(aes(x=xb, y=pbins), colour = "gray") +
+  geom_line(aes(x=x, y=px)) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+```
+
+And if the utterance is "expensive":
+
+```{r, fig.width=3, fig.height=2}
+pbins = pbins[xb >= 500]
+xb = xb[xb >= 500]
+px = px[x >= 500]
+x = x[x >= 500]
+ggplot() +
+  geom_line(aes(x=xb, y=pbins), colour = "gray") +
+  geom_line(aes(x=x, y=px))+
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+```
+
+
+As an estimate, I could just scale this by the width of the bin.
+
 
 $$P(x | b) \approx $$
+-->
+
 
 ```{r params, echo = T}
 # iterations = 10#5000
