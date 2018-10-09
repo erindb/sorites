@@ -170,13 +170,13 @@ Observations from experimental data:
 Model fit for Give a Number as log normal using Incremental MH.
 
 ```{r, echo = T}
-iterations = 5000
+iterations = 500
 burn = iterations/2
-lag = 1
+lag = 10
 ```
 
 ```{r}
-RUN_MODEL = F
+RUN_MODEL = T
 if (RUN_MODEL) {
   raw_rs = webppl(
       program_file = model_dir("bda_rsa_priors.wppl"),
@@ -184,7 +184,7 @@ if (RUN_MODEL) {
                             samples=iterations,
                             burn=burn,
                             verbose = T,
-                            verboseLag = iterations / 10,
+                            verboseLag = iterations*lag / 10,
                             lag=lag),
       model_var = "give_a_number_model",
       data_var = "ARGS",
@@ -255,77 +255,6 @@ give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
 
 ## Concrete Premise ~ lifted L1
 
-For a lifted $L_1$ model, we need to some nested inference. But there's some simplification we can do.
-
-$$
-\begin{aligned}
-L_0(x \ | \ u, \theta) \ &\propto \ P(x) \cdot \delta_{x, u, \theta}
-  \\
-  &L_0(x \ | \ \text{expensive}, \theta) = 
-    \begin{cases}
-     \frac{1}{\int_\theta^\infty P(x)dx} \cdot P(x) & \text{if } x>\theta \\
-     0 & \text{otherwise}
-    \end{cases}
-  \\ \\
-  &L_0(x \ | \ \text{no utterance}, \theta) = P(x)
-  \\ \\
-S_1(u \ | \ x, \theta) &\propto P(u) \cdot \left(L_0(x \ | \ u, \theta)\right)^{\alpha_1}
-  \\ \\
-  &S_1(\text{expensive} \ | \ x > \theta) \propto P(\text{expensive}) \cdot \left(\frac{1}{\int_\theta^\infty P(x)dx}\right)^{\alpha_1} \cancel{\left(P(x)\right)^{\alpha_1}} \\
-  &S_1(\text{no utterance} \ | \ x > \theta) \propto P(\text{no utterance}) \cdot \cancel{\left(P(x)\right)^{\alpha_1}}
-  \\ \\
-  &S_1(\text{expensive} \ | \ x \leq \theta) = 0 \\
-  &S_1(\text{no utterance} \ | \ x \leq \theta) = 1
-\end{aligned}
-$$
-
-So the $S_1$ score for expensive is:
-
-$$
-\begin{aligned}
-\log\left(
-  P(\text{expensive}) \cdot
-  \left( \frac{1}{\int_\theta^\infty P(x)dx} \right)^{\alpha_1}
-\right) &= -cost(\text{expensive}) +
-\log\left(
-  \left( \frac{1}{\int_\theta^\infty P(x)dx} \right)^{\alpha_1}
-\right)\\
-&= -cost(\text{expensive}) -\alpha_1
-\log\left(\int_\theta^\infty P(x)dx
-\right)\\
-&= -cost(\text{expensive}) -\alpha_1
-\log\left( P(x > \theta) \right)
-\end{aligned}
-$$
-
-
-<!--
-$$
-  
-  
-S_1(u \ | \ x, \theta) \propto P(u) \cdot &L_0(x \ | \ u, \theta)
-  &L_0(x \ | \ \text{no utterance}, \theta) = P(x) \\ & \\
-  
-S_1(u | x, \theta) \propto &P(u) \cdot L_0(x | u, \theta) \\ &
-
-S_1(u | x, \theta) \propto &P(u) \cdot L_0(x | u, \theta) \\ \\
-
-&S_1(\text{``expensive''} | x > \theta) \propto 
-  P(\text{``expensive''})\frac{1}{\int_\theta^\infty P(x)dx} P(x) \\
-&S_1(\text{\emph{no utterance}} | x > \theta) \propto
-  P(\text{\emph{no utterance}})P(x) \\ \\
-
-&S_1(\text{``expensive''} | x \leq \theta) \propto 0 \\
-&S_1(\text{\emph{no utterance}} | x \leq \theta) \propto P(x) \\
-\end{aligned}
-$$
--->
-
-<!--
-I'm pretty sure I need to bin in order for this to be tractable.
-
-Here's the median prior distribution for laptops:
-
 ```{r}
 params = give_a_number_fit %>%
   filter(type == "prior" &
@@ -337,7 +266,7 @@ params = give_a_number_fit %>%
 price_cdf = function(x) {
   return(plnorm(x, params["mu"], params["sigma"]))
 }
-max_value = 1000
+max_value = 2000
 bin_width = 200
 x = seq(0, max_value, 1)
 b = seq(bin_width/2, max_value, bin_width)
@@ -355,185 +284,110 @@ ggplot() +
 ```
 
 
-What the speaker actually cares about is $L(x | u)$, the listener's probability density of choosing price $x$ given utterance $u$. But if I bin, what I *have* is $L(b | u)$, the probability that the listener will choose the bin $b$ containing $x$.
-
-$L_0(x | u, \theta) \propto Pr(x) \cdot \delta_{\text{truth value}(u | x, \theta)}$
-
-So for no utterance:
-$L_0(x | \text{no utterance}, \theta) = Pr(x)$
-
-And for "expensive":
-$L_0(x | \text{expensive}, \theta) = \left\{ \frac{1}{M} Pr(x) \right\}$
-
-And then:
-
-$S_1(u | x, \theta) \propto Pr(u) \cdot L_0(x | u, \theta)$
-
-so:
-
-$S_1(\text{no utterance} | x, \theta) \propto Pr(\text{no utterance}) \cdot Pr(x)$
-
-and
-
-$S_1(\text{expensive} | x, \theta) \propto Pr(\text{expensive}) \cdot \frac{1}{M} Pr(x)$
-
-$L_0$ always just thresholds and re-scales based on the probability mass above the threshold. For the continuous version, this probability mass (call it $M$) is the exact probability mass above the threshold, so $S1(\text{expensive} | x, \theta) \propto Pr(u)Pr(x)$. For the binned version, 
-
-
-This isn't really affected by different binning methods. That is $P(b | u)$ is scaled by $M$ and $P(x | u)$ is also scaled by $M$ (or at least, an approcimation of $M$).
-
-If the bins are all equal widths, I think this is fine. Why do I think this is fine?
-
-Let's say $\theta=500$. Then when the utterance is null, the L0 dist is:
-
-```{r, fig.width=3, fig.height=2}
-price_cdf = function(x) {
-  return(plnorm(x, params["mu"], params["sigma"]))
-}
-max_value = 1000
-bin_width = 200
-x = seq(0, max_value, 1)
-cutoffs = c(0, 400, 450, 500, 700, 750, 900, 1000)
-upper = cutoffs[2:length(cutoffs)]
-lower = cutoffs[1:(length(cutoffs)-1)]
-b = (lower + upper) / 2
-px = dlnorm(x, params["mu"], params["sigma"])
-pb = price_cdf(upper) - price_cdf(lower)
-pb[length(pb)] = 1 - price_cdf(lower[length(lower)])
-cdf_max = max(pb)
-df_max = max(px)
-px = cdf_max/df_max * px
-lookup_bins = named_vec(NULL, upper, pb)
-xb = c(matrix(c(lower, b, upper), ncol = 3, byrow = F) %>% t)
-pbins = rep(pb, each=3)
-ggplot() +
-  geom_line(aes(x=xb, y=pbins), colour = "gray") +
-  geom_line(aes(x=x, y=px)) +
-  theme(axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
-```
-
-And if the utterance is "expensive":
-
-```{r, fig.width=3, fig.height=2}
-pbins = pbins[xb >= 500]
-xb = xb[xb >= 500]
-px = px[x >= 500]
-x = x[x >= 500]
-ggplot() +
-  geom_line(aes(x=xb, y=pbins), colour = "gray") +
-  geom_line(aes(x=x, y=px))+
-  theme(axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
-```
-
-
-As an estimate, I could just scale this by the width of the bin.
-
-
-$$P(x | b) \approx $$
--->
-
-
 ```{r params, echo = T}
-# iterations = 10#5000
-# burn = iterations/2
-# lag = 1
+iterations = 10
+burn = iterations/2
+lag = 10
 ```
 
 ```{r run.concrete.model}
-# RUN_MODEL = T
-# if (RUN_MODEL) {
-#   start_time = Sys.time()
-#   raw_rs = webppl(
-#     program_file = "models/bda_rsa_priors.wppl",
-#     inference_opts = list(method="incrementalMH",
-#                           samples=iterations,
-#                           burn=burn,
-#                           verbose = T,
-#                           verboseLag = iterations / 10,
-#                           lag=lag),
-#     model_var = "concrete_premise_model",
-#     data_var = "ARGS",
-#     packages = c("models/node_modules/utils/"),
-#     data = list(priorbins = prior_bins_data,
-#                 sorites = select(df, qtype, dollar_amount, object, response),
-#                 give_a_number = give_a_number,
-#                 upper_bounds = upper_bounds,
-#                 internal_iterations = 100)
-#   )
-#   end_time = Sys.time()
-#   print(end_time - start_time)
-#   rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
-#     select(-Parameter) %>%
-#     mutate(dollar_amount = num(dollar_amount))
-#   write.csv(rs,
-#             paste(".concrete_model_cache", iterations, ".csv", sep=""),
-#             row.names = F)
-# } else {
-#   rs = read.csv(paste(".concrete_model_cache", iterations, ".csv", sep=""))
-# }
-# concrete_premise_fit = rs %>% mutate(
-#   UB = num(UB),
-#   LB = num(LB),
-#   mid = num(mid)
-# )
+RUN_MODEL = T
+if (RUN_MODEL) {
+  start_time = Sys.time()
+  raw_rs = webppl(
+    program_file = model_dir("bda_rsa_priors.wppl"),
+    inference_opts = list(method="incrementalMH",
+                          samples=iterations,
+                          burn=burn,
+                          verbose = T,
+                          verboseLag = lag * iterations / 10,
+                          lag=lag),
+    model_var = "concrete_premise_model",
+    data_var = "ARGS",
+    packages = model_dir("node_modules/utils/"),
+    data = list(priorbins = prior_bins_data,
+                sorites = select(df, qtype, dollar_amount, object, response),
+                give_a_number = give_a_number,
+                n_bins = 10)
+  )
+  end_time = Sys.time()
+  print(end_time - start_time)
+  rs = raw_rs %>%
+    filter(!is.na(value)) %>%
+    mutate(json = map(char(Parameter), jsonlite::fromJSON)) %>%
+    select(-Parameter) %>%
+    mutate(param_type = map(json, names)) %>%
+    mutate(param_label = map(json, simplify)) %>%
+    mutate(id = 1:length(value)) %>%
+    unnest(param_type, param_label) %>%
+    spread(key = param_type, value = param_label)
+  write.csv(rs,
+            cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")),
+            row.names = F)
+} else {
+  rs = read.csv(cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")))
+}
+concrete_premise_fit = rs
+concrete_premise_fit %>% group_by(dollar_amount) %>%
+  filter(type == "concrete") %>%
+  filter(object == "laptop") %>% summarise(value = mean(value))
 ```
 
+memoized `listener1` and `listener1_score`, 500 iterations, lag 10: 
+
 ```{r}
-# RUN_CONCRETE_AGG = T
-# if (RUN_CONCRETE_AGG) {
-#   concrete_model_agg = concrete_premise_fit %>% filter(type=="concrete") %>%
-#     group_by(object, dollar_amount) %>%
-#     summarise(low = ci.low(value),
-#               high = ci.high(value),
-#               value = mean(value))
-#   write.csv(concrete_model_agg,
-#             paste(".concrete_model_agg_cache", iterations, ".csv", sep=""),
-#             row.names = F)
-# } else {
-#   concrete_model_agg = read.csv(paste(".concrete_model_agg_cache", iterations, ".csv", sep=""))
-# }
-# concrete_model_agg %>%
-#   ggplot(., aes(x=dollar_amount, y=value)) +
-#   geom_point(alpha=opacity) +
-#   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
-#   facet_grid(~object, scales="free")
-# # unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
+RUN_CONCRETE_AGG = T
+if (RUN_CONCRETE_AGG) {
+  concrete_model_agg = concrete_premise_fit %>% filter(type=="concrete") %>%
+    group_by(object, dollar_amount) %>%
+    summarise(low = ci.low(value),
+              high = ci.high(value),
+              value = mean(value))
+  write.csv(concrete_model_agg,
+            paste(".concrete_model_agg_cache", iterations, ".csv", sep=""),
+            row.names = F)
+} else {
+  concrete_model_agg = read.csv(paste(".concrete_model_agg_cache", iterations, ".csv", sep=""))
+}
+opacity = 0.5
+concrete_model_agg %>%
+  ggplot(., aes(x=dollar_amount, y=value)) +
+  geom_point(alpha=opacity) +
+  geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+  facet_wrap(~object, scales="free")
+# unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
 ```
 
 ```{r, fig.width=12, fig.height=3}
-# df %>% filter(qtype=="concrete") %>% select(object, dollar_amount, response) %>%
-#   mutate(src = "data") %>%
-#   rbind(., concrete_premise_fit %>% filter(type=="concrete") %>%
-#           mutate(response = value, src = "model") %>%
-#           select(object, dollar_amount, response, src)) %>%
-#   as.data.frame %>%
-#   ggplot(., aes(x=dollar_amount, color=src)) +
-#   stat_ecdf(geom="step") +
-#   facet_wrap(~object, scales="free", ncol=5)
+df %>% filter(qtype=="concrete") %>% select(object, dollar_amount, response) %>%
+  mutate(src = "data") %>%
+  rbind(., concrete_premise_fit %>% filter(type=="concrete") %>%
+          mutate(response = value, src = "model") %>%
+          select(object, dollar_amount, response, src)) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=dollar_amount, color=src)) +
+  stat_ecdf(geom="step") +
+  facet_wrap(~object, scales="free", ncol=5)
 ```
 
 
 ```{r, fig.width=10, fig.height=2}
-# concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
-#  # group_by(Iteration, label, object) %>%
-#   #summarise(value = mean(value)) %>%
-#   spread(label, value) %>%
-#   rowwise() %>%
-#   mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-#          price = exp(log_price),
-#          src = "model") %>%
-#   as.data.frame %>%
-#   select(price, object, src) %>%
-#   rbind(., (give_a_number %>% mutate(src="data"))) %>%
-#   as.data.frame %>%
-#   ggplot(., aes(x=price, color=src)) +
-#   stat_ecdf(geom="step") +
-#   facet_wrap(~object, scales="free", ncol=5)+
-#   xlim(0, 1000)
+concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+ # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, color=src)) +
+  stat_ecdf(geom="step") +
+  facet_wrap(~object, scales="free", ncol=5)+
+  xlim(0, 1000)
 ```
 
 <!-- ### Questions
