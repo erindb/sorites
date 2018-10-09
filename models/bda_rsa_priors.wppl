@@ -195,9 +195,21 @@ var concrete_premise_model = function() {
       factor(lognormal_score(d.price, item_params));
     });
 
+    var listener0 = mem(function(utterance, theta) {
+      return Infer({method: "enumerate"}, function() {
+        var price = sample(statePrior);
+        factor(meaning(utterance, state));
+        return price;
+      });
+    });
+
     var speaker1 = mem(function(dollar_amount, theta) {
       return Infer({method: "enumerate"}, function() {
         var utterance = sample(utterancePrior);
+        var expensive_is_true = dollar_amount > theta;
+        var L0 = listener0(utterance, theta);
+        var informativity = ( _.includes(L0.support(), dollar_amount) ? L0.score(dollar_amount) : 0 );
+        factor(informativity);
         return utterance;
       });
     });
