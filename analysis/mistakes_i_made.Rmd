@@ -1,13 +1,20 @@
 ---
-title: "Mistakes I made"
+title: "Mistakes & Decisions I made"
 author: "Erin Bennett"
 date: "10/3/2018"
 output: html_document
+header-includes:
+- \usepackage{amsmath}
+- \usepackage[makeroom]{cancel}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tictoc)
+opts_chunk$set(echo = TRUE)
 source("utils.R")
+source("reformatting_data.R")
+df = load_sorites(F)
 ```
 
 ## Log-normal Density function
@@ -56,3 +63,201 @@ And so the score is
 &= -\log(x) - \log(\sigma) - \frac{1}{2}\log((2\pi)) - \frac{(\log(x) - \mu)^2}{2\sigma^2}
 
 \end{aligned}
+
+## `cache` $\neq$ `mem`
+
+[doh.](https://webppl.readthedocs.io/en/master/functions/other.html#cache)
+
+Caching is correct for functions that return ERPs.
+
+There's a different cache for each call to `cache`, it's not like a global thing or something.
+
+## binning
+
+I had this notion that it was possible and worth trying to compute S1 analytically.
+
+$$
+\begin{aligned}
+L_0(x | \text{expensive}, \theta) =&
+  \begin{cases}
+    \frac{1}{1 - CDF(\theta)}P(x) & \text{if } x>\theta \\
+    0 & \text{otherwise}
+  \end{cases} \\
+\\
+L_0(x | \text{no utt}, \theta) &= P(x)
+\end{aligned}
+$$
+
+The utility for the speaker is the log of the density for $L_0$.
+
+$$
+\begin{aligned}
+S_1(u | x, \theta)
+  \propto& \ e^{ \left(
+    U(u ; x, \theta) - C(u)
+  \right)} \\
+  =& \ e^ { \left(
+    \alpha_1\log\left(L_0(x | u, \theta)\right) - C(u)
+  \right)} \\
+  =& \ e^{\alpha_1\log(L_0(x|u, \theta))} \cdot e^{-C(u)} \\
+  =& \left(L_0(x | u, \theta)\right)^{\alpha_1}P(u)
+\end{aligned}
+$$
+
+If $x \leq \theta$, then $S_1$ will choose "no utterance" with probability 1. Otherwise:
+
+$$
+\begin{aligned}
+  S_1(u | x, \theta) \propto& P(u)L_1(x | u, \theta) \\
+  \\
+  S_1(u | x, \theta) =&
+    \frac{
+      P(u)\left(L_1(x | u, \theta)\right)^{\alpha_1}
+    }{
+      P(\text{expensive})\left(L_1(x | \text{expensive}, \theta)\right)^{\alpha_1} + P(\text{no utt})\left(L_1(x | \text{no utt}, \theta)\right)^{\alpha_1}
+    } \\ \\ \\
+    =&
+    \frac{P(u)
+        \left(
+          \left.\begin{cases}
+            \left(1 - CDF(\theta)\right)^{\alpha_1} & \text{if } u= \text{ ``expensive''} \\
+            1 & \text{otherwise}
+          \end{cases}\right\}
+        \right)^{-\alpha_1}
+    }{
+      P(\text{expensive})\frac{1}{\left(1 - CDF(\theta)\right)^{\alpha_1}} + P(\text{no utt})
+    }
+\end{aligned}
+$$
+
+Then we would use the log of this analytic function inside the factor statement for $L1$.
+($L_1$ would choose an $x$ and $\theta$ with high $S_1$ informativity.)
+
+We would then have to estimate both $L_1$ and $S_2$ with MCMC. For $S_2$, for the QUD we usually use, we need to give a specific number to $L_1$ and estimate the density at that number. So we can use `kde`.
+
+
+```{r}
+iterations = 100
+burn = iterations/2
+lag = 1
+RUN_MODEL = T
+if (RUN_MODEL) {
+  tic(paste("concrete", iterations))
+  raw_rs = webppl(
+      program_file = model_dir("bda_concrete_analytic.wppl"),
+      inference_opts = list(method="incrementalMH",
+                            samples=iterations,
+                            burn=burn,
+                            verbose = T,
+                            verboseLag = (burn + iterations) * lag / 10,
+                            lag=lag),
+      model_var = "concrete_premise_model",
+      data_var = "ARGS",
+        packages = c(model_dir("/node_modules/utils/")),
+        data = list(sorites = select(df, qtype, dollar_amount, object, response),
+                    internal_iterations = iterations,
+                    give_a_number = give_a_number)
+    )
+  toc()
+  rs = raw_rs %>%
+    filter(!is.na(value)) %>%
+    mutate(json = map(char(Parameter), jsonlite::fromJSON)) %>%
+    select(-Parameter) %>%
+    mutate(param_type = map(json, names)) %>%
+    mutate(param_label = map(json, simplify)) %>%
+    mutate(id = 1:length(value)) %>%
+    unnest(param_type, param_label) %>%
+    spread(key = param_type, value = param_label) %>%
+    mutate(dollar_amount = num(dollar_amount))
+    write.csv(rs,
+              cache_dir(paste("concrete_model", iterations, ".csv", sep="")),
+              row.names = F)
+} else {
+  rs = read.csv(cache_dir(paste("concrete_model", iterations, ".csv", sep="")))
+}
+concrete_fit = rs
+```
+```{r}
+RUN_CONCRETE_AGG = T
+if (RUN_CONCRETE_AGG) {
+  concrete_model_agg = concrete_fit %>% filter(type=="concrete") %>%
+    group_by(object, dollar_amount) %>%
+    summarise(low = ci.low(value),
+              high = ci.high(value),
+              value = mean(value))
+  write.csv(concrete_model_agg,
+            paste(".concrete_model_agg_cache", iterations, ".csv", sep=""),
+            row.names = F)
+} else {
+  concrete_model_agg = read.csv(paste(".concrete_model_agg_cache", iterations, ".csv", sep=""))
+}
+opacity = 0.5
+concrete_model_agg %>%
+  ggplot(., aes(x=dollar_amount, y=value)) +
+  geom_point(alpha=opacity) +
+  geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+  facet_wrap(~object, scales="free")
+# unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
+```
+
+```{r, fig.width=12, fig.height=3}
+df %>% filter(qtype=="concrete") %>% select(object, dollar_amount, response) %>%
+  mutate(src = "data") %>%
+  rbind(., concrete_fit %>% filter(type=="concrete") %>%
+          mutate(response = value, src = "model") %>%
+          select(object, dollar_amount, response, src)) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=dollar_amount, color=src)) +
+  stat_ecdf(geom="step") +
+  facet_wrap(~object, scales="free", ncol=5)
+```
+
+Now the question is, is it faster to get a good estimate of $L1$ for each utterance using MCMC, or is it faster to deterministically compute a discrete version of $L_1$ and $S_2$ with bins that work for our epsilons?
+
+The simplest way to bin that would work for our purposes would be to choose the smallest epsilon and the largest price in the experiment and the cutoffs would be `seq(0, max_value, smallest_eps)`.
+
+```{r, echo=F}
+bins_df = df %>% group_by(object) %>%
+  summarise(smallest_eps = min(dollar_amount),
+            largest_price = max(dollar_amount),
+            bins = ceiling(largest_price/smallest_eps)) %>%
+  as.data.frame
+kable(bins_df)
+```
+
+But more than ~1024 outcomes starts to be kind of slow, and this would require between `r min(bins_df$bins)` and `r max(bins_df$bins)` bins, depending on the object.
+
+We could use a different binning scheme for each epsilon.
+
+```
+// gradually coarsening as you get away from the region you're currently considering
+var make_bins = function(price, eps){
+  [
+  price - eps, 
+  price, 
+  price + eps, 
+  price + 2*eps,
+  price + 4*eps, 
+  price + 8*eps,
+  price + 32*eps, 
+  ...,
+  ]
+}
+
+
+var speaker2 = mem(function(epsilon) {
+  return Infer({method: "enumerate"}, function() {
+    var L1 = listener1("expensive");
+    var price = sample(L1);
+    var price_eps = price + eps;
+    var new_bins = make_bins(price, eps)
+    var L1_i = listener1("expensive", new_bins);
+    factor(alpha * L1_i.score(price_eps))
+    return utterance; 
+  })
+});
+```
+
+helpful links from MH:
+* https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.wppl
+* https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.js

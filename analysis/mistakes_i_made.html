@@ -150,6 +150,139 @@ $(document).ready(function () {
 
 \end{aligned}\]</span>
 </div>
+<div id="cache-neq-mem" class="section level2">
+<h2><code>cache</code> <span class="math inline">\(\neq\)</span> <code>mem</code></h2>
+<p><a href="https://webppl.readthedocs.io/en/master/functions/other.html#cache">doh.</a></p>
+<p>Caching is correct for functions that return ERPs.</p>
+<p>There’s a different cache for each call to <code>cache</code>, it’s not like a global thing or something.</p>
+</div>
+<div id="binning" class="section level2">
+<h2>binning</h2>
+<p>I had this notion that it was possible and worth trying to compute S1 analytically.</p>
+<p><span class="math display">\[
+\begin{aligned}
+L_0(x | \text{expensive}, \theta) =&amp;
+  \begin{cases}
+    \frac{1}{1 - CDF(\theta)}P(x) &amp; \text{if } x&gt;\theta \\
+    0 &amp; \text{otherwise}
+  \end{cases} \\
+\\
+L_0(x | \text{no utt}, \theta) &amp;= P(x)
+\end{aligned}
+\]</span></p>
+<p>The utility for the speaker is the log of the density for <span class="math inline">\(L_0\)</span>.</p>
+<p><span class="math display">\[
+\begin{aligned}
+S_1(u | x, \theta)
+  \propto&amp; \ e^{ \left(
+    U(u ; x, \theta) - C(u)
+  \right)} \\
+  =&amp; \ e^ { \left(
+    \alpha_1\log\left(L_0(x | u, \theta)\right) - C(u)
+  \right)} \\
+  =&amp; \ e^{\alpha_1\log(L_0(x|u, \theta))} \cdot e^{-C(u)} \\
+  =&amp; \left(L_0(x | u, \theta)\right)^{\alpha_1}P(u)
+\end{aligned}
+\]</span></p>
+<p>If <span class="math inline">\(x \leq \theta\)</span>, then <span class="math inline">\(S_1\)</span> will choose “no utterance” with probability 1. Otherwise:</p>
+<p><span class="math display">\[
+\begin{aligned}
+  S_1(u | x, \theta) \propto&amp; P(u)L_1(x | u, \theta) \\
+  \\
+  S_1(u | x, \theta) =&amp;
+    \frac{
+      P(u)\left(L_1(x | u, \theta)\right)^{\alpha_1}
+    }{
+      P(\text{expensive})\left(L_1(x | \text{expensive}, \theta)\right)^{\alpha_1} + P(\text{no utt})\left(L_1(x | \text{no utt}, \theta)\right)^{\alpha_1}
+    } \\ \\ \\
+    =&amp;
+    \frac{P(u)
+        \left(
+          \left.\begin{cases}
+            \left(1 - CDF(\theta)\right)^{\alpha_1} &amp; \text{if } u= \text{ ``expensive''} \\
+            1 &amp; \text{otherwise}
+          \end{cases}\right\}
+        \right)^{-\alpha_1}
+    }{
+      P(\text{expensive})\frac{1}{\left(1 - CDF(\theta)\right)^{\alpha_1}} + P(\text{no utt})
+    }
+\end{aligned}
+\]</span></p>
+<p>Then we would use the log of this analytic function inside the factor statement for <span class="math inline">\(L1\)</span>. (<span class="math inline">\(L_1\)</span> would choose an <span class="math inline">\(x\)</span> and <span class="math inline">\(\theta\)</span> with high <span class="math inline">\(S_1\)</span> informativity.)</p>
+<p>Now the question is, is it faster to get a good estimate of <span class="math inline">\(L1\)</span> for each utterance using MCMC, or is it faster to deterministically compute a discrete version of <span class="math inline">\(L_1\)</span> and <span class="math inline">\(S_2\)</span> with bins that work for our epsilons?</p>
+<p>The simplest way to bin that would work for our purposes would be to choose the smallest epsilon and the largest price in the experiment and the cutoffs would be <code>seq(0, max_value, smallest_eps)</code>.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">object</th>
+<th align="right">smallest_eps</th>
+<th align="right">largest_price</th>
+<th align="right">bins</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">coffee maker</td>
+<td align="right">0.22</td>
+<td align="right">350</td>
+<td align="right">1591</td>
+</tr>
+<tr class="even">
+<td align="left">headphones</td>
+<td align="right">0.31</td>
+<td align="right">450</td>
+<td align="right">1452</td>
+</tr>
+<tr class="odd">
+<td align="left">laptop</td>
+<td align="right">3.00</td>
+<td align="right">3450</td>
+<td align="right">1150</td>
+</tr>
+<tr class="even">
+<td align="left">sweater</td>
+<td align="right">0.15</td>
+<td align="right">300</td>
+<td align="right">2000</td>
+</tr>
+<tr class="odd">
+<td align="left">watch</td>
+<td align="right">0.15</td>
+<td align="right">3350</td>
+<td align="right">22334</td>
+</tr>
+</tbody>
+</table>
+<p>But more than ~1024 outcomes starts to be kind of slow, and this would require between 1150 and 2.233410^{4} bins, depending on the object.</p>
+<p>We could use a different binning scheme for each epsilon.</p>
+<pre><code>// gradually coarsening as you get away from the region you're currently considering
+var make_bins = function(price, eps){
+  [
+  price - eps, 
+  price, 
+  price + eps, 
+  price + 2*eps,
+  price + 4*eps, 
+  price + 8*eps,
+  price + 32*eps, 
+  ...,
+  ]
+}
+
+
+var speaker2 = mem(function(epsilon) {
+  return Infer({method: &quot;enumerate&quot;}, function() {
+    var L1 = listener1(&quot;expensive&quot;);
+    var price = sample(L1);
+    var price_eps = price + eps;
+    var new_bins = make_bins(price, eps)
+    var L1_i = listener1(&quot;expensive&quot;, new_bins);
+    factor(alpha * L1_i.score(price_eps))
+    return utterance; 
+  })
+});</code></pre>
+<p>helpful links from MH: * <a href="https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.wppl" class="uri">https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.wppl</a> * <a href="https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.js" class="uri">https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.js</a></p>
+</div>
 
 
 

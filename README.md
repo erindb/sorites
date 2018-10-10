@@ -67,6 +67,9 @@ We do all of this in the domain of prices.
 
 * [x] Document nicely give a number
 * [ ] add in concrete premise
+  * [ ] figure out binning
+    * [ ] try 1000 bins
+    * [ ] adaptive bins
 	* [ ] compare model to empirical for concrete
 	* [ ] compare prior dist params with and without joint inference
 * [ ] Model comparison with unlifted L1 and L0 versions of speaker models

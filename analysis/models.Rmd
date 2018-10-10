@@ -179,7 +179,7 @@ lag = 10
 RUN_MODEL = T
 if (RUN_MODEL) {
   raw_rs = webppl(
-      program_file = model_dir("bda_rsa_priors.wppl"),
+      program_file = model_dir("bda_give_a_number.wppl"),
       inference_opts = list(method="incrementalMH",
                             samples=iterations,
                             burn=burn,

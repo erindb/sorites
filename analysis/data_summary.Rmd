@@ -92,6 +92,14 @@ agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=id, group=id)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+```{r}
+agg %>% filter(qtype == "inductive") %>% group_by(object) %>%
+  summarise(eps = min(dollar_amount),
+         max = max(dollar_amount),
+         nbins = max/eps)
+```
+
+
 ## Priors experiments
 
 ### Give a number
