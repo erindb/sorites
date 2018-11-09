@@ -1,5 +1,4 @@
 // ARGS.give_a_number data frame
-// ARGS.concrete data frame
 // ARGS.objects vector of objects
 
 var objects = levels(ARGS.sorites, "object");
@@ -10,22 +9,18 @@ var give_a_number_model = function() {
 
   foreach(objects, function(obj) {
 
-    // subset each data type
-    // var prior_bins = _.filter(ARGS.priorbins, {item: obj});
+    // Subset to just giveanumber data.
     var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
 
-    // var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
-    // var inductive = _.filter(ARGS.sorites, {object: obj, qtype: "inductive"});
-
-    // priors on parameters of RSA state priors
+    // Priors on parameters of RSA state priors.
     var item_params = {
       mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
     };
 
-    // factor by likelihood of sampled responses from give-a-number task
+    // Factor by likelihood of sampled responses from give-a-number task.
     mapData({data: give_a_number}, function(d) {
-      // assume log of price is normally distributed
+      // Assume log of price is normally distributed
       // so use lognormal density function
       // (see "mistakes_i_made.html" if in the future this doesn't make sense)
       factor(lognormal_score(d.price, item_params));

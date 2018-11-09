@@ -21,9 +21,9 @@ knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
 ```{r load (and reformat) data}
 source("utils.R")
 source("reformatting_data.R")
-df = load_sorites(F)
-give_a_number = load_give_a_number(F)
-prior_bins_data = load_priors(F)
+df = load_sorites(T)
+give_a_number = load_give_a_number(T)
+prior_bins_data = load_priors(T)
 ```
 
 # Model
@@ -170,7 +170,7 @@ Observations from experimental data:
 Model fit for Give a Number as log normal using Incremental MH.
 
 ```{r, echo = T}
-iterations = 500
+iterations = 5000
 burn = iterations/2
 lag = 10
 ```
@@ -189,10 +189,7 @@ if (RUN_MODEL) {
       model_var = "give_a_number_model",
       data_var = "ARGS",
         packages = c(model_dir("/node_modules/utils/")),
-        data = list(priorbins = prior_bins_data,
-                    sorites = select(df, qtype, dollar_amount, object, response),
-                    give_a_number = give_a_number,
-                    nbins = 10)
+        data = list(give_a_number = give_a_number)
     )
     rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
       select(-Parameter) %>%
@@ -246,11 +243,12 @@ give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
 ggsave("images/give_a_number_fit2.png", width=10, height=4)
 ```
 
-```{r, fig.width=7, fig.height=3}
+```{r, fig.width=7, fig.height=5}
 give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
   ggplot(., aes(x=value)) +
-  geom_histogram() +
-  facet_grid(label~object, scales="free")
+  geom_histogram(bins=30) +
+  facet_wrap(label~object, scales="free")
+ggsave("images/give_a_number_params.png", width=7, height=5)
 ```
 
 ## Concrete Premise ~ lifted L1
