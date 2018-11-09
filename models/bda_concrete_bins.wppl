@@ -1,0 +1,64 @@
+// ARGS.give_a_number data frame
+// ARGS.concrete data frame
+// ARGS.objects vector of objects
+
+var objects = levels(ARGS.sorites, "object");
+
+var concrete_premise_model = function() {
+
+  var ALPHA1MAX = 20;
+  var ALPHA2MAX = 5;
+  var COSTMAX = 10;
+  var MUMAX = 10;
+  var SIGMAX = 3;
+  var SIGBINMAX = 0.5;
+
+  var global_params = {
+    alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
+    alpha2: uniformDrift({a: 0, b: ALPHA2MAX, width: 0.5}),
+    cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
+    sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
+  };
+
+  // Utterance prior
+  var adjectivePriorProb = Math.exp(-global_params.cost);
+  var utterancePrior = Categorical({
+    vs: ["expensive", "silence"],
+    ps: [adjectivePriorProb, 1]
+  });
+
+  foreach(objects, function(obj) {
+
+    // Subset to get each data type
+    var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
+    var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+
+    // priors on parameters of RSA state priors
+    var item_params = {
+      // mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      // sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+      mu: 0,
+      sigma: 1
+    };
+
+    // Discretization
+    var dollar_amounts = levels(concrete, "dollar_amount");
+    var bins = utils.get_bins(dollar_amounts);
+    // if this seems weird, go look at discretization.html
+    var jointPrior = DiscretizedJointLognormalUniform(item_params, bins);
+
+    // factor by likelihood of sampled responses from give-a-number task
+    mapData({data: give_a_number}, function(d) {
+      // assume log of price is normally distributed
+      // so use lognormal density function
+      // (see "mistakes_i_made.html" if in the future this doesn't make sense)
+      factor(lognormal_score(d.price, item_params));
+    });
+
+    return query;
+  });
+
+};
+
+
+"finished";

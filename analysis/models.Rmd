@@ -176,7 +176,7 @@ lag = 10
 ```
 
 ```{r}
-RUN_MODEL = T
+RUN_MODEL = F
 if (RUN_MODEL) {
   raw_rs = webppl(
       program_file = model_dir("bda_give_a_number.wppl"),
@@ -253,37 +253,8 @@ ggsave("images/give_a_number_params.png", width=7, height=5)
 
 ## Concrete Premise ~ lifted L1
 
-```{r}
-params = give_a_number_fit %>%
-  filter(type == "prior" &
-           (label == "mu" | label=="sigma") &
-           object == "laptop") %>%
-  group_by(object, label) %>%
-  summarise(value = median(value)) %>%
-  named_vec(label, value)
-price_cdf = function(x) {
-  return(plnorm(x, params["mu"], params["sigma"]))
-}
-max_value = 2000
-bin_width = 200
-x = seq(0, max_value, 1)
-b = seq(bin_width/2, max_value, bin_width)
-upper = b + (bin_width/2)
-lower = b - (bin_width/2)
-px = dlnorm(x, params["mu"], params["sigma"])
-pb = price_cdf(upper) - price_cdf(lower)
-pb[length(pb)] = 1 - price_cdf(lower[length(lower)])
-cdf_max = max(pb)
-df_max = max(px)
-px = cdf_max/df_max * px
-ggplot() +
-  geom_bar(aes(x=b, y=pb), stat = "identity", fill = "gray") +
-  geom_line(aes(x=x, y=px))
-```
-
-
 ```{r params, echo = T}
-iterations = 10
+iterations = 2
 burn = iterations/2
 lag = 10
 ```
@@ -293,43 +264,66 @@ RUN_MODEL = T
 if (RUN_MODEL) {
   start_time = Sys.time()
   raw_rs = webppl(
-    program_file = model_dir("bda_rsa_priors.wppl"),
+    program_file = model_dir("bda_concrete_bins.wppl"),
     inference_opts = list(method="incrementalMH",
-                          samples=iterations,
-                          burn=burn,
+                          samples=1,#iterations,
+                          burn=0,#burn,
                           verbose = T,
                           verboseLag = lag * iterations / 10,
-                          lag=lag),
+                          lag=0),#lag),
     model_var = "concrete_premise_model",
     data_var = "ARGS",
     packages = model_dir("node_modules/utils/"),
     data = list(priorbins = prior_bins_data,
-                sorites = select(df, qtype, dollar_amount, object, response),
-                give_a_number = give_a_number,
-                n_bins = 10)
+                sorites = data.frame(
+                  qtype = "concrete",
+                  dollar_amount = c(1, 2, 3),
+                  object = "test"
+                ),
+                # sorites = select(df, qtype, dollar_amount, object, response),
+                give_a_number = give_a_number)
   )
   end_time = Sys.time()
-  print(end_time - start_time)
-  rs = raw_rs %>%
-    filter(!is.na(value)) %>%
-    mutate(json = map(char(Parameter), jsonlite::fromJSON)) %>%
-    select(-Parameter) %>%
-    mutate(param_type = map(json, names)) %>%
-    mutate(param_label = map(json, simplify)) %>%
-    mutate(id = 1:length(value)) %>%
-    unnest(param_type, param_label) %>%
-    spread(key = param_type, value = param_label)
-  write.csv(rs,
-            cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")),
-            row.names = F)
+  # print(end_time - start_time)
+  # rs = raw_rs %>%
+  #   filter(!is.na(value)) %>%
+  #   mutate(json = map(char(Parameter), jsonlite::fromJSON)) %>%
+  #   select(-Parameter) %>%
+  #   mutate(param_type = map(json, names)) %>%
+  #   mutate(param_label = map(json, simplify)) %>%
+  #   mutate(id = 1:length(value)) %>%
+  #   unnest(param_type, param_label) %>%
+  #   spread(key = param_type, value = param_label)
+  # write.csv(rs,
+  #           cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")),
+  #           row.names = F)
 } else {
-  rs = read.csv(cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")))
+  # rs = read.csv(cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")))
 }
-concrete_premise_fit = rs
-concrete_premise_fit %>% group_by(dollar_amount) %>%
-  filter(type == "concrete") %>%
-  filter(object == "laptop") %>% summarise(value = mean(value))
+# concrete_premise_fit = rs
+# concrete_premise_fit %>% group_by(dollar_amount) %>%
+#   filter(type == "concrete") %>%
+#   filter(object == "laptop") %>% summarise(value = mean(value))
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 memoized `listener1` and `listener1_score`, 500 iterations, lag 10: 
 

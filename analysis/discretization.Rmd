@@ -8,6 +8,22 @@ header-includes:
 - \usepackage[makeroom]{cancel}
 ---
 
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+approx = function(a,b) {
+  abs(a/b - 1) < 0.00000001
+}
+```
+
+
 # Binning vs Analytic Distribution for Priors
 
 ## Sorites priors
@@ -49,7 +65,7 @@ Given cutoffs for $x$ at 0.5, 1, and 2, we can discretize a standard lognormal d
 $P((a,b]) =\int_{x=a}^b P(x) dx$
 
 ```{r, fig.width=3, fig.height=2}
-cutoffs = c(0, 0.5, 1, 2)
+cutoffs = c(0, 0.5, 1.5, 2.5, 3.75)
 # cutoffs = c(0, 1, 2, 3, 4)
 # cutoffs = c(0, 0.1, 0.2, 0.5, 1, 1.2, 1.5, 2, 2.5, 3, 4)
 x = paste(paste("(", cutoffs, ",", sep=""),
@@ -68,7 +84,6 @@ ranges = paste(paste("(", cutoffs, ",", sep=""),
 df = expand.grid(x=ranges, theta=ranges, dir=c("theta x", "x theta")) %>%
   filter(x==theta | dir == "theta x") %>%
   mutate(dir = factor(ifelse(x==theta, as.character(dir), NA)))
-df
 ```
 
 If $x$ and $\theta$ appear in different regions, we just take the product of the probabilities of the values falling in those regions.
@@ -120,7 +135,7 @@ P(x,\theta \in (a,b] \mbox{ AND } \theta < x)
 $$
 
 ```{r}
-max_theta = max(cutoffs)
+max_theta = 1.5*max(cutoffs)
 min_theta = 0
 theta_Z = max_theta - min_theta
 
@@ -182,8 +197,25 @@ get_probability = function(xbin, thetabin, dir=NA) {
 
 df = df %>%
   mutate(probability = mapply(get_probability, x, theta, dir))
-df
 ```
+
+
+
+
+
+```{r}
+tf = read.csv("test.csv", header=F, col.names = c("x", "theta", "dir", "wppl_prob")) %>%
+  mutate(dir = as.character(ifelse(dir == "theta < x", "theta x", "x theta"))) %>%
+  mutate(x = ifelse(x=="(3.75, Infinity)", "(3.75, inf)", as.character(x))) %>%
+  mutate(theta = ifelse(theta=="(3.75, Infinity)", "(3.75, inf)", as.character(theta)))
+with(
+  merge(tf, df %>% mutate(dir = as.character(dir)),
+        by=c("x", "theta", "dir")),
+  stopifnot(mean(approx(probability, wppl_prob))==1))
+```
+
+
+
 
 ```{r}
 df %>%
@@ -203,7 +235,7 @@ df %>%
 ```
 ```{r}
 marginal_x = df %>% group_by(x) %>% summarise(probability = sum(probability))
-stopifnot(mean(marginal_x$probability == x_probability)==1)
+stopifnot(mean(approx(marginal_x$probability, x_probability))==1)
 ```
 
 ```{r, fig.width=3, fig.height=2}
