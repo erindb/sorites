@@ -4,11 +4,45 @@
 
 var objects = levels(ARGS.sorites, "object");
 
+var meaning = function(utterance, v, theta) {
+  var x = v.x;
+  var dir = v.dir;
+  if (utterance == "expensive") {
+    if (theta.b <= x.a) {
+      // if x's range is above theta's range, then x is above theta
+      // so it's expensive
+      return true;
+    } else if (theta.s == x.s) {
+      // if they're in the same range, it's expensive iff the dir
+      // says that x is above theta
+      return dir == "theta < x";
+    } else {
+      // if x's range isn't above or at theta's range, then it's not expensive
+      return false;
+    }
+  } else {
+    // return true for silence
+    return true;
+  }
+};
+
+var enumerate_wrapper = function(erp) {
+  if (utils.max(map(function(x) {return x.factor;}, erp.support())) == -Infinity) {
+    return "impossible";
+  } else {
+    return Infer({method: "enumerate", model: function() {
+      var x = sample(erp);
+      factor(x.factor);
+      return x.value;
+    }});
+  }
+};
+
 var concrete_premise_model = function() {
 
-  var ALPHA1MAX = 20;
-  var ALPHA2MAX = 5;
-  var COSTMAX = 10;
+  var ALPHA1MAX = 1;
+  var ALPHA2MAX = 1;
+  var COSTMAX = 5;
   var MUMAX = 10;
   var SIGMAX = 3;
   var SIGBINMAX = 0.5;
@@ -46,6 +80,10 @@ var concrete_premise_model = function() {
     var bins = utils.get_bins(dollar_amounts);
     // if this seems weird, go look at discretization.html
     var jointPrior = DiscretizedJointLognormalUniform(item_params, bins);
+    var statePrior = Infer({method: "enumerate", model: function() {
+      var v = sample(jointPrior);
+      return {x: v.x, dir: v.dir};
+    }});
 
     // factor by likelihood of sampled responses from give-a-number task
     mapData({data: give_a_number}, function(d) {
@@ -55,8 +93,112 @@ var concrete_premise_model = function() {
       factor(lognormal_score(d.price, item_params));
     });
 
-    return query;
+    var listener0 = cache(function(utterance, theta) {
+      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
+        var v = sample(statePrior);
+        var f = meaning(utterance, v, theta) ? 0 : -Infinity;
+        return {value: v.x.s, factor: f};
+      }));
+    });
+
+    var speaker1 = cache(function(x, theta) {
+      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
+        var utterance = sample(utterancePrior);
+        var L0 = listener0(utterance, theta);
+        if (L0 == "impossible") {
+          return {value: utterance, factor: -Infinity};
+        } else {
+          var informativity = ( _.includes(L0.support(), x.s) ? L0.score(x.s) : 0 );
+          var f = global_params.alpha1 * informativity;
+          return {value: utterance, factor: f};
+        }
+      }));
+    });
+
+    var listener1 = cache(function(utterance) {
+      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
+        var v = sample(jointPrior);
+        var x = v.x;
+        var theta = v.theta;
+        var S1 = speaker1(x, theta);
+        if (S1 == "impossible") {
+          return {value: x.s, factor: -Infinity};
+        } else {
+          var likelihood = ( _.includes(S1.support(), utterance) ? S1.score(utterance) : 0 );
+          return {value: x.s, factor: likelihood};
+        }
+      }));
+    });
+
+    var speaker2 = cache(function(dollar_amount) {
+      return Infer({method: "enumerate"}, function() {
+        var utterance = sample(utterancePrior);
+        var L1 = listener1(utterance);
+        var xbin = utils.find_bin(dollar_amount, bins);
+        // if (obj == "laptop") {
+        //   display(dollar_amount);
+        //   display(xbin);
+        // }
+        var informativity = ( _.includes(L1.support(), xbin.s) ? L1.score(xbin.s) : 0 );
+        factor(global_params.alpha2 * informativity);
+        return utterance; 
+      })
+    });
+
+     // output for each condition in sorites experiment
+    foreach(dollar_amounts, function(dollar_amount){
+      var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
+      
+      // // Test L0
+      // var L0 = listener0("expensive", bins[0]);
+      // display(L0);
+
+      // // Test S1
+      // var S1 = speaker1(bins[1], bins[0]);
+      // display(S1);
+
+      // // Test L1
+      // display(listener1("expensive"));
+      // display(listener1("silence"));
+
+      // // Test S2
+      // display(dollar_amount);
+      // var S2 = speaker2(dollar_amount);
+      // display(S2);
+
+      // ERP from utterances to probabilities, given the price of an object,
+      // marginalizing over theta
+      var S2 = speaker2(dollar_amount);
+
+      mapData({data: concrete_byDollar}, function(d){
+        // for now, assume if > 5, then "YES", other NO
+        var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
+        observe(S2, binarizedResponse);
+      });
+
+      // if "expensive isn't in the support, return probability 0"
+      var concrete_prob =  ( (_.includes(S2.support(), "expensive")) ?
+                             Math.exp(S2.score("expensive")) :
+                             0 );
+      add_output_datapoint(
+        {type: "concrete", label: "endorsement", object: obj, dollar_amount: JSON.stringify(dollar_amount)},
+        concrete_prob
+      );
+
+    });
+
+    add_output_datapoint(
+      {type: "prior", object: obj, label: "mu"},
+      item_params.mu
+    );
+    add_output_datapoint(
+      {type: "prior", object: obj, label: "sigma"},
+      item_params.sigma
+    );
+
   });
+
+  return query;
 
 };
 

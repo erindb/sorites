@@ -254,51 +254,41 @@ ggsave("images/give_a_number_params.png", width=7, height=5)
 ## Concrete Premise ~ lifted L1
 
 ```{r params, echo = T}
-iterations = 2
+iterations = 10
 burn = iterations/2
 lag = 10
 ```
 
 ```{r run.concrete.model}
 RUN_MODEL = T
+output_filename = paste("concrete_model_cache", iterations, ".csv", sep="")
 if (RUN_MODEL) {
   start_time = Sys.time()
   raw_rs = webppl(
     program_file = model_dir("bda_concrete_bins.wppl"),
     inference_opts = list(method="incrementalMH",
-                          samples=1,#iterations,
-                          burn=0,#burn,
+                          samples=iterations,
+                          burn=burn,
                           verbose = T,
                           verboseLag = lag * iterations / 10,
-                          lag=0),#lag),
+                          lag=lag),
     model_var = "concrete_premise_model",
     data_var = "ARGS",
     packages = model_dir("node_modules/utils/"),
     data = list(priorbins = prior_bins_data,
-                sorites = data.frame(
-                  qtype = "concrete",
-                  dollar_amount = c(1, 2, 3),
-                  object = "test"
-                ),
-                # sorites = select(df, qtype, dollar_amount, object, response),
+                sorites = select(df, qtype, dollar_amount, object, response),
                 give_a_number = give_a_number)
   )
   end_time = Sys.time()
-  # print(end_time - start_time)
-  # rs = raw_rs %>%
-  #   filter(!is.na(value)) %>%
-  #   mutate(json = map(char(Parameter), jsonlite::fromJSON)) %>%
-  #   select(-Parameter) %>%
-  #   mutate(param_type = map(json, names)) %>%
-  #   mutate(param_label = map(json, simplify)) %>%
-  #   mutate(id = 1:length(value)) %>%
-  #   unnest(param_type, param_label) %>%
-  #   spread(key = param_type, value = param_label)
-  # write.csv(rs,
-  #           cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")),
-  #           row.names = F)
+  print(end_time - start_time)
+  rs = raw_rs %>%
+    filter(!is.na(value)) %>%
+    separate(Parameter,
+             c("type", "label", "dollar_amount", "object"),
+             sep="\t")
+  write.csv(rs, cache_dir(output_filename), row.names = F)
 } else {
-  # rs = read.csv(cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")))
+  rs = read.csv(cache_dir(output_filename))
 }
 # concrete_premise_fit = rs
 # concrete_premise_fit %>% group_by(dollar_amount) %>%
@@ -306,6 +296,12 @@ if (RUN_MODEL) {
 #   filter(object == "laptop") %>% summarise(value = mean(value))
 ```
 
+```{r}
+concrete_premise_fit = rs
+concrete_premise_fit %>% group_by(dollar_amount) %>%
+  filter(type == "concrete") %>%
+  filter(object == "laptop") %>% summarise(value = mean(value))
+```
 
 
 
