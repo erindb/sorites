@@ -71,7 +71,53 @@ df = expand.grid(x=ranges, theta=ranges, dir=c("theta x", "x theta")) %>%
 df
 ```
 
-If $x$ and $\theta$ appear in different regions, we just take the product of the probabilities of the values falling in those regions. But if they appear in the same region, we need the probability of falling in those regions AND the relationship.
+If $x$ and $\theta$ appear in different regions, we just take the product of the probabilities of the values falling in those regions.
+
+$$P(x \in (a,b] \mbox{ AND } \theta \in (a', b']) =
+\left(\Phi(\ln(b)) - \Phi(\ln(a)) \right)
+\left(\frac{b'-a'}{\theta_{\max} - \theta_{\min}}\right)$$
+
+But if they appear in the same region, we need the probability of falling in those regions AND the relationship. Let $t = \ln(x)$. Let $B = \min(\theta_{\max}, b)$. If $x \leq \theta$,
+
+$$\begin{aligned}
+P(x,\theta \in (a,b] \mbox{ AND } x < \theta)
+  =& \int_{\ln(a)}^{\ln(B)} \phi_{\mu,\sigma}(t)
+    \int_{e^t}^{B} \frac{1}{Z_\theta} d\theta dt \\
+  =& \frac{B}{Z_\theta} \int_{\ln(a)}^{\ln(B)} \phi_{\mu,\sigma}(t)dt -
+    \frac{1}{Z_\theta} \int_{\ln(a)}^{\ln(B)} e^t \phi_{\mu,\sigma}(t)dt \\
+  =& \frac{B}{Z_\theta}\left[\Phi_{\mu, \sigma}(t)\right]_{\ln(a)}^{\ln(B)} -
+    \frac{1}{Z_\theta} e^{\frac{1}{2}\sigma^2 + \mu}
+    \left[\Phi_{(\sigma^2+\mu), \sigma}(t)\right]_{\ln(a)}^{\ln(B)}  \\
+\end{aligned}$$
+
+If $\theta<x$ and $b \leq \theta_{\max}$,
+
+$$\begin{aligned}
+P(x,\theta \in (a,b] \mbox{ AND } \theta < x)
+  =& \int_{\ln(a)}^{\ln(b)} \phi_{\mu,\sigma}(t)
+    \int_a^{e^t} \frac{1}{Z_\theta} d\theta dt \\
+  =& \frac{1}{Z_\theta} \int_{\ln(a)}^{\ln(b)} e^t \phi_{\mu,\sigma}(t)dt -
+    \frac{a}{Z_\theta} \int_{\ln(a)}^{\ln(b)} \phi_{\mu,\sigma}(t)dt \\
+  =& \frac{1}{Z_\theta}e^{\frac{1}{2}\sigma^2 + \mu}\left[\Phi_{(\sigma^2+\mu), \sigma}(t)\right]_{\ln(a)}^{\ln(b)} - \frac{a}{Z_\theta}\left[\Phi_{\mu, \sigma}(t)\right]_{\ln(a)}^{\ln(b)}
+\end{aligned}$$
+
+Or, if $\theta<x$ and $\theta_{\max} < b$,
+
+$$
+\begin{aligned}
+P(x,\theta \in (a,b] \mbox{ AND } \theta < x)
+  =& \int_{\ln(a)}^{\ln(\theta_{\max})} \phi_{\mu,\sigma}(t)
+    \int_a^{e^t} \frac{1}{Z_\theta} d\theta dt + 
+    \int_{\ln(\theta_{\max})}^{\ln(b)} \phi_{\mu,\sigma}(t)
+    \int_{a}^{\theta_{\max}} \frac{1}{Z_\theta} d\theta dt \\
+  =& \frac{1}{Z_\theta}e^{\frac{1}{2}\sigma^2 + \mu}
+    \left[\Phi_{(\sigma^2+\mu), \sigma}(t)\right]_{\ln(a)}^{\ln(b)} -
+    \frac{a}{Z_\theta}
+    \left[\Phi_{\mu, \sigma}(t)\right]_{\ln(a)}^{\ln(b)} + 
+    \frac{\theta_{\max} - a}{Z_\theta}
+    \left[\Phi_{\mu, \sigma}(t)\right]_{\ln(\theta_{\max})}^{\ln(b)}
+\end{aligned}
+$$
 
 ```{r}
 max_theta = max(cutoffs)
