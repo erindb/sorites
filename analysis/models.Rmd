@@ -254,7 +254,7 @@ ggsave("images/give_a_number_params.png", width=7, height=5)
 ## Concrete Premise ~ lifted L1
 
 ```{r params, echo = T}
-iterations = 10
+iterations = 500
 burn = iterations/2
 lag = 10
 ```
@@ -290,14 +290,16 @@ if (RUN_MODEL) {
 } else {
   rs = read.csv(cache_dir(output_filename))
 }
-# concrete_premise_fit = rs
-# concrete_premise_fit %>% group_by(dollar_amount) %>%
-#   filter(type == "concrete") %>%
-#   filter(object == "laptop") %>% summarise(value = mean(value))
+concrete_premise_fit = rs %>%
+  mutate(dollar_amount = as.numeric(dollar_amount))
+concrete_premise_fit %>% group_by(dollar_amount) %>%
+  filter(type == "concrete") %>%
+  filter(object == "laptop") %>% summarise(value = mean(value))
 ```
 
 ```{r}
-concrete_premise_fit = rs
+concrete_premise_fit = rs %>%
+  mutate(dollar_amount = as.numeric(dollar_amount))
 concrete_premise_fit %>% group_by(dollar_amount) %>%
   filter(type == "concrete") %>%
   filter(object == "laptop") %>% summarise(value = mean(value))
@@ -340,10 +342,11 @@ if (RUN_CONCRETE_AGG) {
 opacity = 0.5
 concrete_model_agg %>%
   ggplot(., aes(x=dollar_amount, y=value)) +
-  geom_point(alpha=opacity) +
+  geom_line(alpha=opacity) +
   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
   facet_wrap(~object, scales="free")
 # unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
+ggsave("images/concrete.png", height=5, width=8)
 ```
 
 ```{r, fig.width=12, fig.height=3}

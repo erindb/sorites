@@ -4,18 +4,16 @@
 
 var objects = levels(ARGS.sorites, "object");
 
-var meaning = function(utterance, v, theta) {
-  var x = v.x;
-  var dir = v.dir;
+var meaning = function(utterance, x, theta) {
   if (utterance == "expensive") {
-    if (theta.b <= x.a) {
+    if (theta < x) {
       // if x's range is above theta's range, then x is above theta
       // so it's expensive
       return true;
-    } else if (theta.s == x.s) {
+    } else if (theta == x) {
       // if they're in the same range, it's expensive iff the dir
       // says that x is above theta
-      return dir == "theta < x";
+      return flip();
     } else {
       // if x's range isn't above or at theta's range, then it's not expensive
       return false;
@@ -37,6 +35,18 @@ var enumerate_wrapper = function(erp) {
     }});
   }
 };
+
+var get_dollar_amounts = cache(function(obj) {
+  var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+  var dollar_amounts = levels(concrete, "dollar_amount");
+  return dollar_amounts;
+});
+
+var get_bins = cache(function(obj) {
+  var dollar_amounts = get_dollar_amounts(obj);
+  var bins = utils.get_bins(dollar_amounts);
+  return bins;
+});
 
 var concrete_premise_model = function() {
 
@@ -66,24 +76,19 @@ var concrete_premise_model = function() {
     // Subset to get each data type
     var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
     var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+    var dollar_amounts = levels(concrete, "dollar_amount");
 
     // priors on parameters of RSA state priors
     var item_params = {
-      // mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
-      // sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
-      mu: 0,
-      sigma: 1
+      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
     };
 
     // Discretization
-    var dollar_amounts = levels(concrete, "dollar_amount");
-    var bins = utils.get_bins(dollar_amounts);
-    // if this seems weird, go look at discretization.html
-    var jointPrior = DiscretizedJointLognormalUniform(item_params, bins);
-    var statePrior = Infer({method: "enumerate", model: function() {
-      var v = sample(jointPrior);
-      return {x: v.x, dir: v.dir};
-    }});
+    var dollar_amounts = get_dollar_amounts(obj);
+    var bins = get_bins(obj);
+    var thetaPrior = DiscretizedUniform(bins);
+    var statePrior = DiscretizedLognormal(item_params, bins);
 
     // factor by likelihood of sampled responses from give-a-number task
     mapData({data: give_a_number}, function(d) {
@@ -94,52 +99,65 @@ var concrete_premise_model = function() {
     });
 
     var listener0 = cache(function(utterance, theta) {
+      // If speaker1 says "expensive" to try to convey a value of x
+      // that's less than the speaker's theta, then all factors will
+      // be -Infinity.
       return enumerate_wrapper(Infer({method: "enumerate"}, function() {
-        var v = sample(statePrior);
-        var f = meaning(utterance, v, theta) ? 0 : -Infinity;
-        return {value: v.x.s, factor: f};
+        var x = sample(statePrior);
+        var f = meaning(utterance, x, theta) ? 0 : -Infinity;
+        return {value: x, factor: f};
       }));
     });
 
     var speaker1 = cache(function(x, theta) {
-      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
+      // If the speaker says nothing, then we could infer any x,
+      // So at least one of the paths should have score above -Infinity
+      return Infer({method: "enumerate"}, function() {
         var utterance = sample(utterancePrior);
         var L0 = listener0(utterance, theta);
         if (L0 == "impossible") {
-          return {value: utterance, factor: -Infinity};
+          factor(-Infinity);
+          return utterance;
         } else {
-          var informativity = ( _.includes(L0.support(), x.s) ? L0.score(x.s) : 0 );
+          var informativity = (
+            _.includes(L0.support(), x) ?
+            L0.score(x) :
+            -Infinity
+          );
           var f = global_params.alpha1 * informativity;
-          return {value: utterance, factor: f};
+          factor(f);
+          return utterance;
         }
-      }));
+      });
     });
 
     var listener1 = cache(function(utterance) {
-      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
-        var v = sample(jointPrior);
-        var x = v.x;
-        var theta = v.theta;
+      return Infer({method: "enumerate"}, function() {
+        var theta = sample(thetaPrior);
+        var x = sample(statePrior);
         var S1 = speaker1(x, theta);
-        if (S1 == "impossible") {
-          return {value: x.s, factor: -Infinity};
-        } else {
-          var likelihood = ( _.includes(S1.support(), utterance) ? S1.score(utterance) : 0 );
-          return {value: x.s, factor: likelihood};
-        }
-      }));
+        // If there's an x-theta pair that's incompatible with the
+        // utterance, then it will have score -Infinity.
+        var likelihood = (
+          _.includes(S1.support(), utterance) ?
+          S1.score(utterance) :
+          -Infinity
+        );
+        factor(likelihood);
+        return x;
+      });
     });
 
     var speaker2 = cache(function(dollar_amount) {
       return Infer({method: "enumerate"}, function() {
         var utterance = sample(utterancePrior);
         var L1 = listener1(utterance);
-        var xbin = utils.find_bin(dollar_amount, bins);
+        var x = utils.find_bin(dollar_amount, bins);
         // if (obj == "laptop") {
         //   display(dollar_amount);
         //   display(xbin);
         // }
-        var informativity = ( _.includes(L1.support(), xbin.s) ? L1.score(xbin.s) : 0 );
+        var informativity = ( _.includes(L1.support(), x) ? L1.score(x) : 0 );
         factor(global_params.alpha2 * informativity);
         return utterance; 
       })
@@ -150,21 +168,21 @@ var concrete_premise_model = function() {
       var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
       
       // // Test L0
-      // var L0 = listener0("expensive", bins[0]);
-      // display(L0);
+      // var L0 = listener0("expensive", bins[0].a);
+      // // display(L0);
 
       // // Test S1
-      // var S1 = speaker1(bins[1], bins[0]);
-      // display(S1);
+      // var S1 = speaker1(1, 0);
+      // // display(S1);
 
       // // Test L1
-      // display(listener1("expensive"));
-      // display(listener1("silence"));
+      // listener1("expensive");
+      // // display(listener1("expensive"));
+      // // display(listener1("silence"));
 
       // // Test S2
-      // display(dollar_amount);
+      // // display(dollar_amount);
       // var S2 = speaker2(dollar_amount);
-      // display(S2);
 
       // ERP from utterances to probabilities, given the price of an object,
       // marginalizing over theta
