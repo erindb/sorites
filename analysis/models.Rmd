@@ -253,14 +253,16 @@ ggsave("images/give_a_number_params.png", width=7, height=5)
 
 ## Concrete Premise ~ lifted L1
 
+I'm discretizing into bins independently and when price $x$ and threshold $\theta$ are in the same bin, I'm using a `flip()` to decide whether $x \leq \theta$ or $theta < x$. This isn't quite right, since the shape of the $x$ distribution on the interval affects the proportion of the time that $theta < x$. But it's an approximation that works pretty well and shouldn't mess anything up too much. I spent a lot of time thinking about the true joint distribution in `discretization.html` but ultimately this version, with `flip`, is the one that generated these results.
+
 ```{r params, echo = T}
-iterations = 500
+iterations = 1000
 burn = iterations/2
 lag = 10
 ```
 
 ```{r run.concrete.model}
-RUN_MODEL = T
+RUN_MODEL = F
 output_filename = paste("concrete_model_cache", iterations, ".csv", sep="")
 if (RUN_MODEL) {
   start_time = Sys.time()
@@ -321,8 +323,6 @@ concrete_premise_fit %>% group_by(dollar_amount) %>%
 
 
 
-
-
 memoized `listener1` and `listener1_score`, 500 iterations, lag 10: 
 
 ```{r}
@@ -346,7 +346,35 @@ concrete_model_agg %>%
   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
   facet_wrap(~object, scales="free")
 # unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
-ggsave("images/concrete.png", height=5, width=8)
+ggsave("images/concrete_fit2.png", height=5, width=8)
+```
+
+```{r}
+concrete_model_agg %>%
+  select(object, dollar_amount, low, high, value) %>%
+  rename(model = value,
+         model_low = low,
+         model_high = high) %>%
+  as.data.frame() %>%
+  merge(., df %>%
+          filter(qtype=="concrete") %>%
+          mutate(response = (response-1)/8) %>%
+          group_by(object, dollar_amount) %>%
+          summarise(
+            data_low = ci.low(response),
+            data_high = ci.high(response),
+            data = mean(response)) %>%
+          ungroup() %>%
+          as.data.frame(), by=c("object", "dollar_amount")) %>%
+  ggplot(., aes(x=model, xmin=model_low, xmax=model_high,
+                y=data, ymin=data_low, ymax=data_high)) +
+  geom_abline(intercept = 0, slope = 1, colour="gray") +
+  geom_point(alpha=opacity) +
+  ylim(0,1) +
+  xlim(0,1) +
+  geom_errorbar(alpha=opacity) +
+  geom_errorbarh(alpha=opacity)
+ggsave("images/concrete_fit3.png", width=4, height=3)
 ```
 
 ```{r, fig.width=12, fig.height=3}
@@ -359,8 +387,22 @@ df %>% filter(qtype=="concrete") %>% select(object, dollar_amount, response) %>%
   ggplot(., aes(x=dollar_amount, color=src)) +
   stat_ecdf(geom="step") +
   facet_wrap(~object, scales="free", ncol=5)
+ggsave("images/concrete_fit.png", width=10, height=2)
 ```
 
+```{r, fig.width=12, fig.height=3}
+# df %>% filter(qtype=="concrete") %>%
+#   select(object, dollar_amount, response) %>%
+#   mutate(src = "data") %>%
+#   rbind(., concrete_premise_fit %>%
+#           filter(type=="concrete") %>%
+#           mutate(response = value, src = "model") %>%
+#           select(object, dollar_amount, response, src)) %>%
+#   as.data.frame %>%
+#   ggplot(., aes(x=dollar_amount, color=src)) +
+#   geom_point(alpha=1/2) +
+#   facet_wrap(~object, scales="free", ncol=5)
+```
 
 ```{r, fig.width=10, fig.height=2}
 concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
@@ -379,6 +421,7 @@ concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) 
   stat_ecdf(geom="step") +
   facet_wrap(~object, scales="free", ncol=5)+
   xlim(0, 1000)
+ggsave("images/concrete_fit_priors.png", width=10, height=2)
 ```
 
 <!-- ### Questions
