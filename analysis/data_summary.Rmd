@@ -4,7 +4,7 @@ author: "Erin Bennett"
 header-includes:
    - \usepackage{tikz}
    - \usetikzlibrary{bayesnet}
-output: pdf_document
+output: html_document
 ---
 
 ```{r global_options, include=FALSE}
@@ -16,9 +16,9 @@ knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
 ```{r load (and reformat) data}
 source("utils.R")
 source("reformatting_data.R")
-df = load_sorites(T)
-give_a_number = load_give_a_number(T)
-prior_bins_data = load_priors(T)
+df = load_sorites()
+give_a_number = load_give_a_number()
+prior_bins_data = load_priors()
 ```
 
 # Experiments
