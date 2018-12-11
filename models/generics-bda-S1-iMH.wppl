@@ -1,11 +1,11 @@
-// time webppl generics-bda-L0-S1-iMH.wppl --require utils uncertain 1
+// time webppl generics-bda-L0-S1-iMH.wppl --require utils 1
 
 var chain = last(process.argv) // load index as last command line index
 
 // penultimate argument is the semantics
 // uncertain = uncertain threshold
 // fixed = fixed threshold at lowest threshold value
-var semantics = process.argv[process.argv.length - 2]
+// var semantics = process.argv[process.argv.length - 2]
 // console.log(semantics)
 var priorFilePrefix = "prior-3",
     // priorFilePrefix = "prior-manipulation-3",
@@ -65,25 +65,14 @@ var data = {
   })}, d_endorsement))
 };
 
-
-
-// // // test that removing Ss who failed catch trial works properly (computed in R)
-assert.ok(levels(data.interpretation, "workerid").length == 132)
-// assert.ok(levels(data.interpretation, "workerid").length == 107)
-// assert.ok(levels(data.prior, "workerid").length == 131)
-// assert.ok(levels(data.prior, "workerid").length == 126) // prior 3
-assert.ok(levels(data.prior, "workerid").length == 175) // prior 3 n200
-assert.ok(levels(data.endorsement, "workerid").length == 150) // endorsement 1
-
 var utterancePrior = Infer({model: function(){
-	return uniformDraw(["generic", "silence"])
+	return uniformDraw(["expensive", "silence"])
 }});
 
 var meaning = function(utt,state, theta) {
-  return utt=="generic"? state > theta :
-         utt=="generic is false"? state<=theta :
+  return utt=="expensive"? state > theta :
+         utt=="expensive is false"? state<=theta :
          utt=='silence'? true :
-         utt=='some'? state > 0 :
          true
 }
 //
@@ -93,91 +82,111 @@ var prevalence_levels = levels(data.endorsement, "binned_prevalence")
 var nullParams = {a:1, b:100}, nullDistribution = Beta(nullParams);
 // properties
 
-var addNoise = function(dist, noise){
-  return Infer({model: function(){
-    return flip(noise) ? uniformDraw(midBins) : sample(dist)
-  }})
-}
+// var addNoise = function(dist, noise){
+//   return Infer({model: function(){
+//     return flip(noise) ? uniformDraw(midBins) : sample(dist)
+//   }})
+// }
 
-var fixedThreshold = (semantics == "some") ?_.min( thetaBins) :
-  (semantics == "most") ? 0.5 :
-  false
+// var fixedThreshold = (semantics == "some") ?_.min( thetaBins) :
+//   (semantics == "most") ? 0.5 :
+//   false
 
 var model = function(){
 
-  var noise = (semantics == "most") ? uniformDrift({a: 0, b: 1, width:0.2}) : 0
-  var speakerOptimality = uniformDrift({a: 0, b: 10, width: 1})
+  // Prior parameters
+  var ALPHA1MAX = 10; // maximum rationality for speaker1
+  // var ALPHA2MAX = 5; // maximum rationality for speaker2
+  // var COSTMAX = 5; // maximum cost of the expensive utterance
+  var MUMAX = 10; // maximum mu for lognormal price distributions
+  var SIGMAX = 3; // maximum sigma for lognormal price distributions
+  // var SIGBINMAX = 0.5; // for interpreting likert scale responses
 
-  var numberOfComponents = 3;//poisson(1) + 1;
+  // Infer global params across all participants and all objects.
+  // var global_params = {
+    // // rationality for speaker1
+    // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
+  var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
+    // // cost of expensive utterance
+    // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
+    // standard deviation for bins responses
+    // sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
+  // };
 
-  foreach(properties, function(item){
-    // display(item)
-    var propertyData = {
-        prior: _.filter(data.prior, {property: item}),
-        interpretation: _.filter(data.interpretation, {property: item}),
-        endorsement: _.filter(data.endorsement, {property: item})
+  // TODO: read this from data
+  var objects = ["laptop"];
+
+  foreach(objects, function(item) {
+
+    // Parameters for lognormal price distributions, different parameters for
+    // each object.
+    var item_params = {
+      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
     };
 
-    var weights = normalize(repeat(numberOfComponents,
-      function(){ return uniformDrift({a: 0, b: 1, width:0.2}) }
-    ))
+    // State prior is lognormal, params inferred for each object.
+    var statePrior = Infer({model: function() {
+      sample(DiscretizedLognormal(item_params))
+    }});
 
-    var componentParameters = repeat(numberOfComponents,
-     function(){
-      return betaShape({
-          g: uniformDrift({a: 0, b: 1, width: 0.2}),
-          d: uniformDrift({a: 0, b: 100, width: 5})
-        })
-    })
+   //  var propertyData = {
+   //      prior: _.filter(data.prior, {property: item}),
+   //      interpretation: _.filter(data.interpretation, {property: item}),
+   //      endorsement: _.filter(data.endorsement, {property: item})
+   //  };
 
-  	mapData({data: propertyData.prior}, function(d){
-      var componentLogLikelihood = map2(function(w, params){
-        Math.log(w) + Beta(params).score(d.avoided_endval)
-      }, weights, componentParameters)
-      var scr = util.logsumexp(componentLogLikelihood)
-      scr == -Infinity ? displayObj(d) : null
-  		factor(scr)
-  	})
+   //  var weights = normalize(repeat(numberOfComponents,
+   //    function(){ return uniformDrift({a: 0, b: 1, width:0.2}) }
+   //  ))
 
-    foreach(_.range(numberOfComponents), function(i){
+  	// mapData({data: propertyData.prior}, function(d){
+   //    var componentLogLikelihood = map2(function(w, params){
+   //      Math.log(w) + Beta(params).score(d.avoided_endval)
+   //    }, weights, componentParameters)
+   //    var scr = util.logsumexp(componentLogLikelihood)
+   //    scr == -Infinity ? displayObj(d) : null
+  	// 	factor(scr)
+  	// })
 
-      query.add(["componentParameters", item, i, "weight"],
-        weights[i]
-      )
-      query.add(["componentParameters", item, i, "alpha"],
-        componentParameters[i]["a"]
-      )
+   //  foreach(_.range(numberOfComponents), function(i){
 
-      query.add(["componentParameters", item, i, "beta"],
-        componentParameters[i]["b"]
-      )
+   //    query.add(["componentParameters", item, i, "weight"],
+   //      weights[i]
+   //    )
+   //    query.add(["componentParameters", item, i, "alpha"],
+   //      componentParameters[i]["a"]
+   //    )
 
-    })
+   //    query.add(["componentParameters", item, i, "beta"],
+   //      componentParameters[i]["b"]
+   //    )
 
-  	var statePrior = Infer({model: function(){
-      sample(DiscretizedBeta(componentParameters[discrete(weights)]))
-  	}});
+   //  })
+
+  	// var statePrior = Infer({model: function(){
+   //    sample(DiscretizedBeta(componentParameters[discrete(weights)]))
+  	// }});
 
   	/// RSA model
   	var listener0 = cache(function(utterance) {
   	  Infer({model: function(){
   	    var state = sample(statePrior);
-        var theta = (semantics == "uncertain") ? sample(thetaPrior) : fixedThreshold;
+        var theta = sample(thetaPrior);
   	    var m = meaning(utterance, state, theta)
   	    condition(m)
   	    return state
   	 }})}, 10000)
 
-  var L0 = listener0("generic")
-  var interpretationPrediction = addNoise(L0, noise)
+  var interpretationPrediction = listener0("expensive")
 
-   mapData({data:propertyData.interpretation}, function(d){
-     // display(d)
-     var scr = interpretationPrediction.score(d.binnedResponse)
-     scr == -Infinity ? displayObj(d) : null
-     // display(scr)
-     observe(interpretationPrediction, d.binnedResponse)
-   })
+   // mapData({data:propertyData.interpretation}, function(d){
+   //   // display(d)
+   //   var scr = interpretationPrediction.score(d.binnedResponse)
+   //   scr == -Infinity ? displayObj(d) : null
+   //   // display(scr)
+   //   observe(interpretationPrediction, d.binnedResponse)
+   // })
 
    // var supp = interpretationPrediction.support()
 
@@ -190,22 +199,22 @@ var model = function(){
       var utterance = sample(utterancePrior);
       var L0 = listener0(utterance);
       factor(speakerOptimality * L0.score(state))
-      return utterance == "generic" ? 1 : 0
+      return utterance == "expensive" ? 1 : 0
     }})}
 
 
    foreach(prevalence_levels, function(p){
 
-     var endorsementData = _.filter(propertyData.endorsement, {binned_prevalence: p})
+     // var endorsementData = _.filter(propertyData.endorsement, {binned_prevalence: p})
      var endorsement = speaker1(p)
 
-     mapData({data:endorsementData}, function(d){
-       // display(d)
-       var scr = endorsement.score(d.response)
-       scr == -Infinity ? displayObj(d) : null
-       // display(scr)
-       observe(endorsement, d.response)
-     })
+     // mapData({data:endorsementData}, function(d){
+     //   // display(d)
+     //   var scr = endorsement.score(d.response)
+     //   scr == -Infinity ? displayObj(d) : null
+     //   // display(scr)
+     //   observe(endorsement, d.response)
+     // })
 
 
      query.add(["endorsement", item, -99, p], Math.exp(endorsement.score(1)))
@@ -219,7 +228,7 @@ var model = function(){
 
    // RECORD PARAMETERS AND PREDICTIVES
    query.add(["speakerOptimality", -99, -99, -99], speakerOptimality)
-   semantics == "most" ? query.add(["noise", -99, -99, -99], noise) : null
+   // semantics == "most" ? query.add(["noise", -99, -99, -99], noise) : null
 
 	return query
 }
@@ -230,7 +239,7 @@ var totalIterations = 500, lag =  1;
 // var totalIterations = 500000, lag =  200;
 var samples = totalIterations/lag, burn = totalIterations / 2;
 
-var outfile = 'results-genint-S1-endorsePrediction-int6-prior3-3Components_'+semantics+'-semantics_'+ totalIterations+'_burn'+burn+'_lag'+lag+'_chain'+chain+'.csv'
+var outfile = 'results-genint-S1-endorsePrediction-int6-prior3-3Components_'+totalIterations+'_burn'+burn+'_lag'+lag+'_chain'+chain+'.csv'
 // var outfile = 'results-asymmetry-L0-S1-int6-end1-prior3n200-3Components_'+semantics+'-semantics_'+ totalIterations+'_burn'+burn+'_lag'+lag+'_chain'+chain+'.csv'
 
 var posterior = Infer({
