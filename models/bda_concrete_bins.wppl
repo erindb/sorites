@@ -1,35 +1,56 @@
-// ARGS.give_a_number data frame
-// ARGS.concrete data frame
-// ARGS.objects vector of objects
+/*
+Concrete Premise of Sorites Paradox
 
+"An ITEM that costs $VAL is expensive.""
+"Please indicate how much you agree with the above statement."
+Responses range from 1 (Completely disagree) to 9 (Completely agree)
+
+Model is S2 RSA Adjectives model with lifted threshold parameter inferred by L1.
+*/
+
+// The set of objects in the experiment, e.g. "coffee maker", "laptop".
+// Read in from R.
 var objects = levels(ARGS.sorites, "object");
 
-var meaning = function(utterance, v, theta) {
-  var x = v.x;
-  var dir = v.dir;
+// Meaning function for the two possible utterances in the adjectives model.
+// Returns true if the utterance applies to the situation, false otherwise.
+var meaning = function(utterance, x, theta) {
   if (utterance == "expensive") {
-    if (theta.b <= x.a) {
-      // if x's range is above theta's range, then x is above theta
-      // so it's expensive
+    if (theta < x) {
+      // If x's range is above theta's range, then x is above theta
+      // so it's expensive.
       return true;
-    } else if (theta.s == x.s) {
-      // if they're in the same range, it's expensive iff the dir
-      // says that x is above theta
-      return dir == "theta < x";
+    } else if (theta == x) {
+      // If they're in the same range, sometimes it will be expensive
+      // (theta < x), and sometimes it won't (x \leq theta)
+      // See discretization.html for a discussion of how the relationship
+      // between x and theta isn't actually a flip and should really depend on
+      // the distributions of x and theta. But this is easier to implement and
+      // explain and debug and run, so this is what I'm doing.
+      return flip();
     } else {
-      // if x's range isn't above or at theta's range, then it's not expensive
+      // If x's range isn't above or at theta's range, then it's not expensive.
       return false;
     }
   } else {
-    // return true for silence
+    // Return true for silence.
     return true;
   }
 };
 
+// A wrapper for when every path of enumerate has factor -Infinity. WebPPL will
+// throw an error when that happens, so before applying the factors, we check
+// if we're in the situation where all factor are -Infinity. If we're in that
+// situation, instead of applying the factor, we'll directly return the string
+// "impossible".
 var enumerate_wrapper = function(erp) {
-  if (utils.max(map(function(x) {return x.factor;}, erp.support())) == -Infinity) {
+  // Check if there's no possible value (all factors are -Infinity)
+  var max_score = utils.max(map(function(x) {return x.factor;}, erp.support()));
+  if (max_score == -Infinity) {
     return "impossible";
   } else {
+    // If there are factors that aren't -Infinity, then applying the factor will
+    // give us a probability distribution, so it's safe to do.
     return Infer({method: "enumerate", model: function() {
       var x = sample(erp);
       factor(x.factor);
@@ -38,23 +59,48 @@ var enumerate_wrapper = function(erp) {
   }
 };
 
+// Look through the data to get the dollar amounts used in the experiment for
+// the concrete premise for each object. Cache across the whole file, since
+// this will always be the same.
+var get_dollar_amounts = cache(function(obj) {
+  var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+  var dollar_amounts = levels(concrete, "dollar_amount");
+  return dollar_amounts;
+});
+
+// Look through the data to get the bins for discretizing the distributions.
+// We'll use the same discretization for x and theta.
+var get_bins = cache(function(obj) {
+  var dollar_amounts = get_dollar_amounts(obj);
+  var bins = utils.get_bins(dollar_amounts);
+  return bins;
+});
+
+// Main function for concrete premise. Fit *both* give-a-number data *and*
+// concrete premise endorsements.
 var concrete_premise_model = function() {
 
-  var ALPHA1MAX = 1;
-  var ALPHA2MAX = 1;
-  var COSTMAX = 5;
-  var MUMAX = 10;
-  var SIGMAX = 3;
-  var SIGBINMAX = 0.5;
+  // Prior parameters
+  var ALPHA1MAX = 5; // maximum rationality for speaker1
+  var ALPHA2MAX = 5; // maximum rationality for speaker2
+  var COSTMAX = 5; // maximum cost of the expensive utterance
+  var MUMAX = 10; // maximum mu for lognormal price distributions
+  var SIGMAX = 3; // maximum sigma for lognormal price distributions
+  var SIGBINMAX = 0.5; // for interpreting likert scale responses
 
+  // Infer global params across all participants and all objects.
   var global_params = {
+    // rationality for speaker1
     alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
+    // rationality for speaker2
     alpha2: uniformDrift({a: 0, b: ALPHA2MAX, width: 0.5}),
+    // cost of expensive utterance
     cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
     sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
   };
 
-  // Utterance prior
+  // Utterance prior.
+  // Softmax of cost, where "expensive" has a cost and "silence" has no cost.
   var adjectivePriorProb = Math.exp(-global_params.cost);
   var utterancePrior = Categorical({
     vs: ["expensive", "silence"],
@@ -66,80 +112,101 @@ var concrete_premise_model = function() {
     // Subset to get each data type
     var give_a_number = _.filter(ARGS.give_a_number, {object: obj});
     var concrete = _.filter(ARGS.sorites, {object: obj, qtype: "concrete"});
+    var dollar_amounts = levels(concrete, "dollar_amount");
 
-    // priors on parameters of RSA state priors
+    // Parameters for lognormal price distributions, different parameters for
+    // each object.
     var item_params = {
-      // mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
-      // sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
-      mu: 0,
-      sigma: 1
+      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
     };
 
     // Discretization
-    var dollar_amounts = levels(concrete, "dollar_amount");
-    var bins = utils.get_bins(dollar_amounts);
-    // if this seems weird, go look at discretization.html
-    var jointPrior = DiscretizedJointLognormalUniform(item_params, bins);
-    var statePrior = Infer({method: "enumerate", model: function() {
-      var v = sample(jointPrior);
-      return {x: v.x, dir: v.dir};
-    }});
+    var dollar_amounts = get_dollar_amounts(obj);
+    var bins = get_bins(obj);
+    var thetaPrior = DiscretizedUniform(bins);
+    var statePrior = DiscretizedLognormal(item_params, bins);
 
-    // factor by likelihood of sampled responses from give-a-number task
+    // Fit lognormal parameters to give-a-number data.
+    // Factor by likelihood of sampled responses from give-a-number task.
     mapData({data: give_a_number}, function(d) {
-      // assume log of price is normally distributed
-      // so use lognormal density function
-      // (see "mistakes_i_made.html" if in the future this doesn't make sense)
+      // Assume log of price is normally distributed, so use lognormal density
+      // function (see "mistakes_i_made.html" if in the future this doesn't
+      // make sense)
       factor(lognormal_score(d.price, item_params));
     });
 
+    // Literal listener
+    // Apply meaning function given a known threshold theta, and re-weight prior
+    // distribution over prices.
     var listener0 = cache(function(utterance, theta) {
-      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
-        var v = sample(statePrior);
-        var f = meaning(utterance, v, theta) ? 0 : -Infinity;
-        return {value: v.x.s, factor: f};
-      }));
+      // If utterance is "expensive" and theta is highest value, then this
+      // will return the highest x with probability 1. Each utterance-theta
+      // pair has at least one valid enumeration path, so we don't need an
+      // enumeration_wrapper.
+      return Infer({method: "enumerate"}, function() {
+        var x = sample(statePrior);
+        var f = meaning(utterance, x, theta) ? 0 : -Infinity;
+        factor(f);
+        return x;
+      });
     });
 
+    // Pragmatic Speaker
+    // Choose an utterance by soft-maximizing the tradeoff between informativity
+    // to a hypotheticall literal listener and utterance cost.
     var speaker1 = cache(function(x, theta) {
-      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
+      // If the speaker says nothing, then we could infer any x, no matter
+      // how high theta is. So for each x-theta pair, there's at least one valid
+      // enumeration path, so we don't need an enumeration_wrapper.
+      return Infer({method: "enumerate"}, function() {
         var utterance = sample(utterancePrior);
         var L0 = listener0(utterance, theta);
-        if (L0 == "impossible") {
-          return {value: utterance, factor: -Infinity};
-        } else {
-          var informativity = ( _.includes(L0.support(), x.s) ? L0.score(x.s) : 0 );
-          var f = global_params.alpha1 * informativity;
-          return {value: utterance, factor: f};
-        }
-      }));
+        // Informativity is the score that L0 gives to the true x value.
+        var informativity = (
+          _.includes(L0.support(), x) ?
+          L0.score(x) :
+          -Infinity
+        );
+        // Multiply informativity score by speaker1 rationality.
+        var f = global_params.alpha1 * informativity;
+        factor(f);
+        return utterance;
+      });
     });
 
+    // Pragmatic listener
+    // Infer a value for x (and theta, but marginalize over theta) that's
+    // plausible given the prior price distribution over x and the likelihood
+    // that a hypothetical speaker would have said the true utterance for
+    // different values of x.
     var listener1 = cache(function(utterance) {
-      return enumerate_wrapper(Infer({method: "enumerate"}, function() {
-        var v = sample(jointPrior);
-        var x = v.x;
-        var theta = v.theta;
+      return Infer({method: "enumerate"}, function() {
+        var theta = sample(thetaPrior);
+        var x = sample(statePrior);
         var S1 = speaker1(x, theta);
-        if (S1 == "impossible") {
-          return {value: x.s, factor: -Infinity};
-        } else {
-          var likelihood = ( _.includes(S1.support(), utterance) ? S1.score(utterance) : 0 );
-          return {value: x.s, factor: likelihood};
-        }
-      }));
+        // If x <= theta, there's no chance that the speaker would say
+        // expensive.
+        var likelihood = (
+          _.includes(S1.support(), utterance) ?
+          S1.score(utterance) :
+          -Infinity
+        );
+        factor(likelihood);
+        return x;
+      });
     });
 
     var speaker2 = cache(function(dollar_amount) {
       return Infer({method: "enumerate"}, function() {
         var utterance = sample(utterancePrior);
         var L1 = listener1(utterance);
-        var xbin = utils.find_bin(dollar_amount, bins);
+        var x = utils.find_bin(dollar_amount, bins);
         // if (obj == "laptop") {
         //   display(dollar_amount);
         //   display(xbin);
         // }
-        var informativity = ( _.includes(L1.support(), xbin.s) ? L1.score(xbin.s) : 0 );
+        var informativity = ( _.includes(L1.support(), x) ? L1.score(x) : 0 );
         factor(global_params.alpha2 * informativity);
         return utterance; 
       })
@@ -150,21 +217,21 @@ var concrete_premise_model = function() {
       var concrete_byDollar = _.filter(concrete, {dollar_amount: dollar_amount});
       
       // // Test L0
-      // var L0 = listener0("expensive", bins[0]);
-      // display(L0);
+      // var L0 = listener0("expensive", bins[0].a);
+      // // display(L0);
 
       // // Test S1
-      // var S1 = speaker1(bins[1], bins[0]);
-      // display(S1);
+      // var S1 = speaker1(1, 0);
+      // // display(S1);
 
       // // Test L1
-      // display(listener1("expensive"));
-      // display(listener1("silence"));
+      // listener1("expensive");
+      // // display(listener1("expensive"));
+      // // display(listener1("silence"));
 
       // // Test S2
-      // display(dollar_amount);
+      // // display(dollar_amount);
       // var S2 = speaker2(dollar_amount);
-      // display(S2);
 
       // ERP from utterances to probabilities, given the price of an object,
       // marginalizing over theta
@@ -172,6 +239,7 @@ var concrete_premise_model = function() {
 
       mapData({data: concrete_byDollar}, function(d){
         // for now, assume if > 5, then "YES", other NO
+        // better to compare the likert response to the probability
         var binarizedResponse = (d.response > 5) ? "expensive" : "silence";
         observe(S2, binarizedResponse);
       });

@@ -8,6 +8,9 @@ __cached
 *.RData
 *.Rhistory
 *.DS_Store
+*.Rapp.history
+analysis/*.html
+analysis/*.png
 data/raw_data
 data_summary_*
 data_summary-*
