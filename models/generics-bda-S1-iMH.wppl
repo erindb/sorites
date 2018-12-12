@@ -1,6 +1,23 @@
 // time webppl generics-bda-L0-S1-iMH.wppl --require utils 1
 
-var chain = last(process.argv) // load index as last command line index
+// Load index as last command line input;
+var chain = last(process.argv);
+
+// Justine's give-a-number data.
+var d_giveanumber = dataFrame(
+  utils.readCSV("../data/priors/give-a-number.csv").data
+);
+// Sorites experiment data.
+var d_sorites = dataFrame(
+  utils.readCSV("../data/sorites/sorites.csv").data
+);
+// Unique objects from sorites experiments.
+var objects = levels(d_sorites, "object");
+
+
+
+
+
 
 // penultimate argument is the semantics
 // uncertain = uncertain threshold
@@ -11,6 +28,9 @@ var priorFilePrefix = "prior-3",
     // priorFilePrefix = "prior-manipulation-3",
     interpretationFilePrefix = "interpretation-6",
     endorsementFilePrefix = "endorsement-1";
+
+
+
 
 // expt 2: measured priors
 var d_prior = readDataFile("prior", priorFilePrefix),
@@ -65,6 +85,10 @@ var data = {
   })}, d_endorsement))
 };
 
+
+
+
+
 var utterancePrior = Infer({model: function(){
 	return uniformDraw(["expensive", "silence"])
 }});
@@ -74,10 +98,14 @@ var meaning = function(utt,state, theta) {
          utt=="expensive is false"? state<=theta :
          utt=='silence'? true :
          true
-}
+};
+
+
+
+
 //
 var properties = levels(data.interpretation, "property");
-var prevalence_levels = levels(data.endorsement, "binned_prevalence")
+var prevalence_levels = levels(data.endorsement, "binned_prevalence");
 
 var nullParams = {a:1, b:100}, nullDistribution = Beta(nullParams);
 // properties
@@ -113,9 +141,7 @@ var model = function(){
     // sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
   // };
 
-  // TODO: read this from data
-  var objects = ["laptop"];
-
+  // Iterate over all items in the sorites experiments.
   foreach(objects, function(item) {
 
     // Parameters for lognormal price distributions, different parameters for
@@ -127,7 +153,7 @@ var model = function(){
 
     // State prior is lognormal, params inferred for each object.
     var statePrior = Infer({model: function() {
-      sample(DiscretizedLognormal(item_params))
+      sample(DiscretizedLognormal(item_params));
     }});
 
    //  var propertyData = {
@@ -140,14 +166,13 @@ var model = function(){
    //    function(){ return uniformDrift({a: 0, b: 1, width:0.2}) }
    //  ))
 
-  	// mapData({data: propertyData.prior}, function(d){
-   //    var componentLogLikelihood = map2(function(w, params){
-   //      Math.log(w) + Beta(params).score(d.avoided_endval)
-   //    }, weights, componentParameters)
-   //    var scr = util.logsumexp(componentLogLikelihood)
-   //    scr == -Infinity ? displayObj(d) : null
-  	// 	factor(scr)
-  	// })
+    // Fit give-a-number data for this item
+  	mapData({data: _.filter(d_giveanumber, {"item": item})}, function(d) {
+      var logLikelihood = utils.lognormalScore(d.price, item_params);
+      // Print out datapoint if it's impossible to fit.
+      (logLikelihood == -Infinity ? displayObj(d) : null);
+      factor(logLikelihood);
+  	})
 
    //  foreach(_.range(numberOfComponents), function(i){
 
@@ -235,7 +260,8 @@ var model = function(){
 
 
 // data.endorsement
-var totalIterations = 500, lag =  1;
+var totalIterations = 50, lag =  1;
+// var totalIterations = 500, lag =  1;
 // var totalIterations = 500000, lag =  200;
 var samples = totalIterations/lag, burn = totalIterations / 2;
 

@@ -19,6 +19,7 @@ source("reformatting_data.R")
 df = load_sorites()
 give_a_number = load_give_a_number()
 prior_bins_data = load_priors()
+write.csv(df, "../data/sorites/sorites.csv")
 ```
 
 # Experiments
