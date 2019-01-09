@@ -6,6 +6,7 @@ load_give_a_number = function() {
     select(-X) %>%
     mutate(object = ifelse(item == "coffee.maker", "coffee maker", char(item))) %>%
     select(-item)
+  write.csv(give_a_number, data_dir("/priors/reformatted_give_a_number.csv"));
   return(give_a_number)
 }
 

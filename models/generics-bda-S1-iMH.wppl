@@ -1,22 +1,24 @@
-// time webppl generics-bda-L0-S1-iMH.wppl --require utils 1
+// time webppl generics-bda-S1-iMH.wppl --require utils 1
 
 // Load index as last command line input.
 var chain = last(process.argv);
 
 // Justine's give-a-number data.
 var d_giveanumber = dataFrame(
-  utils.readCSV("../data/priors/give-a-number.csv").data
+  utils.readCSV("../data/priors/reformatted_give_a_number.csv").data
 );
-// Sorites experiment data.
-var d_sorites = dataFrame(
-  utils.readCSV("../data/sorites/sorites.csv").data
-);
-// Unique objects from sorites experiments.
-var objects = levels(d_sorites, "object");
 
 // Focus on this experiment for fitting first.
 // This experiment used a pretty good range of values.
 var expt_id = "07c";
+
+// Sorites experiment data.
+var d_sorites = _.filter(dataFrame(
+  utils.readCSV("../data/sorites/sorites.csv").data
+), {"id": expt_id});
+// Unique objects from sorites experiments.
+var objects = levels(d_sorites, "object");
+
 // Create bins for each item that coordinate well with the experiment design.
 // Keys are "mid", "lower", "upper", and "theta".
 var bins = {
@@ -27,121 +29,61 @@ var bins = {
   "sweater": setup_bins(d_sorites, expt_id, "sweater")
 };
 
+var thetaPriors = {
+  "laptop": Categorical({vs: bins["laptop"]["theta"],
+                         ps: bins["laptop"]["theta_prob"]}),
+  "watch": Categorical({vs: bins["watch"]["theta"],
+                         ps: bins["watch"]["theta_prob"]}),
+  "coffee maker": Categorical({vs: bins["coffee maker"]["theta"],
+                         ps: bins["coffee maker"]["theta_prob"]}),
+  "headphones": Categorical({vs: bins["headphones"]["theta"],
+                         ps: bins["headphones"]["theta_prob"]}),
+  "sweater": Categorical({vs: bins["sweater"]["theta"],
+                         ps: bins["sweater"]["theta_prob"]}),
+}
+
 var bins_filename = "results/bins_" + expt_id + ".json";
 utils.writeJSON(bins, bins_filename);
 display("bins file written to: " + bins_filename);
 
-// // expt 2: measured priors
-// var d_prior = readDataFile("prior", priorFilePrefix),
-//     d_prior_catch = readCatchFile("prior", priorFilePrefix),
-//     d_prior_subj = readSubjFile("prior", priorFilePrefix),
-//     d_interpretation = readDataFile("interpretation", interpretationFilePrefix),
-//     d_interpretation_catch = readCatchFile("interpretation", interpretationFilePrefix),
-//     d_interpretation_subj = readSubjFile("interpretation", interpretationFilePrefix),
-//     d_endorsement = readDataFile("endorsement", endorsementFilePrefix),
-//     d_endorsement_catch = readCatchFile("endorsement", endorsementFilePrefix),
-//     d_endorsement_subj = readSubjFile("endorsement", endorsementFilePrefix);
 
-// // expt 3: Prior manipulation
-// // var d_prior = readDataFile("prior-manipulation", priorFilePrefix),
-// //     d_prior_catch = readCatchFile("prior-manipulation", priorFilePrefix),
-// //     d_prior_subj = readSubjFile("prior-manipulation", priorFilePrefix),
-// //     d_interpretation = readDataFile("prior-manipulation", interpretationFilePrefix),
-// //     d_interpretation_catch = readCatchFile("prior-manipulation", interpretationFilePrefix),
-// //     d_interpretation_subj = readSubjFile("prior-manipulation", interpretationFilePrefix);
+var utterancePrior = Infer({model: function(){
+	return uniformDraw(["expensive", "silence"])
+}});
 
-// var priorWorkeridsPassed = passCatchTrials(d_prior_catch),
-//     interpretationWorkeridsPassed = passCatchTrials(d_interpretation_catch),
-//     endorsementWorkeridsPassed = passCatchTrials(d_endorsement_catch),
-//     priorWorkeridsEnglish = nativeEnglish(d_prior_subj),
-//     interpretationWorkeridsEnglish = nativeEnglish(d_interpretation_subj),
-//     endorsementWorkeridsEnglish = nativeEnglish(d_endorsement_subj);
-
-// var data = {
-// 	prior: filter(function(di){
-//     return ((priorWorkeridsPassed.indexOf(di.workerid) > -1) && 
-//       (priorWorkeridsEnglish.indexOf(di.workerid) > -1) && 
-//       utils.isNumber(di.response) &&
-//       di.trial_type == "prevalence_elicitation")
-//   }, map(function(d){ return extend(d, {
-// 		avoided_endval: avoidEnds(d.response)
-//   })}, d_prior)),
-// 	interpretation: filter(function(di){
-//     return ((interpretationWorkeridsPassed.indexOf(di.workerid) > -1) && 
-//       (interpretationWorkeridsEnglish.indexOf(di.workerid) > -1) && 
-//       utils.isNumber(di.response) &&
-//       di.trial_type == "implied_prevalence")
-//   }, map(function(d){ return extend(d, {
-// 		binnedResponse:  utils.closest( bins["laptop"]["mid"].slice(1), d.response)
-// 	})}, d_interpretation)),
-//   endorsement: filter(function(di){
-//     return ((endorsementWorkeridsPassed.indexOf(di.workerid) > -1) && 
-//       (endorsementWorkeridsEnglish.indexOf(di.workerid) > -1) && 
-//       utils.isNumber(di.response) &&
-//       di.trial_type == "truth_conditions")
-//   }, map(function(d){ return extend(d, {
-//     binned_prevalence:  utils.closest( bins["laptop"]["mid"], d.prevalence_level / 100)
-//   })}, d_endorsement))
-// };
-
-
-
-
-
-// var utterancePrior = Infer({model: function(){
-// 	return uniformDraw(["expensive", "silence"])
-// }});
-
-// var meaning = function(utt,state, theta) {
-//   return utt=="expensive"? state > theta :
-//          utt=="expensive is false"? state<=theta :
-//          utt=='silence'? true :
-//          true
-// };
-
-
-
-
-// //
-// var properties = levels(data.interpretation, "property");
-// var prevalence_levels = levels(data.endorsement, "binned_prevalence");
-
-// var nullParams = {a:1, b:100}, nullDistribution = Beta(nullParams);
-// // properties
-
-// // var addNoise = function(dist, noise){
-// //   return Infer({model: function(){
-// //     return flip(noise) ? uniformDraw(midBins) : sample(dist)
-// //   }})
-// // }
-
-// // var fixedThreshold = (semantics == "some") ?_.min( thetaBins) :
-// //   (semantics == "most") ? 0.5 :
-// //   false
+var meaning = function(utt,state, theta) {
+  return utt=="expensive"? state > theta :
+         utt=="expensive is false"? state<=theta :
+         utt=='silence'? true :
+         true
+};
 
 var model = function(){
 
   // Prior parameters
-  // var ALPHA1MAX = 10; // maximum rationality for speaker1
+  var ALPHA1MAX = 10; // maximum rationality for speaker1
   // var ALPHA2MAX = 5; // maximum rationality for speaker2
   // var COSTMAX = 5; // maximum cost of the expensive utterance
   var MUMAX = 10; // maximum mu for lognormal price distributions
   var SIGMAX = 3; // maximum sigma for lognormal price distributions
   // var SIGBINMAX = 0.5; // for interpreting likert scale responses
 
-  // // Infer global params across all participants and all objects.
-  // // var global_params = {
-  //   // // rationality for speaker1
-  //   // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
-  // var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
-  //   // // cost of expensive utterance
-  //   // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
-  //   // standard deviation for bins responses
-  //   // sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
-  // // };
+  // Infer global params across all participants and all objects.
+  // var global_params = {
+    // // rationality for speaker1
+    // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
+  var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
+    // // cost of expensive utterance
+    // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
+    // standard deviation for bins responses
+    // sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
+  // var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.5});
+  // };
 
   // Iterate over all items in the sorites experiments.
   foreach(objects, function(item) {
+
+    var dollar_amounts = levels(d_sorites, "dollar_amount");
 
     // Parameters for lognormal price distributions, different parameters for
     // each object.
@@ -150,118 +92,70 @@ var model = function(){
       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
     };
 
+    var item_giveanumber = _.filter(d_giveanumber, {"object": item});
+
     // Fit lognormal parameters to give-a-number data.
     // Factor by likelihood of sampled responses from give-a-number task.
-    mapData({data: d_giveanumber}, function(d) {
-      // Assume log of price is normally distributed, so use lognormal density
-      // function.
-      factor(utils.lognormalScore(d.price, item_params));
+    mapData(
+      {data: item_giveanumber},
+      function(d) {
+        // Assume log of price is normally distributed, so use lognormal density
+        // function.
+        factor(utils.lognormalScore(d.price, item_params));
+      }
+    );
+
+    // State prior is lognormal, params inferred for each object.
+    var statePrior = Infer({model: function() {
+      sample(DiscretizedLognormal(item_params, bins[item]));
+    }});
+
+    // Theta prob is computed at the outer level based on the bin widths.
+    var thetaPrior = thetaPriors[item];
+
+  	/// RSA model
+  	var listener0 = cache(function(utterance) {
+  	  Infer({model: function(){
+  	    var state = sample(statePrior);
+        var theta = sample(thetaPrior);
+  	    var m = meaning(utterance, state, theta)
+  	    condition(m)
+  	    return state
+  	}})}, 10000)
+
+    var speaker1 = function(state) {
+      Infer({model: function(){
+        var utterance = sample(utterancePrior);
+        var L0 = listener0(utterance);
+        factor(speakerOptimality * L0.score(state))
+        return utterance == "expensive" ? 1 : 0
+      }})
+    };
+
+    foreach(statePrior.support(), function(mid) {
+      var dollar_amount = bins[item]["dollar_amount_lookups"][mid];
+      // TODO this should be the corresponding bin mid to this dollar_amount
+      var endorsement = speaker1(mid);
+      var endorsement_prob = Math.exp(endorsement.score(1));
+      var likert_sample = binomial({p: endorsement_prob, n: 9});
+      // Iterate through responses.
+      mapData(
+        {data: _.filter(
+          d_sorites, {"object": item, dollar_amount: dollar_amount}
+        )},
+        function(d){
+          observe(likert_sample, (utils.float(d.response)))
+        });
+      query.add(["endorsement", dollar_amount, "S1", item], likert_sample);
     });
-
-//     // State prior is lognormal, params inferred for each object.
-//     var statePrior = Infer({model: function() {
-//       sample(DiscretizedLognormal(item_params, bins[item]));
-//     }});
-
-//     var midBins = bins[item]["mid"];
-//     // TODO: update theta
-//     var thetaPrior = Categorical({
-//               vs: bins[item]["theta"],
-//               ps: map2(function(b1, b2){
-//                 return utils.betaCDF(b2, {a:1,b:1}) -
-//                 utils.betaCDF(b1, {a:1,b:1})
-//               }, midBins.slice(0, midBins.length-1),
-//                 midBins.slice(1))
-//       })
-
-//    //  var propertyData = {
-//    //      prior: _.filter(data.prior, {property: item}),
-//    //      interpretation: _.filter(data.interpretation, {property: item}),
-//    //      endorsement: _.filter(data.endorsement, {property: item})
-//    //  };
-
-//    //  var weights = normalize(repeat(numberOfComponents,
-//    //    function(){ return uniformDrift({a: 0, b: 1, width:0.2}) }
-//    //  ))
-
-//    //  foreach(_.range(numberOfComponents), function(i){
-
-//    //    query.add(["componentParameters", item, i, "weight"],
-//    //      weights[i]
-//    //    )
-//    //    query.add(["componentParameters", item, i, "alpha"],
-//    //      componentParameters[i]["a"]
-//    //    )
-
-//    //    query.add(["componentParameters", item, i, "beta"],
-//    //      componentParameters[i]["b"]
-//    //    )
-
-//    //  })
-
-//   	// var statePrior = Infer({model: function(){
-//    //    sample(DiscretizedBeta(componentParameters[discrete(weights)]))
-//   	// }});
-
-//   	/// RSA model
-//   	var listener0 = cache(function(utterance) {
-//   	  Infer({model: function(){
-//   	    var state = sample(statePrior);
-//         var theta = sample(thetaPrior);
-//   	    var m = meaning(utterance, state, theta)
-//   	    condition(m)
-//   	    return state
-//   	 }})}, 10000)
-
-//   var interpretationPrediction = listener0("expensive")
-
-//    // mapData({data:propertyData.interpretation}, function(d){
-//    //   // display(d)
-//    //   var scr = interpretationPrediction.score(d.binnedResponse)
-//    //   scr == -Infinity ? displayObj(d) : null
-//    //   // display(scr)
-//    //   observe(interpretationPrediction, d.binnedResponse)
-//    // })
-
-//    // var supp = interpretationPrediction.support()
-
-//    // foreach(supp, function(s){
-//    //   query.add(["prediction", item, "postDist", s], Math.exp(interpretationPrediction.score(s)))
-//    // })
-
-//   var speaker1 = function(state) {
-//   Infer({model: function(){
-//     var utterance = sample(utterancePrior);
-//     var L0 = listener0(utterance);
-//     factor(speakerOptimality * L0.score(state))
-//     return utterance == "expensive" ? 1 : 0
-//   }})}
-
-
-//   foreach(prevalence_levels, function(p){
-
-//     // var endorsementData = _.filter(propertyData.endorsement, {binned_prevalence: p})
-//     var endorsement = speaker1(p)
-
-//     // mapData({data:endorsementData}, function(d){
-//     //   // display(d)
-//     //   var scr = endorsement.score(d.response)
-//     //   scr == -Infinity ? displayObj(d) : null
-//     //   // display(scr)
-//     //   observe(endorsement, d.response)
-//     // })
-
-
-//     // query.add(["endorsement", item, -99, p], Math.exp(endorsement.score(1)))
-
-//   })
 
     query.add(["param", "mu", "price_prior", item], item_params.mu);
     query.add(["param", "sigma", "price_prior", item], item_params.sigma);
-  })
+  });
 
-  // // RECORD PARAMETERS
-  // query.add(["speakerOptimality"], speakerOptimality)
+  // RECORD PARAMETERS
+  query.add(["param", "speakerOptimality", "global", "NA"], speakerOptimality);
+  // query.add(["param", "sigbin", "global", "NA"], sigbin)
 
 	return query
 }
@@ -270,9 +164,27 @@ var model = function(){
 // data.endorsement
 // var totalIterations = 50, lag =  1;
 // var totalIterations = 500, lag =  1;
+
+// // For *just* fitting lognormal params to give a number data:
+// //   - Takes 8s
+// //   - Fits give a number data well
+// // Adding setup of discrete priors and listener0, it takes 10s.
+// // (Actually computing listener0 takes 13s.)
+// // Setting up every function up to S1 takes 12s.
+// // Adding dollar_amounts and an empty foreach takes 12s.
+// // Actually running S1 to get endorsements takes 28s.
+// // And observing the endorsement with mapData takes 1m.
+// // And recording endorsements takes about 1m.
 // var totalIterations = 5000, lag =  10;
-// var totalIterations = 50000, lag =  10;
-var totalIterations = 500000, lag =  200;
+
+// For *just* fitting lognormal params to give a number data, takes 40s.
+// For the whole shebang with one experiment: 
+var totalIterations = 50000, lag =  10;
+
+// // 71m
+// var totalIterations = 500000, lag =  10;
+// // var totalIterations = 500000, lag =  200;
+
 var samples = totalIterations/lag, burn = totalIterations / 2;
 
 var outfile = 'results-genint-S1-endorsePrediction-int6-prior3-3Components_'+totalIterations+'_burn'+burn+'_lag'+lag+'_chain'+chain+'.csv'

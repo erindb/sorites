@@ -22,18 +22,18 @@ give_a_number = load_give_a_number() %>%
 df %>% filter(id=="07c", qtype=="concrete") %>%
   .$object %>%
   unique
+range(df$response)
 ```
 
 Bins are shown divided by vertical lines. The midpoints of the bins, used as the value, appear in black. The thetas, which appear at the boundaries of the bins, are shown in grey. The height of the bars represent the probability that theta will fall between each pair of midpoints.
 
 ```{r}
-library(rjson)
 rename_list = function(lst, name, new_name) {
   lst[[new_name]] = lst[[name]]
   lst[[name]] = NULL
   return(lst)
 }
-bins = fromJSON("../models/results/bins_07c.json") %>%
+bins = RJSONIO::fromJSON("../models/results/bins_07c.json") %>%
   rename_list("coffee maker", "coffee_maker") %>%
   as.data.frame() %>%
   gather() %>%
@@ -56,8 +56,21 @@ bins %>%
   facet_wrap(~object, scales="free")
 ```
 
+Linking function for likert scale will be binomial with parameter equal to the endorsement probability.
 
-```{r, fig.height=1, fig.width=5}
+```{r}
+#likert
+expand.grid(e = seq(0.1, 0.9, 0.1),
+            r = seq(0, 9, 1)) %>%
+  mutate(p = dbinom(r, 9, e)) %>%
+  ggplot() +
+  aes(x=r, y=p) +
+  facet_wrap(~e) +
+  geom_bar(stat="identity")
+```
+
+
+```{r, fig.height=2, fig.width=10}
 give_a_number %>%
   ggplot() +
   aes(x=price, color=src) +
@@ -71,33 +84,97 @@ model_results_file = "../models/results/results-genint-S1-endorsePrediction-int6
 rs = read.csv(model_results_file,
               col.names = c("result_type", "variable",
                             "result_category", "object",
-                            "value", "probability"))
+                            "value", "probability")) %>%
+  filter(result_category == "price_prior") %>%
+  group_by(result_type, variable, result_category, object) %>%
+  mutate(sample = 1:length(value)) %>%
+  ungroup()
 ```
 
-There's a problem with these parameter histograms, I think. They're bimodal and they didn't use to be in the previous version of the model.
-
-```{r}
+```{r, fig.height=4, fig.width=10}
 rs %>%
   ggplot() +
   aes(x=value) +
-  geom_histogram() +
-  facet_wrap(~object, scales = "free")
+  geom_histogram(bins=30) +
+  facet_wrap(variable~object, ncol = 5, scales = "free")
 ```
 
 
 ```{r}
-rs %>%
+posterior_prices = rs %>%
   filter(result_type == "param",
          result_category == "price_prior") %>%
-  spread(label, value) %>%
+  spread(variable, value) %>%
   rowwise() %>%
-  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-         price = exp(log_price),
+  mutate(price = rlnorm(1, mean=mu, sd = sigma),
          src = "model")
 ```
 
-```{r}
-rs %>% %>%
+```{r, fig.height=2, fig.width=11}
+posterior_prices %>%
+  mutate(object = char(object)) %>%
+  select(price, object, src) %>%
+  rbind(give_a_number %>%
+          mutate(object = char(object))) %>%
+  group_by(object, src) %>%
+  filter(price < quantile(price, 0.95)) %>%
+  ungroup() %>%
+  ggplot() +
+  aes(x=price, color=src) +
+  stat_ecdf(geom="step", size=1) +
+  facet_wrap(~object, scales="free", ncol=5) +
+  scale_colour_solarized()
+ggsave("posterior_prices.pdf", width=20, height=4)
 ```
 
+```{r, fig.height=3, fig.width=10}
+df %>%
+  filter(qtype=="concrete",
+         id=="07c") %>%
+  ggplot() +
+  aes(x=dollar_amount, y=response) +
+  geom_point(alpha=0.05) +
+  stat_summary(fun.data = mean_cl_boot, geom="pointrange") +
+  facet_wrap(~object, scales="free", ncol = 5)
+```
+
+
+```{r}
+model_results_file = "../models/results/results-genint-S1-endorsePrediction-int6-prior3-3Components_5000_burn2500_lag10_chain3.csv"
+rs = read.csv(model_results_file,
+              col.names = c("result_type", "dollar_amount",
+                            "result_category", "object",
+                            "value", "probability")) %>%
+  filter(result_category == "S1") %>%
+  group_by(result_type, dollar_amount, result_category, object) %>%
+  mutate(sample = 1:length(value)) %>%
+  ungroup() %>%
+  mutate(dollar_amount = num(dollar_amount))
+
+get_expectation = function(values, probabilities) {
+  return(data.frame(y=mu, ymin=mu, ymax=mu))
+}
+expectation = rs %>%
+  group_by(dollar_amount, object) %>%
+  do(get_expectation(.$value, .$probability)) %>%
+  mutate(src="model") %>%
+  rbind(df %>%
+          filter(qtype=="concrete",
+                 id=="07c") %>%
+          group_by(dollar_amount, object) %>%
+          do(mean_cl_boot(.$response)) %>%
+          mutate(src="data")) %>%
+  gather(variable, value, -c(dollar_amount, object, src)) %>%
+  unite(tmp, src, variable) %>%
+  spread(tmp, value) %>%
+  mutate(price = factor(dollar_amount))
+expectation %>%
+  ggplot() +
+  aes(x=model_y,
+      y=data_y, ymin=data_ymin, ymax=data_ymax,
+      colour=price) +
+  # geom_abline(slope = 1, intercept = 0, alpha=0.2) +
+  geom_pointrange() +
+  scale_color_solarized()
+```
 
