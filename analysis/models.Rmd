@@ -1,0 +1,440 @@
+---
+  title: "Sorites Model Fits"
+author: "Erin Bennett"
+output:
+  pdf_document: default
+html_document:
+  df_print: paged
+header-includes:
+  - \usepackage{tikz}
+- \usetikzlibrary{bayesnet}
+- \usepackage{amsmath}
+- \usepackage[makeroom]{cancel}
+---
+
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
+
+```{r load (and reformat) data}
+source("utils.R")
+source("reformatting_data.R")
+df = load_sorites(T)
+give_a_number = load_give_a_number(T)
+prior_bins_data = load_priors(T)
+```
+
+# Model
+
+## Definitions
+
+* $w_i$ := width of histogram bins for item $i$
+  * $x_i$ := sample in give a number trial
+* $P_{ib}$ := true probability of bin $b$ for item $i$
+  * $d_{ib}$ := slider rating for bin $b$ for item $i$
+  * $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
+  * $S2(C_{iv})$ := RSA S2(expensive) for item $i$
+  * $s^I_{i\varepsilon}$ := binarization of likert rating for inductive premise for item $i$ and epsilon $\varepsilon$
+  * $s^C_{iv}$ := binarization of likert rating for concrete premise for item $i$ and value $v$
+  * $\alpha^I_2$ := speaker rationality for S1 for inductive premise
+
+## Diagram
+
+\tikz{
+  \node[latent,] (mu) {$\mu_i$};
+  \node[latent, right=of mu] (sig) {$\sigma_i$};
+
+  \node[above=of mu] (mumax) {$\mu^{max}$};
+  \node[above=of sig] (sigmax) {$\sigma^{max}$};
+
+  \node[latent, right=4cm of sigmax] (sigbin) {$\sigma_{bin}$};
+  \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
+  \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
+  \node[right=of alpha2max, xshift=2cm] (costmax) {$c_{max}$};
+
+  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
+  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
+
+  \node[obs, left=of pbin] (giveanum) {$x_{i}$};
+
+  \node[latent, below=of costmax] (cost) {$c$};
+  \node[latent, below=of alpha1max] (alpha2C) {$\alpha_{2}^{C}$};
+  \node[latent, below=of alpha2max] (alpha1I) {$\alpha_{1}^{I}$};
+  \node[latent, left=of alpha2C] (alpha1C) {$\alpha_{1}^{C}$};
+  \node[latent, right=of alpha1I] (alpha2I) {$\alpha_{2}^{I}$};
+
+  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S2(C_{iv})$};
+  \node[latent, right=of s2concrete] (s2inductive) {$S2(I_{i\varepsilon})$};
+
+  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
+  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
+
+  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
+
+  \edge {mumax} {mu}
+  \edge {sigmax} {sig}
+  \edge {mu, sig} {pbin}
+  \edge {mu, sig} {giveanum}
+  \edge {pbin, sigbin} {dbin}
+  \edge {pbin} {s2inductive, s2concrete}
+  \edge {s2inductive} {sI}
+  \edge {s2concrete} {sC}
+  \edge {alpha1I, alpha2I} {s2inductive}
+  \edge {alpha1C, alpha2C} {s2concrete}
+  \edge {alpha1max} {alpha1C, alpha1I}
+  \edge {alpha2max} {alpha2C, alpha2I}
+  \edge {cost} {s2concrete, s2inductive}
+  \edge {costmax} {cost}
+  \edge {sigbinmax} {sigbin}
+
+  \plate {bin} {
+    (pbin) (dbin)
+  } {$b\in{Bins_i}$};
+  \plate {epsilon} {
+    (s2inductive) (sI)
+  } {$\varepsilon \in Epsilons$};
+  \plate {value} {
+    (s2concrete) (sC)
+  } {$v \in Values$};
+  \plate {item} {
+    (mu) (sig)
+    (giveanum)
+    (bin.south east)
+    (epsilon.south east)
+    (value.south east)
+    (s2inductive) (s2concrete)
+  } {$i\in{Objects}$};
+}
+
+## Distributions/Functions/Values:
+
+Experiment design parameters:
+
+  * $Objects$
+  * $Bins$
+  * $Epsilons$
+  * $Values$
+
+  Assumed model parameters:
+
+  * $\mu^{max}$ = 20
+* $\sigma^{max}$ = 5
+* $\sigma_{binned\ hist}$ = ??
+  * $\alpha_1^{max}$ = 20
+* $\alpha_2^{max}$ = 5
+* $\sigma_{bin}^{max}$ = 5
+
+Inferred Latent variables:
+
+  * $\mu_i \sim \mathcal{U}\{0, \mu^{max}\}$
+  * $\sigma_i \sim \mathcal{U}\{0, \sigma^{max}\}$
+  * $\alpha_1^I \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+  * $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+  * $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
+  * $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
+  * $\sigma_{bin} \sim \mathcal{U}\{0, \sigma_{bin}^{max}\}$
+  * $P_{ib} = \int_{LB_{ib}}^{UB_{ib}} \varphi(\ln(t)|\mu_i, \sigma_i) dt$
+
+  Observations from experimental data:
+
+  * $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{bin})$
+  * $\ln(x_i) \sim \mathcal{N}(\mu_i, \sigma_i)$
+  * $s_{iv}^C$
+  * $s_{i\varepsilon}^I$
+
+  # Model fit
+
+  ## Give a Number ~ Log Normal
+
+  \tikz{
+    \node[latent,] (mu) {$\mu_i$};
+    \node[latent, right=of mu] (sig) {$\sigma_i$};
+
+    \node[above=of mu] (mumax) {$\mu^{max}$};
+    \node[above=of sig] (sigmax) {$\sigma^{max}$};
+
+    \node[obs] (giveanum) {$x_{i}$};
+
+    \edge {mumax} {mu}
+    \edge {sigmax} {sig}
+    \edge {mu, sig} {giveanum}
+
+    \plate {item} {
+      (mu) (sig)
+      (giveanum)
+    } {$i\in{Objects}$};
+  }
+
+Model fit for Give a Number as log normal using Incremental MH.
+
+```{r, echo = T}
+iterations = 5000
+burn = iterations/2
+lag = 10
+```
+
+```{r}
+RUN_MODEL = F
+if (RUN_MODEL) {
+  raw_rs = webppl(
+    program_file = model_dir("bda_give_a_number.wppl"),
+    inference_opts = list(method="incrementalMH",
+                          samples=iterations,
+                          burn=burn,
+                          verbose = T,
+                          verboseLag = iterations*lag / 10,
+                          lag=lag),
+    model_var = "give_a_number_model",
+    data_var = "ARGS",
+    packages = c(model_dir("/node_modules/utils/")),
+    data = list(give_a_number = give_a_number)
+  )
+  rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
+    select(-Parameter) %>%
+    mutate(dollar_amount = num(dollar_amount))
+  write.csv(rs,
+            cache_dir(paste("give_a_number_model_cache", iterations, ".csv", sep="")),
+            row.names = F)
+} else {
+  rs = read.csv(cache_dir(paste("give_a_number_model_cache", iterations, ".csv", sep="")))
+}
+give_a_number_fit = rs
+```
+
+```{r, fig.width=10, fig.height=2}
+give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+  # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, color=src)) +
+  stat_ecdf(geom="step") +
+  facet_wrap(~object, scales="free", ncol=5)+
+  xlim(0, 1000)
+ggsave("images/give_a_number_fit.png", width=10, height=2)
+```
+
+```{r, fig.width=10, fig.height=4}
+give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+  # group_by(Iteration, label, object) %>%
+  #summarise(value = mean(value)) %>%
+  spread(label, value) %>%
+  rowwise() %>%
+  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+         price = exp(log_price),
+         src = "model") %>%
+  as.data.frame %>%
+  select(price, object, src) %>%
+  rbind(., (give_a_number %>% mutate(src="data"))) %>%
+  as.data.frame %>%
+  ggplot(., aes(x=price, fill=src)) +
+  geom_histogram(bins=30)+
+  facet_wrap(src~object, scales="free", ncol=5)+
+  xlim(0, 1000)
+ggsave("images/give_a_number_fit2.png", width=10, height=4)
+```
+
+```{r, fig.width=7, fig.height=5}
+give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+  ggplot(., aes(x=value)) +
+  geom_histogram(bins=30) +
+  facet_wrap(label~object, scales="free")
+ggsave("images/give_a_number_params.png", width=7, height=5)
+```
+
+## Concrete Premise ~ lifted L1
+
+I'm discretizing into bins independently and when price $x$ and threshold $\theta$ are in the same bin, I'm using a `flip()` to decide whether $x \leq \theta$ or $theta < x$. This isn't quite right, since the shape of the $x$ distribution on the interval affects the proportion of the time that $theta < x$. But it's an approximation that works pretty well and shouldn't mess anything up too much. I spent a lot of time thinking about the true joint distribution in `discretization.html` but ultimately this version, with `flip`, is the one that generated these results.
+
+```{r params, echo = T}
+iterations = 1000
+burn = iterations/2
+lag = 10
+```
+
+```{r run.concrete.model}
+RUN_MODEL = F
+output_filename = paste("concrete_model_cache", iterations, ".csv", sep="")
+if (RUN_MODEL) {
+start_time = Sys.time()
+raw_rs = webppl(
+program_file = model_dir("bda_concrete_bins.wppl"),
+inference_opts = list(method="incrementalMH",
+samples=iterations,
+burn=burn,
+verbose = T,
+verboseLag = lag * iterations / 10,
+lag=lag),
+model_var = "concrete_premise_model",
+data_var = "ARGS",
+packages = model_dir("node_modules/utils/"),
+data = list(priorbins = prior_bins_data,
+sorites = select(df, qtype, dollar_amount, object, response),
+give_a_number = give_a_number)
+)
+end_time = Sys.time()
+print(end_time - start_time)
+rs = raw_rs %>%
+filter(!is.na(value)) %>%
+separate(Parameter,
+c("type", "label", "dollar_amount", "object"),
+sep="\t")
+write.csv(rs, cache_dir(output_filename), row.names = F)
+} else {
+rs = read.csv(cache_dir(output_filename))
+}
+concrete_premise_fit = rs %>%
+mutate(dollar_amount = as.numeric(dollar_amount))
+concrete_premise_fit %>% group_by(dollar_amount) %>%
+filter(type == "concrete") %>%
+filter(object == "laptop") %>% summarise(value = mean(value))
+```
+
+```{r}
+concrete_premise_fit = rs %>%
+  mutate(dollar_amount = as.numeric(dollar_amount))
+concrete_premise_fit %>% group_by(dollar_amount) %>%
+  filter(type == "concrete") %>%
+  filter(object == "laptop") %>% summarise(value = mean(value))
+  # filter(type == "concrete") %>%
+  # filter(object == "laptop") %>% summarise(dollar_amount = dollar_amount[1])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+memoized `listener1` and `listener1_score`, 500 iterations, lag 10:
+
+```{r}
+RUN_CONCRETE_AGG = T
+if (RUN_CONCRETE_AGG) {
+concrete_model_agg = concrete_premise_fit %>% filter(type=="concrete") %>%
+group_by(object, dollar_amount) %>%
+summarise(low = ci.low(value),
+high = ci.high(value),
+value = mean(value))
+write.csv(concrete_model_agg,
+paste(".concrete_model_agg_cache", iterations, ".csv", sep=""),
+row.names = F)
+} else {
+concrete_model_agg = read.csv(paste(".concrete_model_agg_cache", iterations, ".csv", sep=""))
+}
+opacity = 0.5
+concrete_model_agg %>%
+ggplot(., aes(x=dollar_amount, y=value)) +
+geom_line(alpha=opacity) +
+geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+facet_wrap(~object, scales="free")
+# unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
+ggsave("images/concrete_fit2.png", height=5, width=8)
+```
+
+```{r}
+concrete_model_agg %>%
+select(object, dollar_amount, low, high, value) %>%
+rename(model = value,
+model_low = low,
+model_high = high) %>%
+as.data.frame() %>%
+merge(., df %>%
+filter(qtype=="concrete") %>%
+mutate(response = (response-1)/8) %>%
+group_by(object, dollar_amount) %>%
+summarise(
+data_low = ci.low(response),
+data_high = ci.high(response),
+data = mean(response)) %>%
+ungroup() %>%
+as.data.frame(), by=c("object", "dollar_amount")) %>%
+ggplot(., aes(x=model, xmin=model_low, xmax=model_high,
+y=data, ymin=data_low, ymax=data_high, colour=object)) +
+geom_abline(intercept = 0, slope = 1, colour="gray") +
+geom_point(alpha=opacity) +
+ylim(0,1) +
+xlim(0,1) +
+geom_errorbar(alpha=opacity) +
+geom_errorbarh(alpha=opacity)
+ggsave("images/concrete_fit3.png", width=4, height=3)
+
+# library(coda)
+# estimate_mode <- function(s) {
+#   d <- density(s)
+#   return(d$x[which.max(d$y)])
+# }
+# HPDhi<- function(s){
+#   m <- HPDinterval(mcmc(s))
+#   return(m["var1","upper"])
+# }
+# HPDlo<- function(s){
+#   m <- HPDinterval(mcmc(s))
+#   return(m["var1","lower"])
+# }
+```
+
+
+
+```{r, fig.width=10, fig.height=2}
+concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+# group_by(Iteration, label, object) %>%
+#summarise(value = mean(value)) %>%
+spread(label, value) %>%
+rowwise() %>%
+mutate(log_price = rnorm(1, mean = mu, sd = sigma),
+price = exp(log_price),
+src = "model") %>%
+as.data.frame %>%
+select(price, object, src) %>%
+rbind(., (give_a_number %>% mutate(src="data"))) %>%
+as.data.frame %>%
+ggplot(., aes(x=price, color=src)) +
+stat_ecdf(geom="step") +
+facet_wrap(~object, scales="free", ncol=5)+
+xlim(0, 1000)
+ggsave("images/concrete_fit_priors.png", width=10, height=2)
+```
+
+<!-- ### Questions
+
+1. concrete -> inductive and inductive -> concrete
+- if you don't have a constrained way to get from priors to posteriors, then you will overfit (bayes factor)
+2. priors -> threshold distributions
+-
+
+  * If we lesion data from the model can we infer it?
+  * Is there a regression to compare to?
+  * Can we argue that RSA is necessary?
+  * What other thresholds could be used?
+  - quantiles
+* priors + rsa arrrrrrrow posteriors to fit data
+* stone model not from priors -->
+
+
+```{r, fig.width=7, fig.height=5}
+concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
+  ggplot(., aes(x=value)) +
+  geom_histogram(bins=30) +
+  facet_wrap(label~object, scales="free")
+ggsave("images/concrete_params.png", width=7, height=5)
+```

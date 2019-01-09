@@ -1,0 +1,255 @@
+---
+title: "Discretization"
+author: "Erin Bennett"
+date: "11/8/2018"
+output: html_document
+header-includes:
+- \usepackage{amsmath}
+- \usepackage[makeroom]{cancel}
+---
+
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+approx = function(a,b) {
+  abs(a/b - 1) < 0.00000001
+}
+```
+
+
+# Binning vs Analytic Distribution for Priors
+
+## Sorites priors
+
+Prior distributions on prices are well-fit by a log-normal distribution.
+The concrete premise is "An X that costs \$$x$ is expensive."
+For this premise, we infer a price $x$ and a threshod $\theta$.
+The inductive premise is "An X that costs \$$\varepsilon$ less than an expensive X is expensive."
+For this premise, I think we basically end up inferring a price $x$ for the first object, then seeing how likey we'd be to infer a price $x-\varepsilon$ if we were told "expensive" vs. if we were told nothing. Then we sort of marginalize over that inferred price $x$. Something like:
+
+$S2_I = \int_x L1(x | u)S2_C(u|x-\varepsilon)dx$
+
+And I don't know if there's one $\theta$ inferred jointly here or if it's separately marginalized over for the $L1$ and the $S2$. But either way, conceptually, all we really care about are three variables:
+
+* $x$ := the price of the first X
+* $x' = x-\varepsilon$ := the price of the second X
+* $\theta$ := the threshold
+
+We know the relationship between $x$ and $x'$ and we can assume they share the same underlying distribution of prics.
+We don't know the relationship between the two prices and $\theta$, but $\theta$ is distributed uniformly over some range.
+
+If we infer everything jointly, we'll need a joint distribution that accounts for all the relationships between the variables.
+If we infer the prices separately, we could marginalize the joint distribution over all three variables to get a joint distribution of just two of them.
+That is, we could marginalize over $x'$ to get a joint distribution of $x$ and $\theta$ and use that distribution for the concrete premise, and we could marginalize over $x$ to get a joint distribution of $x'$ and $\theta$, using that distribution for the inductive premise.
+
+So we can discretize the joint distribution over $x$, $x'$, and $\theta$ in such a way that we account for all possible relationships between variables.
+
+Let's assume prices for X fall in a standard lognormal distribution:
+
+```{r, fig.width=3, fig.height=2}
+x = seq(0, 4, 0.01)
+density = dlnorm(x)
+ggplot(NULL, aes(x=x, y=density)) +
+  geom_line()
+```
+
+Given cutoffs for $x$ at 0.5, 1, and 2, we can discretize a standard lognormal distribution into 4 bins $(0,0.5]$, $(0.5, 1]$, $(1, 2]$, and $(2, \infty)$ with probabilities:
+
+$P((a,b]) =\int_{x=a}^b P(x) dx$
+
+```{r, fig.width=3, fig.height=2}
+cutoffs = c(0, 0.5, 1.5, 2.5, 3.75)
+# cutoffs = c(0, 1, 2, 3, 4)
+# cutoffs = c(0, 0.1, 0.2, 0.5, 1, 1.2, 1.5, 2, 2.5, 3, 4)
+x = paste(paste("(", cutoffs, ",", sep=""),
+      c(paste(cutoffs[2:length(cutoffs)], "]", sep=""), "inf)"))
+x_probability = c(plnorm(cutoffs[2:length(cutoffs)]), 1) - plnorm(cutoffs)
+ggplot(NULL, aes(x=x, y=x_probability)) +
+  geom_bar(stat="identity")
+```
+
+For the concrete premise, we'll need a join distribution over $x$ and $\theta$.
+When we discretize, we really only care which of the four ranges $x$ and $\theta$ are each in, but if they fall in the same range, then we want to know whether $\theta < x$ or $x \leq \theta$.
+
+```{r}
+ranges = paste(paste("(", cutoffs, ",", sep=""),
+               c(paste(cutoffs[2:length(cutoffs)], "]", sep=""), "inf)"))
+df = expand.grid(x=ranges, theta=ranges, dir=c("theta x", "x theta")) %>%
+  filter(x==theta | dir == "theta x") %>%
+  mutate(dir = factor(ifelse(x==theta, as.character(dir), NA)))
+```
+
+If $x$ and $\theta$ appear in different regions, we just take the product of the probabilities of the values falling in those regions.
+
+$$P(x \in (a,b] \mbox{ AND } \theta \in (a', b']) =
+\left(\Phi(\ln(b)) - \Phi(\ln(a)) \right)
+\left(\frac{b'-a'}{\theta_{\max} - \theta_{\min}}\right)$$
+
+But if they appear in the same region, we need the probability of falling in those regions AND the relationship. Let $t = \ln(x)$. Let $B = \min(\theta_{\max}, b)$. If $x \leq \theta$,
+
+$$\begin{aligned}
+P(x,\theta \in (a,b] \mbox{ AND } x < \theta)
+  =& \int_{\ln(a)}^{\ln(B)} \phi_{\mu,\sigma}(t)
+    \int_{e^t}^{B} \frac{1}{Z_\theta} d\theta dt \\
+  =& \frac{B}{Z_\theta} \int_{\ln(a)}^{\ln(B)} \phi_{\mu,\sigma}(t)dt -
+    \frac{1}{Z_\theta} \int_{\ln(a)}^{\ln(B)} e^t \phi_{\mu,\sigma}(t)dt \\
+  =& \frac{B}{Z_\theta}\left[\Phi_{\mu, \sigma}(t)\right]_{\ln(a)}^{\ln(B)} -
+    \frac{1}{Z_\theta} e^{\frac{1}{2}\sigma^2 + \mu}
+    \left[\Phi_{(\sigma^2+\mu), \sigma}(t)\right]_{\ln(a)}^{\ln(B)}  \\
+\end{aligned}$$
+
+If $\theta<x$ and $b \leq \theta_{\max}$,
+
+$$\begin{aligned}
+P(x,\theta \in (a,b] \mbox{ AND } \theta < x)
+  =& \int_{\ln(a)}^{\ln(b)} \phi_{\mu,\sigma}(t)
+    \int_a^{e^t} \frac{1}{Z_\theta} d\theta dt \\
+  =& \frac{1}{Z_\theta} \int_{\ln(a)}^{\ln(b)} e^t \phi_{\mu,\sigma}(t)dt -
+    \frac{a}{Z_\theta} \int_{\ln(a)}^{\ln(b)} \phi_{\mu,\sigma}(t)dt \\
+  =& \frac{1}{Z_\theta}e^{\frac{1}{2}\sigma^2 + \mu}\left[\Phi_{(\sigma^2+\mu), \sigma}(t)\right]_{\ln(a)}^{\ln(b)} - \frac{a}{Z_\theta}\left[\Phi_{\mu, \sigma}(t)\right]_{\ln(a)}^{\ln(b)}
+\end{aligned}$$
+
+Or, if $\theta<x$ and $\theta_{\max} < b$,
+
+$$
+\begin{aligned}
+P(x,\theta \in (a,b] \mbox{ AND } \theta < x)
+  =& \int_{\ln(a)}^{\ln(\theta_{\max})} \phi_{\mu,\sigma}(t)
+    \int_a^{e^t} \frac{1}{Z_\theta} d\theta dt + 
+    \int_{\ln(\theta_{\max})}^{\ln(b)} \phi_{\mu,\sigma}(t)
+    \int_{a}^{\theta_{\max}} \frac{1}{Z_\theta} d\theta dt \\
+  =& \frac{1}{Z_\theta}e^{\frac{1}{2}\sigma^2 + \mu}
+    \left[\Phi_{(\sigma^2+\mu), \sigma}(t)\right]_{\ln(a)}^{\ln(b)} -
+    \frac{a}{Z_\theta}
+    \left[\Phi_{\mu, \sigma}(t)\right]_{\ln(a)}^{\ln(b)} + 
+    \frac{\theta_{\max} - a}{Z_\theta}
+    \left[\Phi_{\mu, \sigma}(t)\right]_{\ln(\theta_{\max})}^{\ln(b)}
+\end{aligned}
+$$
+
+```{r}
+max_theta = 1.5*max(cutoffs)
+min_theta = 0
+theta_Z = max_theta - min_theta
+
+get_cutoffs = function(bin, max_value = NA, min_value = NA) {
+  bin = as.character(bin)
+  numbers = substr(bin, start=2, stop=nchar(bin)-1) %>%
+    strsplit(., ", ") %>%
+    unlist() %>%
+    as.numeric()
+  if (!is.na(max_value)) {
+    numbers[2] = min(max_value, numbers[2])
+  }
+  if (!is.na(min_value)) {
+    numbers[1] = max(min_value, numbers[1])
+  }
+  return(numbers)
+}
+get_probability = function(xbin, thetabin, dir=NA) {
+  x_cutoffs = get_cutoffs(xbin)
+  theta_cutoffs = get_cutoffs(thetabin, max_value = max_theta, min_value = min_theta)
+  if (xbin == thetabin) {
+    a = x_cutoffs[1]
+    b = x_cutoffs[2]
+    # if (FALSE) {
+    if (dir == "theta x") {
+      if (b > max_theta) {
+        return(
+          (1/theta_Z)*(exp(0.5))*(pnorm(log(max_theta), 1) - pnorm(log(a), 1)) -
+            (a/theta_Z)*(pnorm(log(max_theta)) - pnorm(log(a))) +
+            ((max_theta-a)/theta_Z)*(pnorm(log(b)) - pnorm(log(max_theta)))
+        )
+      } else {
+        return(
+          (1/theta_Z)*(
+            (exp(0.5)*(pnorm(log(b), mean=1) - pnorm(log(a), mean=1))) -
+              (a*(pnorm(log(b)) - pnorm(log(a))))
+          )
+        )
+      }
+    } else {
+      if (b > max_theta) {
+        return(
+          (max_theta/theta_Z)*(pnorm(log(max_theta)) - pnorm(log(a))) -
+            (1/theta_Z)*exp(0.5)*(pnorm(log(max_theta), 1) - pnorm(log(a), 1))
+        )
+      } else {
+        return(
+          (b/theta_Z)*(pnorm(log(b)) - pnorm(log(a))) -
+            (1/theta_Z)*exp(0.5)*(pnorm(log(b), 1) - pnorm(log(a), 1))
+        )
+      }
+    }
+  } else {
+    x_prob = diff(sapply(x_cutoffs, plnorm))
+    theta_prob = diff(theta_cutoffs) / theta_Z
+    return(theta_prob*x_prob)
+  }
+}
+
+df = df %>%
+  mutate(probability = mapply(get_probability, x, theta, dir))
+```
+
+
+
+
+
+```{r}
+tf = read.csv("test.csv", header=F, col.names = c("x", "theta", "dir", "wppl_prob")) %>%
+  mutate(dir = as.character(ifelse(dir == "theta < x", "theta x", "x theta"))) %>%
+  mutate(x = ifelse(x=="(3.75, Infinity)", "(3.75, inf)", as.character(x))) %>%
+  mutate(theta = ifelse(theta=="(3.75, Infinity)", "(3.75, inf)", as.character(theta)))
+with(
+  merge(tf, df %>% mutate(dir = as.character(dir)),
+        by=c("x", "theta", "dir")),
+  stopifnot(mean(approx(probability, wppl_prob))==1))
+```
+
+
+
+
+```{r}
+df %>%
+  filter(x!=theta) %>%
+  ggplot(., aes(x=theta, y=x, fill=probability)) +
+  geom_tile(colour="white", lwd=1) +
+  geom_tile(data=(df %>% filter(x==theta)),
+            aes(x=theta, y=x, fill=probability, group=dir),
+            width=1,
+            height=1,
+            colour="white",
+            lwd=1,
+            position=position_dodge(1)) +
+  scale_fill_gradient(low="#333333", high="#bbbbbb") +
+  theme_few() +
+  ggtitle("Joint of x and theta")
+```
+```{r}
+marginal_x = df %>% group_by(x) %>% summarise(probability = sum(probability))
+stopifnot(mean(approx(marginal_x$probability, x_probability))==1)
+```
+
+```{r, fig.width=3, fig.height=2}
+marginal_x %>%
+  ggplot(., aes(x=x, y=probability)) + geom_bar(stat="identity")
+```
+
+```{r, fig.width=3, fig.height=2}
+df %>% group_by(theta) %>% summarise(probability = sum(probability)) %>%
+  ggplot(., aes(x=theta, y=probability)) + geom_bar(stat="identity")
+```
+
+
+
+helpful links from MH:
+* https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.wppl
+* https://github.com/mhtess/generic-interpretation/blob/master/models/node_modules/utils/utils.js
