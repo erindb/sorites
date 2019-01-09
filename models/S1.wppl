@@ -118,34 +118,22 @@ var model = function(){
       }
     );
 
-    // foreach(experiment_ids, function(expt_id) {
+    foreach(experiment_ids, function(expt_id) {
 
-      var jointPrior = DiscretizedJointUnifLognormal(
-        item_params,
-        bins[item][expt_id]
-      );
-      // var s = sample(DiscretizedJointUnifLognormal(item_params, bins[item][expt_id]));
-      // var lst = JSON.parse(s);
-      // var x = lst[0];
-      // var theta = lst[1];
+      // // State prior is lognormal, params inferred for each object.
+      // var statePrior = Infer({model: function() {
+      //   sample(DiscretizedLognormal(item_params, bins[item][expt_id]));
+      // }});
+      var statePrior = DiscretizedLognormal(item_params, bins[item][expt_id]);
 
-      // // // State prior is lognormal, params inferred for each object.
-      // // var statePrior = Infer({model: function() {
-      // //   sample(DiscretizedLognormal(item_params, bins[item][expt_id]));
-      // // }});
-      // var statePrior = DiscretizedLognormal(item_params, bins[item][expt_id]);
-
-      // // Theta prob is computed at the outer level based on the bin widths.
-      // var thetaPrior = thetaPriors[item][expt_id];
+      // Theta prob is computed at the outer level based on the bin widths.
+      var thetaPrior = thetaPriors[item][expt_id];
 
     	/// RSA model
     	var listener0 = cache(function(utterance) {
     	  Infer({model: function(){
-          var s = sample(jointPrior);
-          var state = s[0];
-          var theta = s[1];
-    	    // var state = sample(statePrior);
-         //  var theta = sample(thetaPrior);
+    	    var state = sample(statePrior);
+          var theta = sample(thetaPrior);
     	    var m = meaning(utterance, state, theta)
     	    condition(m)
     	    return state
@@ -178,7 +166,7 @@ var model = function(){
         query.add(["S1", dollar_amount, expt_id, item], endorsement_prob);
       });
 
-    // })
+    })
 
     query.add(["price_prior", "mu", "NA", item], item_params.mu);
     query.add(["price_prior", "sigma", "NA", item], item_params.sigma);
@@ -234,7 +222,7 @@ var totalIterations = 5000, lag =  10;
 
 var samples = totalIterations/lag, burn = totalIterations / 2;
 
-var outfile = 'results-genint-S1-endorsePrediction-int6-prior3-3Components_'+totalIterations+'_burn'+burn+'_lag'+lag+'_chain'+chain+'.csv'
+var outfile = 'results-S1-'+totalIterations+'_burn'+burn+'_lag'+lag+'_chain'+chain+'.csv'
 
 var posterior = Infer({
   model: model,
