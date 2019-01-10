@@ -80,16 +80,17 @@ give_a_number %>%
 ```
 
 ```{r}
-model_results_file = "../models/results/results-genint-S1-endorsePrediction-int6-prior3-3Components_5000_burn2500_lag10_chain1.csv"
+model_results_file = "../models/results/results-genint-S1-endorsePrediction-int6-prior3-3Components_5000_burn2500_lag10_chain10.csv"
 rs = read.csv(model_results_file,
               col.names = c("result_type", "variable",
                             "result_category", "object",
                             "value", "probability")) %>%
-  filter(result_category == "price_prior") %>%
+  filter(result_type == "price_prior") %>%
   group_by(result_type, variable, result_category, object) %>%
   mutate(sample = 1:length(value)) %>%
   ungroup()
 ```
+
 
 ```{r, fig.height=4, fig.width=10}
 rs %>%
@@ -102,8 +103,7 @@ rs %>%
 
 ```{r}
 posterior_prices = rs %>%
-  filter(result_type == "param",
-         result_category == "price_prior") %>%
+  filter(result_type == "price_prior") %>%
   spread(variable, value) %>%
   rowwise() %>%
   mutate(price = rlnorm(1, mean=mu, sd = sigma),
@@ -122,7 +122,8 @@ posterior_prices %>%
   ggplot() +
   aes(x=price, color=src) +
   stat_ecdf(geom="step", size=1) +
-  facet_wrap(~object, scales="free", ncol=5) +
+  facet_wrap(~object, #scales="free", 
+             ncol=5) +
   scale_colour_solarized()
 ggsave("posterior_prices.pdf", width=20, height=4)
 ```
@@ -140,41 +141,59 @@ df %>%
 
 
 ```{r}
-model_results_file = "../models/results/results-genint-S1-endorsePrediction-int6-prior3-3Components_5000_burn2500_lag10_chain3.csv"
+model_results_file = "../models/results/results-S1-5000_burn2500_lag10_chain11.csv"
 rs = read.csv(model_results_file,
               col.names = c("result_type", "dollar_amount",
-                            "result_category", "object",
-                            "value", "probability")) %>%
-  filter(result_category == "S1") %>%
-  group_by(result_type, dollar_amount, result_category, object) %>%
+                            "expt_id", "object",
+                            "value", "probability"),
+              stringsAsFactors = F) %>%
+  filter(result_type == "S1") %>%
+  group_by(result_type, dollar_amount, expt_id, object) %>%
   mutate(sample = 1:length(value)) %>%
   ungroup() %>%
   mutate(dollar_amount = num(dollar_amount))
 
 get_expectation = function(values, probabilities) {
+  mu = sum(values*probabilities)
   return(data.frame(y=mu, ymin=mu, ymax=mu))
 }
 expectation = rs %>%
-  group_by(dollar_amount, object) %>%
+  group_by(dollar_amount, object, expt_id) %>%
   do(get_expectation(.$value, .$probability)) %>%
   mutate(src="model") %>%
   rbind(df %>%
-          filter(qtype=="concrete",
-                 id=="07c") %>%
-          group_by(dollar_amount, object) %>%
-          do(mean_cl_boot(.$response)) %>%
+          filter(qtype=="concrete") %>%
+          group_by(dollar_amount, id, object) %>%
+          rename(expt_id = id) %>%
+          do(mean_cl_boot(.$response/9)) %>%
           mutate(src="data")) %>%
-  gather(variable, value, -c(dollar_amount, object, src)) %>%
+  gather(variable, value, c(y, ymin, ymax)) %>%
   unite(tmp, src, variable) %>%
-  spread(tmp, value) %>%
-  mutate(price = factor(dollar_amount))
+  spread(tmp, value)
 expectation %>%
   ggplot() +
   aes(x=model_y,
       y=data_y, ymin=data_ymin, ymax=data_ymax,
-      colour=price) +
-  # geom_abline(slope = 1, intercept = 0, alpha=0.2) +
+      colour=object) +
+  geom_abline(slope = 1, intercept = 0, alpha=0.2) +
   geom_pointrange() +
-  scale_color_solarized()
+  scale_colour_solarized()
+# ggsave("all_expts_simple_discretization_concrete.png", width=5, height=3) #chain2
+# ggsave("all_expts_simple_discretization_concrete_filtered.png", width=5, height=3) #chain2
+# ggsave("exp07c_simple_discretization_concrete.png", width=5, height=3) #chain3
+# ggsave("exp07c_4xprecision_discretization_concrete.png", width=5, height=3) #chain3
+# ggsave("exp07c_8xprecision_discretization_concrete.png", width=5, height=3) #chain3
+with(expectation, cor(model_y, data_y))^2
+```
+
+```{r}
+model_results_file = "../models/results/results-genint-S1-endorsePrediction-int6-prior3-3Components_5000_burn2500_lag10_chain8.csv"
+read.csv(model_results_file,
+              col.names = c("result_type", "variable",
+                            "result_category", "object",
+                            "value", "probability")) %>%
+  filter(variable == "speakerOptimality") %>%
+  .$value %>%
+  mean()
 ```
 
