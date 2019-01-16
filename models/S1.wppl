@@ -1,16 +1,34 @@
-// time webppl generics-bda-S1-iMH.wppl --require utils 1
+// time webppl S1.wppl --require utils 1 --fit_giveanumber
 
 // Load index as last command line input.
 var chain = last(process.argv);
+
+var fit_giveanumber = utils.get_flag("--fit_giveanumber");
+
+var fit_concrete = utils.get_flag("--fit_concrete");
+
+var fit_inductive = utils.get_flag("--fit_inductive");
+
+display(fit_giveanumber);
 
 // Justine's give-a-number data.
 var d_giveanumber = dataFrame(
   utils.readCSV("../data/priors/reformatted_give_a_number.csv").data
 );
 
-// Focus on this experiment for fitting first.
-// This experiment used a pretty good range of values.
-var expt_id = "07c";
+var remove_endpoints = function(x) {
+  if (x<=0) {
+    return 0.00001;
+  } else if (x >= 1) {
+    return 0.99999;
+  } else {
+    return x;
+  }
+}
+
+// // Focus on this experiment for fitting first.
+// // This experiment used a pretty good range of values.
+// var expt_id = "07c";
 
 // Sorites experiment data.
 var d_sorites = _.filter(dataFrame(
@@ -21,19 +39,9 @@ var objects = levels(d_sorites, "object");
 var experiment_ids = levels(d_sorites, "id");
 
 // Create bins for each item that coordinate well with the experiment design.
-// display(_.fromPairs(map(function(item){
-//   return (item, setup_bins(d_sorites, expt_id, item))
-// }, objects)));
 var bins = _.fromPairs(map(function(item){
   return [item, setup_bins(d_sorites, experiment_ids, item)]
 }, objects));
-// var bins = {
-//   "laptop": setup_bins(d_sorites, expt_id, "laptop"),
-//   "watch": setup_bins(d_sorites, expt_id, "watch"),
-//   "coffee maker": setup_bins(d_sorites, expt_id, "coffee maker"),
-//   "headphones": setup_bins(d_sorites, expt_id, "headphones"),
-//   "sweater": setup_bins(d_sorites, expt_id, "sweater")
-// };
 
 var thetaPriors = _.fromPairs(map(function(item) {
   return [item, _.fromPairs(map(function(id) {
@@ -43,19 +51,6 @@ var thetaPriors = _.fromPairs(map(function(item) {
     })];
   }, experiment_ids))];
 }, objects));
-
-// var thetaPriors = {
-//   "laptop": Categorical({vs: bins["laptop"]["theta"],
-//                          ps: bins["laptop"]["theta_prob"]}),
-//   "watch": Categorical({vs: bins["watch"]["theta"],
-//                          ps: bins["watch"]["theta_prob"]}),
-//   "coffee maker": Categorical({vs: bins["coffee maker"]["theta"],
-//                          ps: bins["coffee maker"]["theta_prob"]}),
-//   "headphones": Categorical({vs: bins["headphones"]["theta"],
-//                          ps: bins["headphones"]["theta_prob"]}),
-//   "sweater": Categorical({vs: bins["sweater"]["theta"],
-//                          ps: bins["sweater"]["theta_prob"]}),
-// }
 
 var bins_filename = "results/bins.json";
 utils.writeJSON(bins, bins_filename);
@@ -107,16 +102,18 @@ var model = function(){
 
     var item_giveanumber = _.filter(d_giveanumber, {"object": item});
 
-    // Fit lognormal parameters to give-a-number data.
-    // Factor by likelihood of sampled responses from give-a-number task.
-    mapData(
-      {data: item_giveanumber},
-      function(d) {
-        // Assume log of price is normally distributed, so use lognormal density
-        // function.
-        factor(utils.lognormalScore(d.price, item_params));
-      }
-    );
+    if (fit_giveanumber) {
+      // Fit lognormal parameters to give-a-number data.
+      // Factor by likelihood of sampled responses from give-a-number task.
+      mapData(
+        {data: item_giveanumber},
+        function(d) {
+          // Assume log of price is normally distributed, so use lognormal density
+          // function.
+          factor(utils.lognormalScore(d.price, item_params));
+        }
+      );
+    }
 
     foreach(experiment_ids, function(expt_id) {
 
@@ -130,14 +127,21 @@ var model = function(){
       var thetaPrior = thetaPriors[item][expt_id];
 
     	/// RSA model
-    	var listener0 = cache(function(utterance) {
+    	var listener0_with_theta = cache(function(utterance) {
     	  Infer({model: function(){
     	    var state = sample(statePrior);
           var theta = sample(thetaPrior);
-    	    var m = meaning(utterance, state, theta)
-    	    condition(m)
-    	    return state
-    	}})}, 10000)
+    	    var m = meaning(utterance, state, theta);
+    	    condition(m);
+    	    return {state: state, theta: theta};
+      }})}, 10000);
+
+      var listener0 = cache(function(utterance) {
+        Infer({model: function() {
+          var rs = sample(listener0_with_theta(utterance));
+          var state = rs.state;
+          return state;
+      }})}, 10000)
 
       var speaker1 = function(state) {
         Infer({model: function(){
@@ -158,12 +162,60 @@ var model = function(){
         var endorsement_prob = Math.exp(endorsement.score(1));
         var likert_dist = Binomial({p: endorsement_prob, n: 9});
         // Iterate through responses.
-        mapData(
-          {data: _.filter(d_expt_obj, {"dollar_amount": dollar_amount})},
-          function(d){
-            observe(likert_dist, (utils.float(d.response)))
-          });
+
+        if (fit_concrete) {
+          mapData(
+            {data: _.filter(d_expt_obj, {"dollar_amount": dollar_amount})},
+            function(d){
+              observe(likert_dist, (utils.float(d.response)))
+            }
+          );
+        }
+
         query.add(["S1", dollar_amount, expt_id, item], endorsement_prob);
+      });
+
+      // Expected probabiity that x-eps > theta given the L0 posterior on x and theta.
+      var inductive_l0 = function(epsilon) {
+        return expectation(listener0_with_theta("expensive"), function(interpretation) {
+          var x = interpretation.state;
+          // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
+          var theta_mid = interpretation.theta;
+          var theta_bin = bins[item][expt_id]["theta_lookups"][theta_mid];
+          var theta_lower = theta_bin.lower;
+          var theta_upper = theta_bin.upper;
+          var theta_prob = theta_upper-theta_lower;
+          var new_price = x-epsilon;
+          if (new_price < theta_lower) {
+            return 0;
+          } if (new_price > theta_upper) {
+            return 1;
+          } else {
+            var inductive_prob = new_price - theta_lower;
+            return inductive_prob/theta_prob;
+          }
+        });
+      };
+
+      var ind_expt_obj = _.filter(d_sorites,
+        {"object": item, "id": expt_id, "qtype": "inductive"});
+      var epsilons = levels(ind_expt_obj, "dollar_amount");
+      foreach(epsilons, function(dollar_amount) {
+        var epsilon = utils.float(dollar_amount);
+        var inductive_endorsement = inductive_l0(epsilon);
+        var ind_likert_dist = Binomial({p: remove_endpoints(inductive_endorsement), n: 9});
+
+        if (fit_inductive) {
+          mapData(
+            {data: _.filter(ind_expt_obj, {"dollar_amount": dollar_amount})},
+            function(d){
+              observe(ind_likert_dist, (utils.float(d.response)))
+            }
+          );
+        }
+
+        query.add(["Inductive", epsilon, expt_id, item], inductive_endorsement);
+
       });
 
     })
@@ -222,7 +274,17 @@ var totalIterations = 5000, lag =  10;
 
 var samples = totalIterations/lag, burn = totalIterations / 2;
 
-var outfile = 'results-S1-'+totalIterations+'_burn'+burn+'_lag'+lag+'_chain'+chain+'.csv'
+var outfile = (
+  'results-S1-'+
+  totalIterations+
+  '_burn'+burn+
+  '_lag'+lag+
+  '_chain'+chain+
+  (fit_concrete ? "_concrete" : "") +
+  (fit_giveanumber ? "_giveanumber" : "") +
+  (fit_inductive ? "_inductive" : "") +
+  '.csv'
+);
 
 var posterior = Infer({
   model: model,

@@ -1,0 +1,260 @@
+---
+title: "Sorites Models"
+author: "Erin Bennett"
+header-includes:
+   - \usepackage{tikz}
+   - \usetikzlibrary{bayesnet}
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
+
+```{r load_experiment_data_and_libraries}
+source("utils.R")
+source("reformatting_data.R")
+source("plot_model_results.R")
+df = load_sorites()
+give_a_number = load_give_a_number() %>%
+  mutate(src = "data")
+```
+
+The adjectives model, used for the concrete premise relies on a prior distribution of prices for each object.
+
+## Log-normal priors
+
+```{r, fig.width=10, fig.height=2}
+prior_giveanumber = plot_priors("../models/results/results-S1-5000_burn2500_lag10_giveanumber_chain1.csv")
+print(prior_giveanumber$p)
+```
+
+
+Prior prices (as measured by Justine's give_a_number experiment) are well fit by a log-normal distribution. The empirical CDFs are highly correlated ($R^2 = `r round(prior_giveanumber[["R_squared"]], 3)`$).
+
+
+## Discretization
+
+As discussed in `data_summary.html`, there were different prices used in the designs for different experiments. Since the range of prices is so wide, and since some prices are very close together, it would be difficult to create a discretization that works for every dollar amount used across all experiments. Because of this, I have implemented a separate discretization for each experiment.
+
+The discretization works by creating a set of bins (not necessarily of equal width) such that each price in the experiment falls into a unique bin. There must also be bins below the lowest price's bin and above the highest price's bin. The probability of each bin is computed from the cdf: `prob_bin = pnorm(upper_boundary) - pnorm(lower_boundary)`. The probability of theta falling between prices from adjacent bins depends on the widths of those bins (and also the cdf, but I'm ignoring that for now).
+
+Here's an example of a discretization for experiment labeled "07c".
+
+Bins are shown divided by vertical lines. The midpoints of the bins, used as the value, appear in black. The thetas, which appear at the boundaries of the bins, are shown in grey. The height of the bars represent the probability that theta will fall between each pair of midpoints.
+
+```{r discretization, fig.width=10, fig.height=2}
+print(plot_bins())
+```
+
+## Likert responses
+
+For a linking function from S1 endorsement probabilities to Likert scale responses, I use a binomial with parameter equal to the endorsement probability. So for endorsement probability 0.7, the expected distribution of Likert responses would be
+
+```{r likert, fig.width=3, fig.height=1.75}
+expand.grid(e = seq(0.1, 0.9, 0.1),
+            r = seq(0, 9, 1)) %>%
+  mutate(p = dbinom(r, 9, e)) %>%
+  filter(abs(e - 0.7) < 0.001) %>%
+  ggplot() +
+  aes(x=r, y=p) +
+  ylab("probability") +
+  xlab("response") +
+  # facet_wrap(~e) +
+  geom_bar(stat="identity")
+```
+
+
+## Concrete premise
+
+```{r, fig.height=2, fig.width=10}
+concrete_concrete = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain1_concrete.csv")
+# print(concrete_concrete$plot_responses)
+```
+
+```{r}
+# print(concrete_concrete$plot_correlation)
+```
+
+Fitting just to concrete data, $R^2 = `r round(concrete_concrete[["R_squared"]], 3)`$.
+
+```{r}
+concrete_concrete_giveanumber = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_giveanumber.csv")
+```
+
+Additionally fitting to giveanumber data, $R^2 = `r round(concrete_concrete_giveanumber[["R_squared"]], 3)`$.
+
+```{r, fig.height=2, fig.width=10}
+print(concrete_concrete_giveanumber$plot_responses)
+```
+
+```{r}
+print(concrete_concrete_giveanumber$plot_correlation)
+```
+
+```{r}
+concrete_giveanumber = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain1_giveanumber.csv")
+```
+
+<!-- *Only* fitting to giveanumber data, $R^2 = `r round(concrete_giveanumber[["R_squared"]], 3)`$. -->
+
+```{r, fig.height=2, fig.width=10}
+# print(concrete_giveanumber$plot_responses)
+```
+
+```{r}
+# print(concrete_giveanumber$plot_correlation)
+```
+
+
+```{r, fig.width=10, fig.height=2}
+prior_concrete = plot_priors("../models/results/results-S1-5000_burn2500_lag10_chain1_concrete.csv")
+# print(prior_concrete$p)
+```
+
+Fitting to the concrete premise only, the fit to the *prior* price distributions in the giveanumber experiment is $R^2 = `r round(prior_concrete[["R_squared"]], 3)`$.
+
+```{r}
+# question: does prior fit get worse over time? (hypothesis: prices are changing over time for these items)
+```
+
+## Inductive
+
+Now to model the indutive premise...
+
+```{r}
+inductive = df %>%
+  filter(qtype=="inductive") %>%
+  select(id, object, dollar_amount, response) %>%
+  rename(expt_id = id) %>%
+  group_by(expt_id, dollar_amount, object) %>%
+  do(mean_cl_boot(.$response/9)) %>%
+  ungroup() %>%
+  mutate(src = "data")
+
+epsilons = inductive %>%
+  group_by(expt_id, object, dollar_amount) %>%
+  summarise()
+```
+
+```{r}
+inductive %>%
+    ggplot() +
+    aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
+    geom_pointrange() +
+    facet_wrap(~object, scale="free_x", ncol = 5) +
+    ylim(0, 1) +
+    scale_colour_solarized()
+```
+
+As a first pass, I'm just taking the expectation over L0 of the inductive premise being true.
+
+```{r}
+model_results_file = "../models/results/results-S1-5000_burn2500_lag10_chain5_concrete_giveanumber_inductive.csv"
+
+l0_comparison = read.csv(model_results_file,
+                  col.names = c("result_type", "dollar_amount",
+                                "expt_id", "object",
+                                "value", "probability")) %>%
+  filter(result_type == "Inductive") %>%
+  group_by(expt_id, object, dollar_amount) %>%
+  do(quantile_errorbars(.$value)) %>%
+  ungroup() %>%
+  mutate(dollar_amount = num(dollar_amount)) %>%
+  mutate(src="model") %>%
+  rbind(inductive)
+```
+
+```{r}
+l0_comparison %>%
+    ggplot() +
+    aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
+    geom_pointrange() +
+    facet_wrap(~object, scale="free_x", ncol = 5) +
+    ylim(0, 1) +
+    scale_colour_solarized()
+```
+
+```{r}
+R_squared = l0_comparison %>%
+  select(-c(ymin, ymax)) %>%
+  spread(src, y) %>%
+  lm(data~model, data=.) %>%
+  summary() %>%
+  .$r.squared
+```
+
+
+
+  plot_correlation = concrete_comparison %>%
+    gather("var", "val", c(y, ymin, ymax)) %>%
+    unite("tmp", src, var, sep=".") %>%
+    spread(tmp, val) %>%
+    ggplot() +
+    aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
+        y=data.y, ymin=data.ymin, ymax=data.ymax) +
+    ylab("Data") +
+    xlab("Model") +
+    geom_abline(slope = 1, intercept = 0, alpha=0.2) +
+    geom_pointrange() +
+    geom_errorbarh()
+
+
+
+```{r}
+concrete_concrete_giveanumber_inductive = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain5_concrete_giveanumber_inductive.csv")
+```
+
+Additionally fitting to giveanumber data, $R^2 = `r round(concrete_concrete_giveanumber_inductive[["R_squared"]], 3)`$.
+
+```{r, fig.height=2, fig.width=10}
+print(concrete_concrete_giveanumber_inductive$plot_responses)
+```
+
+```{r}
+print(concrete_concrete_giveanumber_inductive$plot_correlation)
+```
+
+```{r}
+full_concrete_giveanumber_inductive_comparison = rbind(concrete_concrete_giveanumber_inductive$concrete_comparison %>% mutate(qtype = "concrete"),
+l0_comparison %>% mutate(qtype = "inductive"))
+full_concrete_giveanumber_inductive_comparison %>%
+    gather("var", "val", c(y, ymin, ymax)) %>%
+    unite("tmp", src, var, sep=".") %>%
+    spread(tmp, val) %>%
+    ggplot() +
+    aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
+        y=data.y, ymin=data.ymin, ymax=data.ymax,
+        colour=qtype) +
+    ylab("Data") +
+    xlab("Model") +
+    geom_abline(slope = 1, intercept = 0, alpha=0.2) +
+    geom_errorbarh() +
+    geom_pointrange() +
+  scale_color_solarized()
+ggsave("bda_correlations.png")
+```
+
+```{r}
+full_concrete_giveanumber_inductive_comparison %>%
+  select(-c(ymin, ymax)) %>%
+  spread(src, y) %>%
+  lm(data~model, data=.) %>%
+  summary() %>%
+  .$r.squared
+```
+
+
+
+```{r}
+full_concrete_giveanumber_inductive_comparison %>%
+    ggplot() +
+    aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
+    geom_pointrange() +
+    facet_wrap(qtype~object, scale="free_x", ncol = 5) +
+    ylim(0, 1) +
+    scale_colour_solarized()
+ggsave("bda_data.png", width=10, height=5)
+```
