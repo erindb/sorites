@@ -16,7 +16,12 @@ model_dir = function(path) {
 }
 
 char = as.character
-num = function(v) {return(as.numeric(as.character(v)))}
+num = function(v) {
+  v = ifelse(is.na(v), NA, char(v))
+  v = ifelse(v=="infty", "Inf", v)
+  v = as.numeric(v)
+  return(v)
+}
 
 theme.new = theme_set(theme_few(12))
 

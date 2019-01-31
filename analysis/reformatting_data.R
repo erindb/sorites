@@ -128,71 +128,77 @@ load_sorites = function() {
   return(df)
 }
 
+transform_upper_bounds = function(uppers) {
+  numeric_uppers = num(uppers[uppers != "infty"])
+  highest_ub = max(numeric_uppers)
+  next_highest_ub = max(numeric_uppers[numeric_uppers!=highest_ub])
+  return(ifelse(uppers=="infty",
+                highest_ub + (highest_ub - next_highest_ub),
+                uppers) %>% num)
+}
+
+process_bins_data = function(filename) {
+  raw_exp = read.csv(filename, stringsAsFactors = F)
+  exp = raw_exp %>% filter(Answer.cond!="split") %>%
+    gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
+  if ("Answer.35" %in% names(raw_exp)) {
+    exp_split = raw_exp %>% filter(Answer.cond=="split") %>%
+      gather("question", "responses", contains("Answer"))
+    exp = rbind(exp, exp_split)
+  }
+  list_data = mapply(
+    function(response, question, workerid, #a5, a6, a7, a8, a9,
+             condition) {
+      # char(a5) %>% fromJSON # we also collected a max price
+      rs = response %>% fromJSON %>% as.data.frame %>%
+        mutate(workerid = workerid,
+               condition = condition[[1]])
+      rs = rs %>% mutate(bin = 1:nrow(rs))
+      if ("lower" %in% names(rs)) {
+        rs = rs %>% mutate(lowers = num(lower)) %>% select(-lower)
+      }
+      if ("upper" %in% names(rs)) {
+        rs = rs %>% mutate(uppers = num(upper)) %>% select(-upper)
+      }
+      if ("response" %in% names(rs)) {
+        rs = rs %>% rename(responses = response)
+      }
+      rs = rs %>% mutate(uppers = num(uppers))
+      return(rs)
+    },
+    exp$responses, exp$question, exp$workerid,
+    # exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
+    exp$Answer.cond,
+    SIMPLIFY=F)
+  df = do.call(rbind, list_data) %>%
+    group_by(item) %>%
+    mutate(
+      UB = transform_upper_bounds(num(uppers)),
+      LB = num(lowers),
+      width = UB-LB,
+      rating = num(responses)) %>%
+    ungroup() %>%
+    select(workerid, item, bin, UB, LB, rating, condition) %>%
+    as.data.frame
+  row.names(df) = 1:nrow(df)
+  return(df)
+}
+
 load_priors = function() {
-  transform_upper_bounds = function(uppers) {
-    numeric_uppers = num(uppers[uppers != "infty"])
-    highest_ub = max(numeric_uppers)
-    next_highest_ub = max(numeric_uppers[numeric_uppers!=highest_ub])
-    return(ifelse(uppers=="infty",
-                  highest_ub + (highest_ub - next_highest_ub),
-                  uppers) %>% num)
-  }
-  process_bins_data = function(filename) {
-    raw_exp = read.csv(filename, stringsAsFactors = F)
-    exp = raw_exp %>% filter(Answer.cond!="split") %>%
-      gather("question", "responses", c(Answer.1, Answer.2, Answer.3, Answer.4))
-    if ("Answer.35" %in% names(raw_exp)) {
-      exp_split = raw_exp %>% filter(Answer.cond=="split") %>%
-        gather("question", "responses", contains("Answer"))
-      exp = rbind(exp, exp_split)
-    }
-    list_data = mapply(
-      function(response, question, workerid, a5, a6, a7, a8, a9, condition) {
-        # char(a5) %>% fromJSON # we also collected a max price
-        rs = response %>% fromJSON %>% as.data.frame %>%
-          mutate(workerid = workerid,
-                 condition = condition[[1]])
-        rs = rs %>% mutate(bin = 1:nrow(rs))
-        if ("lower" %in% names(rs)) {
-          rs = rs %>% rename(lowers = lower)
-        }
-        if ("upper" %in% names(rs)) {
-          rs = rs %>% rename(uppers = upper)
-        }
-        if ("response" %in% names(rs)) {
-          rs = rs %>% rename(responses = response)
-        }
-        return(rs)
-      },
-      exp$responses, exp$question, exp$workerid,
-      exp$Answer.5, exp$Answer.6, exp$Answer.7, exp$Answer.8, exp$Answer.9,
-      exp$Answer.cond,
-      SIMPLIFY=F)
-    df = do.call(rbind, list_data) %>%
-      group_by(item) %>%
-      mutate(
-        UB = transform_upper_bounds(uppers),
-        LB = num(lowers),
-        width = UB-LB,
-        rating = num(responses)/sum(num(responses))) %>%
-      ungroup() %>%
-      select(workerid, item, bin, UB, LB, rating, condition) %>%
-      as.data.frame
-    row.names(df) = 1:nrow(df)
-    return(df)
-  }
   df3 = process_bins_data(data_dir("/priors/data_exp03_2013_12_03_05.csv")) %>% mutate(exp="03")
   df4 = process_bins_data(data_dir("/priors/data_exp03_2013_12_03_05.csv")) %>% mutate(exp="04")
   df5 = process_bins_data(data_dir("/priors/data_exp05_2013_12_04_15.csv")) %>% mutate(exp="05")
   df6 = process_bins_data(data_dir("/priors/data_exp06_2013_12_04.csv")) %>% mutate(exp="06")
   df8 = process_bins_data(data_dir("/priors/data_exp08_2014_01_31_11.csv")) %>% mutate(exp="08")
-  prior_bins_data = do.call(rbind, list(df3, df4, df5, df6, df8)) %>% as.data.frame %>%
+  df12 = process_bins_data(data_dir("/priors/data_exp12_2015_04_08.csv")) %>% mutate(exp="12")
+  prior_bins_data = do.call(rbind, list(df3, df4, df5, df6, df8, df12)) %>% as.data.frame %>%
     mutate(exp = factor(exp),
            condition = factor(ifelse(condition=="\"split\"", "split", "original"))) %>%
     group_by(workerid, item, exp, condition) %>%
     mutate(
       slider_total = sum(rating),
       normed_rating = ifelse(slider_total==0, 0, rating / slider_total)) %>%
-    ungroup %>% as.data.frame
-  return (prior_bins_data);
+    ungroup %>% as.data.frame %>% rename(object = item)
+  write_csv(prior_bins_data, data_dir("/priors/reformatted_bins.csv"))
+  return (prior_bins_data)
 }

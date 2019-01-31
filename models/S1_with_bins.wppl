@@ -1,7 +1,12 @@
-// time webppl S1.wppl --require utils --fit_giveanumber 1
+// time webppl S1_with_bins.wppl --require utils --fit_giveanumber 1
 
 // Load index as last command line input.
 var chain = last(process.argv);
+
+var ignore_last_bin = true;
+
+// var rating_type = "rating";
+var rating_type = "normed_rating";
 
 var fit_giveanumber = utils.get_flag("--fit_giveanumber");
 
@@ -9,60 +14,63 @@ var fit_concrete = utils.get_flag("--fit_concrete");
 
 var fit_inductive = utils.get_flag("--fit_inductive");
 
+var fit_bins = utils.get_flag("--fit_bins");
+
 var all_expts_at_once = utils.get_flag("--all");
+
+var listener_level = 0;
 
 display(fit_giveanumber ? "fitting to giveanumber" : "");
 display(fit_concrete ? "fitting to concrete" : "");
 display(fit_inductive ? "fitting to inductive" : "");
-display(all_expts_at_once ? "fitting to all_expts_at_once" : "ERROR!!! NOT IMPLEMENTED ATM");
+display(fit_bins ? "fitting to bins" : "");
+display(all_expts_at_once ? "model all_expts_at_once" : "returning results from specific expts");
+
 
 // Justine's give-a-number data.
 var d_giveanumber = dataFrame(
   utils.readCSV("../data/priors/reformatted_give_a_number.csv").data
 );
 
-var listener_level = 0;
+// This was the experiment in Noah's plots. It's the last one we did, it
+// includes the relative clause phrasing.
+var sorites_expt_id = "11";
+// Sorites experiment data.
+var d_sorites = _.filter(dataFrame(
+  utils.readCSV("../data/sorites/sorites.csv").data
+), all_expts_at_once ? {} : {"id": sorites_expt_id});
 
 
-// // For 07c, takes 5s.
-// // Computing a joint dist takes 5s
-// // 
+// Focus on this experiment for fitting bins.
+// This experiment used a pretty good range of values.
+var bins_expt_id = "12";
+var d_bins = _.filter(
+  dataFrame(
+    utils.readCSV("../data/priors/reformatted_bins.csv").data
+  ),
+  all_expts_at_once ? {} : {"id": bins_expt_id}
+);
+
+
+// // 2 minutes for L0, fitting all bins and all sorites data
 // var totalIterations = 50, lag =  1;
-// // var totalIterations = 500, lag =  1;
 
-// For *just* fitting lognormal params to give a number data:
-//   - Takes 8s
-//   - Fits give a number data well
-// Adding setup of discrete priors and listener0, it takes 10s.
-// (Actually computing listener0 takes 13s.)
-// Setting up every function up to S1 takes 12s.
-// Adding dollar_amounts and an empty foreach takes 12s.
-// Actually running S1 to get endorsements takes 28s.
-// And observing the endorsement with mapData takes 1m.
-// And recording endorsements takes about 1m.
-// Adding likert takes 1m 30s.
-// Doubling nbins takes ~2m and fits much better, and doubling nbins again:
-//   - takes 2m 30s
-//   - fits concrete premise well, but not perfectly.
-//   - Doesn't fit priors as well when we fit the concrete premise.
-//   - adding iterations does not help.
-//   - btw, 8x takes __ and fits __.
-// Alternatively, iterating through all experiments
-//   - takes 8m 30s
-//   - fits terribly
-// Alternatively, computing a joint dist:
-//   - by itself takes takes 1m 30s.
+// // 13 minutes for L0, fitting all bins and all sorites data
+// var totalIterations = 500, lag =  1;
+
+// __ minutes for L0, fitting all bins and all sorites data
+// 10 minutes for L0, fitting bins (12), concrete (11), and inductive (11)
+// 10 minutes for L0, fitting bins (12) only
 var totalIterations = 5000, lag =  10;
 
+// // __ minutes for L0, fitting all bins and all sorites data
+// // 20 minutes for L0, fitting bins (12) only
 // var totalIterations = 10000, lag = 20;
 
-// // For *just* fitting lognormal params to give a number data, takes 40s.
-// // For the whole shebang with one experiment, takes ~2m, 30s.
 // var totalIterations = 50000, lag =  10;
 
-// // 71m
 // var totalIterations = 500000, lag =  10;
-// // var totalIterations = 500000, lag =  200;
+// var totalIterations = 500000, lag =  200;
 
 var samples = totalIterations/lag, burn = totalIterations / 2;
 
@@ -75,8 +83,11 @@ var outfile = (
   (fit_concrete ? "_concrete" : "") +
   (fit_giveanumber ? "_giveanumber" : "") +
   (fit_inductive ? "_inductive" : "") +
-  (all ? "_all" : "") +
+  (fit_bins ? "_bins" : "") +
+  (all_expts_at_once ? "_all" : ("_" + sorites_expt_id + "_" + bins_expt_id)) +
   ("_listener" + listener_level) +
+  "_" + rating_type + 
+  (ignore_last_bin ? "_ignore_last_bin" : "") +
   '.csv'
 );
 
@@ -92,14 +103,6 @@ var remove_endpoints = function(x) {
   }
 }
 
-// // Focus on this experiment for fitting first.
-// // This experiment used a pretty good range of values.
-// var expt_id = "07c";
-
-// Sorites experiment data.
-var d_sorites = _.filter(dataFrame(
-  utils.readCSV("../data/sorites/sorites.csv").data
-));
 // Unique objects from sorites experiments.
 var objects = levels(d_sorites, "object");
 var experiment_ids = levels(d_sorites, "id");
@@ -142,19 +145,17 @@ var model = function(){
   // var COSTMAX = 5; // maximum cost of the expensive utterance
   var MUMAX = 10; // maximum mu for lognormal price distributions
   var SIGMAX = 3; // maximum sigma for lognormal price distributions
-  // var SIGBINMAX = 0.5; // for interpreting likert scale responses
+  var SIGBINMAX = 0.5; // for interpreting likert scale responses
+
 
   // Infer global params across all participants and all objects.
-  // var global_params = {
-    // // rationality for speaker1
-    // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
+  // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
   var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
-    // // cost of expensive utterance
-    // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
-    // standard deviation for bins responses
-    // sigbin: uniformDrift({a: 0, b: SIGBINMAX, width: 0.5})
-  // var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.5});
-  // };
+  query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
+  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.5});
+  query.add(["global_param", "sigbin", "NA", "NA"], sigbin);
+  // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
+  // standard deviation for bins responses
 
   // Iterate over all items in the sorites experiments.
   foreach(objects, function(item) {
@@ -165,6 +166,8 @@ var model = function(){
       mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
     };
+
+    var item_bins = _.filter(d_bins, {"object": item});
 
     var item_giveanumber = _.filter(d_giveanumber, {"object": item});
 
@@ -177,6 +180,32 @@ var model = function(){
           // Assume log of price is normally distributed, so use lognormal density
           // function.
           factor(utils.lognormalScore(d.price, item_params));
+        }
+      );
+    }
+
+    if (fit_bins) {
+      var item_bins = _.filter(d_bins, {"object": item});
+
+      // Fit lognormal parameters to bins data.
+      // Factor by likelihood of likert responses per bin.
+      mapData(
+        {data: item_bins},
+        function(d) {
+          // display(d.UB);
+          var upper = d.UB=="Inf" ? Infinity : utils.float(d.UB);
+          var ignore_this_bin = (ignore_last_bin && upper == Infinity);
+          if (!ignore_this_bin) {
+            // display(upper);
+            var lower = utils.float(d.LB);
+            // display(upper);
+            var prob = utils.lognormalCDF(upper, item_params) - utils.lognormalCDF(lower, item_params);
+            // display(prob);
+
+            var rating = utils.float(d[rating_type]);
+            // display(normed_rating);
+            factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
+          }
         }
       );
     }
@@ -257,7 +286,7 @@ var model = function(){
       // Expected probabiity that x-eps > theta given the L0 posterior on x and theta.
       var inductive = function(epsilon, listener_level) {
         var listener_function = listener_level==0?listener0_with_theta:listener1;
-        listener_function("expensive");
+        // listener_function("expensive");
         return expectation(listener_function("expensive"), function(interpretation) {
           var x = interpretation.state;
           // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
@@ -305,10 +334,6 @@ var model = function(){
     query.add(["price_prior", "mu", "NA", item], item_params.mu);
     query.add(["price_prior", "sigma", "NA", item], item_params.sigma);
   });
-
-  // RECORD PARAMETERS
-  query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
-  // query.add(["param", "sigbin", "global", "NA"], sigbin)
 
 	return query;
 }

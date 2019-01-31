@@ -1,0 +1,115 @@
+// time webppl prior_bins.wppl --require utils 1
+
+// Load index as last command line input.
+var chain = last(process.argv);
+
+// Focus on this experiment for fitting first.
+// This experiment used a pretty good range of values.
+var expt_id = "12";
+
+var ignore_last_bin = true;
+
+// var rating_type = "rating";
+var rating_type = "normed_rating";
+
+var d_bins = _.filter(
+  dataFrame(
+    utils.readCSV("../data/priors/reformatted_bins.csv").data
+  ),
+  {"exp": expt_id}
+);
+
+// Sorites experiment data.
+var d_sorites = _.filter(dataFrame(
+  utils.readCSV("../data/sorites/sorites.csv").data
+));
+// Unique objects from sorites experiments.
+var objects = levels(d_sorites, "object");
+
+
+// var totalIterations = 50, lag =  1;
+// var totalIterations = 5000, lag =  10;
+// var totalIterations = 10000, lag = 20;
+var totalIterations = 50000, lag =  10;
+
+// // 71m
+// var totalIterations = 500000, lag =  10;
+// // var totalIterations = 500000, lag =  200;
+
+var samples = totalIterations/lag, burn = totalIterations / 2;
+
+var outfile = ('results-prior-'+totalIterations+
+  '_burn'+burn+
+  '_lag'+lag+
+  '_chain'+chain+'_' + 
+  rating_type + 
+  (ignore_last_bin ? "_ignore_last_bin" : "") + 
+  '.csv');
+
+display(outfile);
+
+var model = function(){
+
+  // Prior parameters
+  var MUMAX = 10; // maximum mu for lognormal price distributions
+  var SIGMAX = 3; // maximum sigma for lognormal price distributions
+  var SIGBINMAX = 3; // maximum sigma for bin slider
+
+  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.5});
+  query.add(["global_param", "sigbin", "NA", "NA"], sigbin);
+
+  // Iterate over all items in the sorites experiments.
+  foreach(objects, function(item) {
+
+    // Parameters for lognormal price distributions, different parameters for
+    // each object.
+    var item_params = {
+      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+    };
+
+    var item_bins = _.filter(d_bins, {"object": item});
+
+    // Fit lognormal parameters to bins data.
+    // Factor by likelihood of likert responses per bin.
+    mapData(
+      {data: item_bins},
+      function(d) {
+        // display(d.UB);
+        var upper = d.UB=="Inf" ? Infinity : utils.float(d.UB);
+        var ignore_this_bin = (ignore_last_bin && upper == Infinity);
+        if (!ignore_this_bin) {
+          // display(upper);
+          var lower = utils.float(d.LB);
+          // display(upper);
+          var prob = utils.lognormalCDF(upper, item_params) - utils.lognormalCDF(lower, item_params);
+          // display(prob);
+
+          var rating = utils.float(d[rating_type]);
+          // display(normed_rating);
+          factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
+        }
+      }
+    );
+
+    query.add(["price_prior", "mu", "NA", item], item_params.mu);
+    query.add(["price_prior", "sigma", "NA", item], item_params.sigma);
+  })
+
+	return query;
+}
+
+var posterior = Infer({
+  model: model,
+  method: "incrementalMH",
+  samples: samples,
+  burn: burn,
+  lag: lag,
+  verbose: T,
+  verboseLag: totalIterations / 20
+});
+
+
+utils.writeQueryERP(posterior, "results/" + outfile, ["type", "param", "property", "category", "val"]);
+
+"written to " + outfile;
