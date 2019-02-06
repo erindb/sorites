@@ -58,14 +58,14 @@ var d_bins = _.filter(
 // // 13 minutes for L0, fitting all bins and all sorites data
 // var totalIterations = 500, lag =  1;
 
-// __ minutes for L0, fitting all bins and all sorites data
-// 10 minutes for L0, fitting bins (12), concrete (11), and inductive (11)
-// 10 minutes for L0, fitting bins (12) only
-var totalIterations = 5000, lag =  10;
+// // 85 minutes for L0, fitting all bins and all sorites data
+// // 10 minutes for L0, fitting bins (12), concrete (11), and inductive (11)
+// // 10 minutes for L0, fitting bins (12) only
+// var totalIterations = 5000, lag =  10;
 
-// // __ minutes for L0, fitting all bins and all sorites data
-// // 20 minutes for L0, fitting bins (12) only
-// var totalIterations = 10000, lag = 20;
+// __ minutes for L0, fitting all bins and all sorites data
+// 20 minutes for L0, fitting bins (12) only
+var totalIterations = 10000, lag = 20;
 
 // var totalIterations = 50000, lag =  10;
 
@@ -92,6 +92,11 @@ var outfile = (
 );
 
 display(outfile);
+
+var eps = 0.00000000000001;
+var logit = function(p) {
+  return Math.log(p/(1 - p) + eps);
+};
 
 var remove_endpoints = function(x) {
   if (x<=0) {
@@ -145,7 +150,7 @@ var model = function(){
   // var COSTMAX = 5; // maximum cost of the expensive utterance
   var MUMAX = 10; // maximum mu for lognormal price distributions
   var SIGMAX = 3; // maximum sigma for lognormal price distributions
-  var SIGBINMAX = 0.5; // for interpreting likert scale responses
+  var SIGBINMAX = 3; // for interpreting likert scale responses
 
 
   // Infer global params across all participants and all objects.
@@ -204,7 +209,11 @@ var model = function(){
 
             var rating = utils.float(d[rating_type]);
             // display(normed_rating);
-            factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
+            // factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
+            observe(
+              LogitNormal({mu: logit(prob), sigma: sigbin, a: 0-eps, b: 1+eps}),
+              rating
+            );
           }
         }
       );

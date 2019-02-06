@@ -1,5 +1,5 @@
 ---
-title: "Sorites Prior Elicitations"
+title: "Sorites Model Results"
 author: "Erin Bennett"
 header-includes:
    - \usepackage{tikz}
@@ -30,12 +30,12 @@ As discussed in `data_summary.html`, there were different prices used in the des
 
 The discretization works by creating a set of bins (not necessarily of equal width) such that each price in the experiment falls into a unique bin. There must also be bins below the lowest price's bin and above the highest price's bin. The probability of each bin is computed from the cdf: `prob_bin = pnorm(upper_boundary) - pnorm(lower_boundary)`. The probability of theta falling between prices from adjacent bins depends on the widths of those bins (and also the cdf, but I'm ignoring that for now).
 
-Here's an example of a discretization for experiment labeled "07c".
+Here's the discretization used for the full set of sorites experiments.
 
 Bins are shown divided by vertical lines. The midpoints of the bins, used as the value, appear in black. The thetas, which appear at the boundaries of the bins, are shown in grey. The height of the bars represent the probability that theta will fall between each pair of midpoints.
 
 ```{r discretization, fig.width=10, fig.height=2}
-print(plot_bins())
+print(plot_bins("all"))
 ```
 
 ## Likert responses
@@ -61,7 +61,8 @@ expand.grid(e = seq(0.1, 0.9, 0.1),
 ```{r}
 # sanity check that we fit the priors
 model_results_file =
-  "../models/results/results-S1-500_burn250_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
+  "../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv" #85 minutes
+  # "../models/results/results-S1-500_burn250_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
   # "../models/results/results-S1-50_burn25_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
   # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv" # 20 mins
   # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
@@ -84,8 +85,8 @@ concrete_results = plot_concrete(model_results_file, zscore=F)
 inductive_results = plot_inductive(model_results_file, zscore=F)
 sorites_results = concrete_results$df %>%
   mutate(qtype="concrete") %>%
-  rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-  filter(expt_id=="11") #%>%
+  rbind(inductive_results$df %>% mutate(qtype="inductive"))
+  # filter(expt_id=="11") #%>%
   # gather("region", "prob", c(y, ymin, ymax)) %>%
   # group_by(object, src) %>%
   # mutate(prob = ifelse(src=="data", (prob-min(prob))/(max(prob) - min(prob)), prob)) %>%
@@ -94,8 +95,8 @@ sorites_results = concrete_results$df %>%
 sorites_results %>%
   ggplot() +
   aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax,
-      colour=src) +
-  geom_line() +
+      colour=src, group=paste(qtype, expt_id)) +
+  # geom_line() +
   geom_pointrange() +
   facet_wrap(qtype~object, scale="free_x", ncol = 5) +
   scale_colour_solarized()
@@ -109,7 +110,6 @@ inductive_results = plot_inductive(model_results_file, zscore=T)
 sorites_results = concrete_results$df %>%
   mutate(qtype="concrete") %>%
   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-  filter(expt_id=="11") %>%
   gather("region", "prob", c(y, ymin, ymax)) %>%
   unite("variable", src, region) %>%
   spread(variable, prob)
@@ -117,11 +117,36 @@ sorites_results %>%
   ggplot() +
   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
       y=data_y, ymin=data_ymin, ymax=data_ymax,
-      colour=object) +
-  geom_errorbarh() +
-  geom_pointrange() +
+      colour=expt_id, shape=object) +
+  geom_errorbarh(alpha=1/2) +
+  geom_pointrange(alpha=1/2) +
   facet_wrap(~qtype, scales="free") +
   scale_colour_solarized()
+ggsave("img/l0_fit_to_bins_and_sorites_cor.png", width=10, height=4)
+```
+
+```{r, fig.width=10, fig.height=4}
+concrete_results = plot_concrete(model_results_file, zscore=F)
+inductive_results = plot_inductive(model_results_file, zscore=F)
+sorites_results = concrete_results$df %>%
+  mutate(qtype="concrete") %>%
+  rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
+  gather("region", "prob", c(y, ymin, ymax)) %>%
+  unite("variable", src, region) %>%
+  spread(variable, prob)
+sorites_results %>%
+  ggplot() +
+  aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
+      y=data_y, ymin=data_ymin, ymax=data_ymax,
+      colour=expt_id#, shape=object
+      ) +
+  geom_abline(intercept=0, slope = 1, alpha=0.5) +
+  geom_errorbarh(alpha=1/3) +
+  geom_pointrange(alpha=1/3) +
+  facet_wrap(~qtype, scales="free") +
+  scale_colour_solarized() +
+  ylim(0,1) +
+  xlim(0,1)
 ggsave("img/l0_fit_to_bins_and_sorites_cor.png", width=10, height=4)
 ```
 
@@ -620,7 +645,7 @@ read.csv(
   filter(result_type == "price_prior") %>%
   ggplot(aes(x=value)) +
   geom_histogram() +
-  facet_wrap(specifics ~ object)
+  facet_wrap(specifics ~ object, scales="free")
 ```
 
 ```{r, fig.width=2, fig.height=1.5}
@@ -632,7 +657,7 @@ read.csv(
   filter(result_type == "global_param") %>%
   ggplot(aes(x=value)) +
   geom_histogram() +
-  facet_wrap(~specifics)
+  facet_wrap(~specifics, scales="free")
 ```
 
 

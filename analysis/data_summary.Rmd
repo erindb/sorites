@@ -63,7 +63,7 @@ The range of values asked about in the experiment affected responses a bit. For 
 
 
 ```{r}
-RUN_AGG = T
+RUN_AGG = F
 ## computing confidence intervals takes a long time.
 ## so just cache the results of this most of the time
 if (RUN_AGG) {
@@ -135,26 +135,26 @@ n_split = length(unique((prior_bins_data %>% filter(condition == "split"))$worke
 There was a "split" condition (`r n_split` participants), where participants saw one bin at a time. In all other versions, the sliders for each item were shown together. We did not collect enough data in the split condition to normalize responses.
 
 ```{r}
-RUN_AGG = T
+RUN_AGG = F
 if (RUN_AGG) {
   agg_bins = prior_bins_data %>%
     filter(condition!="split") %>%
-    group_by(workerid, item, exp, condition) %>%
+    group_by(workerid, object, exp, condition) %>%
     mutate(
       slider_total = sum(rating),
       normed_rating = ifelse(slider_total==0, 0, rating / slider_total)) %>%
-    group_by(item, condition, exp, UB, LB) %>%
+    group_by(object, condition, exp, UB, LB) %>%
     summarise(
       low = ci.low(normed_rating),
       high = ci.high(normed_rating),
       y = mean(normed_rating),
       x = (UB[[1]]+LB[[1]])/2) %>%
-    ungroup %>% as.data.frame %>% mutate(group = paste(item, condition, exp))
+    ungroup %>% as.data.frame %>% mutate(group = paste(object, condition, exp))
   write.csv(agg_bins, cache_dir("agg_bins_cache.csv"), row.names=F)
 } else {
   agg_bins = read.csv(cache_dir("agg_bins_cache.csv"))
 }
-agg_bins = agg_bins %>% rename(object=item)
+agg_bins = agg_bins %>% rename(object=object)
 ```
 
 ```{r, fig.height=3, fig.width=12}
@@ -163,8 +163,8 @@ agg_bins %>%
   mutate(y = y * length(y),
          low = low * length(y),
          high = high * length(y)) %>%
-  ggplot(., aes(x,y, ymin=low, ymax=high, group=group, fill=object)) +
-  geom_line(aes(colour=object), alpha=1/2) +
+  ggplot(., aes(x,y, ymin=low, ymax=high, group=group, fill=factor(exp))) +
+  geom_line(aes(colour=factor(exp)), alpha=1/2) +
   geom_ribbon(alpha=1/5) +
   facet_wrap(~object, scale="free", ncol=5) +
   xlab("bin midpoint") +

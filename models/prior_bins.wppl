@@ -3,7 +3,7 @@
 // Load index as last command line input.
 var chain = last(process.argv);
 
-// Focus on this experiment for fitting first.
+// Focus on this experiment for fitting bins.
 // This experiment used a pretty good range of values.
 var expt_id = "12";
 
@@ -28,9 +28,9 @@ var objects = levels(d_sorites, "object");
 
 
 // var totalIterations = 50, lag =  1;
-// var totalIterations = 5000, lag =  10;
+var totalIterations = 5000, lag =  10;
 // var totalIterations = 10000, lag = 20;
-var totalIterations = 50000, lag =  10;
+// var totalIterations = 50000, lag =  10;
 
 // // 71m
 // var totalIterations = 500000, lag =  10;
@@ -47,6 +47,11 @@ var outfile = ('results-prior-'+totalIterations+
   '.csv');
 
 display(outfile);
+
+var eps = 0.00000000000001;
+var logit = function(p) {
+  return Math.log(p/(1 - p) + eps);
+};
 
 var model = function(){
 
@@ -87,7 +92,11 @@ var model = function(){
 
           var rating = utils.float(d[rating_type]);
           // display(normed_rating);
-          factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
+          observe(
+            LogitNormal({mu: logit(prob), sigma: sigbin, a: 0-eps, b: 1+eps}),
+            rating
+          );
+          // factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
         }
       }
     );
