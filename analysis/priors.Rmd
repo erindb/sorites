@@ -323,7 +323,8 @@ last_expt_bins_fit =  read.csv(
   #"../models/results/results-prior-50000_burn25000_lag10_chain1.csv",
   # "../models/results/results-S1-50_burn25_lag1_chain1_bins_all_listener1normed_rating_ignore_last_bin.csv",
   # "../models/results/results-prior-50000_burn25000_lag10_chain1_normed_rating_ignore_last_bin.csv", # 77minutes
-  "../models/results/results-prior-5000_burn2500_lag10_chain2_normed_rating_ignore_last_bin.csv", # 6 minutes
+  # "../models/results/results-prior-10000_burn5000_lag20_chain2_normed_rating_ignore_last_bin.csv", # 6 minutes
+  "../models/results/results-prior-50000_burn25000_lag10_chain1_normed_rating_ignore_last_bin.csv",
   col.names = c("result_type", "variable",
                 "IGNORE", "object",
                 "value", "probability")) %>%
@@ -450,14 +451,20 @@ ggsave("img/prior_expts_ecdf.png", width=15, height=3)
 ```
 
 ```{r}
-# read.csv(
-#   #"../models/results/results-prior-50000_burn25000_lag10_chain1.csv",
-#   # "../models/results/results-S1-50_burn25_lag1_chain1_bins_all_listener1normed_rating_ignore_last_bin.csv",
-#   # "../models/results/results-prior-50000_burn25000_lag10_chain1_normed_rating_ignore_last_bin.csv", # 77minutes
-#   "../models/results/results-prior-5000_burn2500_lag10_chain2_normed_rating_ignore_last_bin.csv", # 6 minutes
-#   col.names = c("result_type", "variable",
-#                 "IGNORE", "object",
-#                 "value", "probability")) %>%
-#   select(-IGNORE)
+read.csv(
+  #"../models/results/results-prior-50000_burn25000_lag10_chain1.csv",
+  # "../models/results/results-S1-50_burn25_lag1_chain1_bins_all_listener1normed_rating_ignore_last_bin.csv",
+  # "../models/results/results-prior-50000_burn25000_lag10_chain1_normed_rating_ignore_last_bin.csv", # 77minutes
+  "../models/results/results-prior-10000_burn5000_lag20_chain2_normed_rating_ignore_last_bin.csv", # 6 minutes
+  col.names = c("result_type", "variable",
+                "IGNORE", "object",
+                "value", "probability")) %>%
+  select(-IGNORE) %>%
+  filter(variable %in% c("sigbin", "mu", "sigma")) %>%
+  unite("variable", variable, object) %>%
+  mutate(variable = ifelse(variable=="sigbin_NA", "sigbin", variable)) %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=30) +
+  facet_wrap(~variable, scales="free")
 ```
 
