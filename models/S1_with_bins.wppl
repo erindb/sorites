@@ -209,11 +209,13 @@ var model = function(){
 
             var rating = utils.float(d[rating_type]);
             // display(normed_rating);
-            // factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
-            observe(
-              LogitNormal({mu: logit(prob), sigma: sigbin, a: 0-eps, b: 1+eps}),
-              rating
-            );
+            factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
+            // display(prob);
+            // display(logit(prob));
+            // observe(
+            //   LogitNormal({mu: logit(prob), sigma: sigbin, a: 0-eps, b: 1+eps}),
+            //   rating
+            // );
           }
         }
       );
@@ -237,7 +239,7 @@ var model = function(){
     	  Infer({model: function(){
     	    var state = sample(statePrior);
           // theta might be lifted
-          var theta = theta ? theta : sample(thetaPrior);
+          var theta = utils.isNumber(theta) ? theta : sample(thetaPrior);
     	    var m = meaning(utterance, state, theta);
     	    condition(m);
     	    return {state: state, theta: theta};
@@ -296,10 +298,11 @@ var model = function(){
       var inductive = function(epsilon, listener_level) {
         var listener_function = listener_level==0?listener0_with_theta:listener1;
         // listener_function("expensive");
-        return expectation(listener_function("expensive"), function(interpretation) {
-          var x = interpretation.state;
+        var listener_joint_distribution = listener_function("expensive");
+        return expectation(listener_joint_distribution, function(interpretation_pair) {
+          var x = interpretation_pair.state;
           // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
-          var theta_mid = interpretation.theta;
+          var theta_mid = interpretation_pair.theta;
           // var theta_bin = bins[item][expt_id]["theta_lookups"][theta_mid];
           var theta_bin = bins[item]["all"]["theta_lookups"][theta_mid];
           var theta_lower = theta_bin.lower;
