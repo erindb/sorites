@@ -1,5 +1,7 @@
 /*
 
+time webppl minimal_l0_vs_l1_example.wppl --require utils
+
 Conclusion:
 
 - Increasing the range of theta far beyond the lowest value results in very
@@ -7,91 +9,162 @@ Conclusion:
 
 - Inferences are stronger for L1 than for L0, but both show changes
 
-- Skew doesn't make a difference.
+- Skew doesn't make a difference to the amount of change between prior and L0 or
+  between L0 and L1
+
+- Inductive premise is highly correlated for L0 and L1
 
 */
 
-var utterancePrior = function() {return uniformDraw(["adj", "silence"]);};
-var priors = {
-  symmetric_state_prior: function() {return binomial({p:0.5, n: 10})*2;},
-  skewed_state_prior: function() {return binomial({p:0.1, n: 10})*2;}
-};
-// var theta_prior = function() {return uniformDraw(_.range(-10, 30));};
-var theta_prior = function() {return uniformDraw(_.range(0, 20));};
-var safe_infer = function(args, f) {
-  var erp = Infer(args, f);
-  var possible = reduce(function(x, acc) {
-    if (x.prob > 0 || x.factor > -Infinity) {
-      return true;
-    }
-    return acc;
-  }, false, erp.support());
-  if (possible) {
-    return Infer(args, function() {
-      var x = sample(erp);
-      if (x.prob != null) {
-        factor(Math.log(x.prob));
-      } else if (x.factor != null) {
-        factor(x.factor);
+var run_cor = function(n_bins) {
+  var utterancePrior = function() {return uniformDraw(["adj", "silence"]);};
+  var priors = {
+    symmetric_state_prior: function() {return binomial({p:0.5, n: n_bins});},
+    skewed_state_prior: function() {return binomial({p:0.1, n: n_bins});}
+  };
+  // var theta_prior = function() {return uniformDraw(_.range(-10, 30));};
+  var theta_prior = function() {return uniformDraw(_.range(0, n_bins, 0.5));};
+  var safe_infer = function(args, f) {
+    var erp = Infer(args, f);
+    var possible = reduce(function(x, acc) {
+      if (x.prob > 0 || x.factor > -Infinity) {
+        return true;
       }
-      return x.result;
-    });
-  } else {
-    return "Impossible";
-  }
-};
-
-var l0 = function(utterance, state_prior_label, infer_theta, theta) {
-  var state_prior = priors[state_prior_label];
-  return safe_infer({}, function() {
-    var theta = infer_theta ? theta_prior() : theta;
-    var state = state_prior();
-    var f = (
-      (utterance == "adj") ?
-      ((state > theta) ? 0 : -Infinity) :
-      0);
-    return {result: state, factor: f};
-  });
-};
-
-var s1 = function(actual_state_value, state_prior_label, infer_theta, theta) {
-  return Infer(function() {
-    var utterance = utterancePrior();
-    var interpretation_distribution = l0(
-      utterance,
-      state_prior_label,
-      false,
-      infer_theta ? theta_prior() : theta
-    );
-    if (interpretation_distribution == "Impossible") {
-      factor(-Infinity);
+      return acc;
+    }, false, erp.support());
+    if (possible) {
+      return Infer(args, function() {
+        var x = sample(erp);
+        if (x.prob != null) {
+          factor(Math.log(x.prob));
+        } else if (x.factor != null) {
+          factor(x.factor);
+        }
+        return x.result;
+      });
     } else {
-      factor(interpretation_distribution.score(actual_state_value));
+      return "Impossible";
     }
-    return utterance;
-  });
-};
+  };
 
-var l1 = function(utterance, state_prior_label) {
-  var state_prior = priors[state_prior_label];
-  return Infer(function() {
-    var state = state_prior();
-    var theta = theta_prior();
-    var likelihood_distribution = s1(
-      state,
-      state_prior_label,
-      false,
-      theta
-    );
-    factor(likelihood_distribution.score(utterance));
-//     return {"state": state, "theta": theta};
-    return state;
+  var l0_with_theta = function(utterance, state_prior_label, infer_theta, theta) {
+    var state_prior = priors[state_prior_label];
+    return safe_infer({}, function() {
+      var theta = infer_theta ? theta_prior() : theta;
+      var state = state_prior();
+      var f = (
+        (utterance == "adj") ?
+        ((state > theta) ? 0 : -Infinity) :
+        0);
+      return {result: {"state": state, "theta": theta}, factor: f};
+    });
+  };
+
+  var l0 = cache(function(utterance, state_prior_label, infer_theta, theta) {
+    var state_prior = priors[state_prior_label];
+    return safe_infer({}, function() {
+      var theta = infer_theta ? theta_prior() : theta;
+      var state = state_prior();
+      var f = (
+        (utterance == "adj") ?
+        ((state > theta) ? 0 : -Infinity) :
+        0);
+      return {result: state, factor: f};
+    });
   });
+
+  var s1 = cache(function(actual_state_value, state_prior_label, infer_theta, theta) {
+    return Infer(function() {
+      var utterance = utterancePrior();
+      var interpretation_distribution = l0(
+        utterance,
+        state_prior_label,
+        false,
+        infer_theta ? theta_prior() : theta
+      );
+      if (interpretation_distribution == "Impossible") {
+        factor(-Infinity);
+      } else {
+        factor(interpretation_distribution.score(actual_state_value));
+      }
+      return utterance;
+    });
+  });
+
+  var l1_with_theta = function(utterance, state_prior_label) {
+    var state_prior = priors[state_prior_label];
+    return Infer(function() {
+      var state = state_prior();
+      var theta = theta_prior();
+      var likelihood_distribution = s1(
+        state,
+        state_prior_label,
+        false,
+        theta
+      );
+      factor(likelihood_distribution.score(utterance));
+      return {"state": state, "theta": theta};
+    });
+  }
+
+  var l1 = function(utterance, state_prior_label) {
+    var state_prior = priors[state_prior_label];
+    return Infer(function() {
+      var state = state_prior();
+      var theta = theta_prior();
+      var likelihood_distribution = s1(
+        state,
+        state_prior_label,
+        false,
+        theta
+      );
+      factor(likelihood_distribution.score(utterance));
+      return state;
+    });
+  }
+
+  var inductive = function(epsilon, listener_level, state_prior_label) {
+    var listener_fn = listener_level==0 ? l0_with_theta : l1_with_theta;
+    return Infer(function() {
+      var listener_dist = listener_fn("adj", state_prior_label, true);
+      var rs = sample(listener_dist);
+      return rs.state - epsilon > rs.theta;
+    });
+  }
+
+  // viz(Infer(priors["symmetric_state_prior"]));
+  // viz(l0("adj", "symmetric_state_prior", true));
+  // l1("adj", "symmetric_state_prior");
+  // viz(Infer(priors["skewed_state_prior"]));
+  // viz(l0("adj", "skewed_state_prior", true));
+  // l1("adj", "skewed_state_prior");
+
+  var l0_skewed_inductive = map(function(epsilon) {
+    return Math.exp(inductive(epsilon, 0, "skewed_state_prior").score(true));
+  }, _.range(n_bins));
+  var l1_skewed_inductive = map(function(epsilon) {
+    return Math.exp(inductive(epsilon, 1, "skewed_state_prior").score(true));
+  }, _.range(n_bins))
+
+  var l0_symmetric_inductive = map(function(epsilon) {
+    return Math.exp(inductive(epsilon, 0, "symmetric_state_prior").score(true));
+  }, _.range(n_bins));
+  var l1_symmetric_inductive = map(function(epsilon) {
+    return Math.exp(inductive(epsilon, 1, "symmetric_state_prior").score(true));
+  }, _.range(n_bins))
+
+  return {
+    "symmetric cor": utils.cor(l0_symmetric_inductive, l1_symmetric_inductive),
+    "skewed cor": utils.cor(l0_skewed_inductive, l1_skewed_inductive),
+    "l0_symmetric[5]": l0_symmetric_inductive[5],
+    "L1_symmetric[5]": l1_symmetric_inductive[5]
+  };
 }
 
-viz(Infer(priors["symmetric_state_prior"]));
-viz(l0("adj", "symmetric_state_prior", true));
-l1("adj", "symmetric_state_prior");
-viz(Infer(priors["skewed_state_prior"]));
-viz(l0("adj", "skewed_state_prior", true));
-l1("adj", "skewed_state_prior");
+display(run_cor(10));
+display(run_cor(20));
+display(run_cor(30));
+display(run_cor(40));
+
+
+
