@@ -1,0 +1,97 @@
+/*
+
+Conclusion:
+
+- Increasing the range of theta far beyond the lowest value results in very
+  little change to the L0 distribution.
+
+- Inferences are stronger for L1 than for L0, but both show changes
+
+- Skew doesn't make a difference.
+
+*/
+
+var utterancePrior = function() {return uniformDraw(["adj", "silence"]);};
+var priors = {
+  symmetric_state_prior: function() {return binomial({p:0.5, n: 10})*2;},
+  skewed_state_prior: function() {return binomial({p:0.1, n: 10})*2;}
+};
+// var theta_prior = function() {return uniformDraw(_.range(-10, 30));};
+var theta_prior = function() {return uniformDraw(_.range(0, 20));};
+var safe_infer = function(args, f) {
+  var erp = Infer(args, f);
+  var possible = reduce(function(x, acc) {
+    if (x.prob > 0 || x.factor > -Infinity) {
+      return true;
+    }
+    return acc;
+  }, false, erp.support());
+  if (possible) {
+    return Infer(args, function() {
+      var x = sample(erp);
+      if (x.prob != null) {
+        factor(Math.log(x.prob));
+      } else if (x.factor != null) {
+        factor(x.factor);
+      }
+      return x.result;
+    });
+  } else {
+    return "Impossible";
+  }
+};
+
+var l0 = function(utterance, state_prior_label, infer_theta, theta) {
+  var state_prior = priors[state_prior_label];
+  return safe_infer({}, function() {
+    var theta = infer_theta ? theta_prior() : theta;
+    var state = state_prior();
+    var f = (
+      (utterance == "adj") ?
+      ((state > theta) ? 0 : -Infinity) :
+      0);
+    return {result: state, factor: f};
+  });
+};
+
+var s1 = function(actual_state_value, state_prior_label, infer_theta, theta) {
+  return Infer(function() {
+    var utterance = utterancePrior();
+    var interpretation_distribution = l0(
+      utterance,
+      state_prior_label,
+      false,
+      infer_theta ? theta_prior() : theta
+    );
+    if (interpretation_distribution == "Impossible") {
+      factor(-Infinity);
+    } else {
+      factor(interpretation_distribution.score(actual_state_value));
+    }
+    return utterance;
+  });
+};
+
+var l1 = function(utterance, state_prior_label) {
+  var state_prior = priors[state_prior_label];
+  return Infer(function() {
+    var state = state_prior();
+    var theta = theta_prior();
+    var likelihood_distribution = s1(
+      state,
+      state_prior_label,
+      false,
+      theta
+    );
+    factor(likelihood_distribution.score(utterance));
+//     return {"state": state, "theta": theta};
+    return state;
+  });
+}
+
+viz(Infer(priors["symmetric_state_prior"]));
+viz(l0("adj", "symmetric_state_prior", true));
+l1("adj", "symmetric_state_prior");
+viz(Infer(priors["skewed_state_prior"]));
+viz(l0("adj", "skewed_state_prior", true));
+l1("adj", "skewed_state_prior");
