@@ -79,6 +79,7 @@ var samples = totalIterations/lag, burn = totalIterations / 2;
 
 var outfile = (
   'results-S1-'+
+  'sigmax10_' +
   totalIterations+
   '_burn'+burn+
   '_lag'+lag+
@@ -153,8 +154,8 @@ var model = function(){
   // var ALPHA2MAX = 5; // maximum rationality for speaker2
   // var COSTMAX = 5; // maximum cost of the expensive utterance
   var MUMAX = 10; // maximum mu for lognormal price distributions
-  var SIGMAX = 3; // maximum sigma for lognormal price distributions
-  var SIGBINMAX = 3; // for interpreting likert scale responses
+  var SIGMAX = 10; // maximum sigma for lognormal price distributions
+  var SIGBINMAX = 0.5;//3; // for interpreting likert scale responses
 
 
   // Infer global params across all participants and all objects.
