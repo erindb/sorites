@@ -16,7 +16,9 @@ var fit_inductive = utils.get_flag("--fit_inductive");
 
 var fit_bins = utils.get_flag("--fit_bins");
 
-var all_expts_at_once = utils.get_flag("--all");
+var all_bins_at_once = utils.get_flag("--all_bins");
+var all_sorites_at_once = utils.get_flag("--all_sorites");
+
 
 var listener_level = 0;
 
@@ -24,7 +26,8 @@ display(fit_giveanumber ? "fitting to giveanumber" : "");
 display(fit_concrete ? "fitting to concrete" : "");
 display(fit_inductive ? "fitting to inductive" : "");
 display(fit_bins ? "fitting to bins" : "");
-display(all_expts_at_once ? "model all_expts_at_once" : "returning results from specific expts");
+display(all_sorites_at_once ? "model all_sorites_at_once" : "returning results from specific sorties expt");
+display(all_bins_at_once ? "model all_bins_at_once" : "returning results from specific prior expt");
 
 
 // Justine's give-a-number data.
@@ -38,7 +41,7 @@ var sorites_expt_id = "11";
 // Sorites experiment data.
 var d_sorites = _.filter(dataFrame(
   utils.readCSV("../data/sorites/sorites.csv").data
-), all_expts_at_once ? {} : {"id": sorites_expt_id});
+), all_sorites_at_once ? {} : {"id": sorites_expt_id});
 
 
 // Focus on this experiment for fitting bins.
@@ -48,7 +51,7 @@ var d_bins = _.filter(
   dataFrame(
     utils.readCSV("../data/priors/reformatted_bins.csv").data
   ),
-  all_expts_at_once ? {} : {"id": bins_expt_id}
+  all_bins_at_once ? {} : {"id": bins_expt_id}
 );
 
 
@@ -84,7 +87,8 @@ var outfile = (
   (fit_giveanumber ? "_giveanumber" : "") +
   (fit_inductive ? "_inductive" : "") +
   (fit_bins ? "_bins" : "") +
-  (all_expts_at_once ? "_all" : ("_" + sorites_expt_id + "_" + bins_expt_id)) +
+  (all_bins_at_once ? "_allbins" : ("_" + bins_expt_id)) +
+  (all_sorites_at_once ? "_allsorites" : ("_" + sorites_expt_id)) +
   ("_listener" + listener_level) +
   "_" + rating_type + 
   (ignore_last_bin ? "_ignore_last_bin" : "") +
