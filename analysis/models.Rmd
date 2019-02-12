@@ -55,124 +55,330 @@ expand.grid(e = seq(0.1, 0.9, 0.1),
   geom_bar(stat="identity")
 ```
 
+## Model fit: Final Design
 
-## Sorites premises
+### Old version
+
+In Noah's slides, we show model fit for only the final prior elicitaiton and the final sorites design (relative clause, with the final set of ranges). In the past, we fit the price prior parameters in R and then did a course grid search for speakerOptimality. We used the joint posterior distribution over the price $x$ and the threshold $\theta$ from listener1 (the pragmatic listener) to get model predictions for both sorites premises. For inductive, we took the proportion of the model samples where $x-\varepsilon > \theta$. For concrete, we took the proportion of the model samples where $given\ price > \theta$. We z-scored participants' responses for the correlation plots.
+
+### BDA version
+
+We can reproduce the old results from Noah's slides with our new `webppl` implementation with Bayesiean data analysis. We can simultaneously fit participants' bin ratings from the final prior elicitation and their responses for the final version of the sorites premises study.
 
 ```{r}
-# sanity check that we fit the priors
-model_results_file =
-  "../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv" #85 minutes
-  # "../models/results/results-S1-500_burn250_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
-  # "../models/results/results-S1-50_burn25_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
-  # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv" # 20 mins
-  # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
-  # "../models/results/results-S1-10000_burn5000_lag20_chain1_bins_listener0_normed_rating_ignore_last_bin.csv" # 
-  # "../models/results/results-S1-5000_burn2500_lag10_chain1_bins_listener0_normed_rating_ignore_last_bin.csv" # 10 mins
-priors_results = plot_priors(model_results_file)
+reproduce_old_plots = plot_sorites(
+  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = T,
+  all_experiments = F
+)
 ```
 
-If we fit to just the best bins prior elicitation, then with 5K iterations, we recover the prior with $R^2 = `r round(priors_results$bins_r_squared, 3)`$
+```{r, fig.width=15, fig.height=6}
+print(reproduce_old_plots$final_sorites_curves)
+```
 
+```{r, fig.width=10, fig.height=4}
+print(reproduce_old_plots$final_sorites_cor)
+```
 
+Fitting to the final sorites *and* bins data does not significantly change the inferred priors relative to fitting only to the bins data. That is, the prior fits are being driven by the bins data and the concrete and inductive premise data mostly affect the optimality parameter. Since this is exactly how I used that information in the old version, it makes sense that we reproduce the results even with the BDA.
 
 ```{r, fig.width=15, fig.height=3}
-priors_results$last_bins_ecdf
-ggsave("img/priors_fit_to_last_bins_and_sorites.png", width=15, height=3)
+print(reproduce_old_plots$final_prior_ecdf)
 ```
 
-```{r, fig.width=15, fig.height=8}
-concrete_results = plot_concrete(model_results_file, zscore=F)
-inductive_results = plot_inductive(model_results_file, zscore=F)
-sorites_results = concrete_results$df %>%
-  mutate(qtype="concrete") %>%
-  rbind(inductive_results$df %>% mutate(qtype="inductive"))
-  # filter(expt_id=="11") #%>%
-  # gather("region", "prob", c(y, ymin, ymax)) %>%
-  # group_by(object, src) %>%
-  # mutate(prob = ifelse(src=="data", (prob-min(prob))/(max(prob) - min(prob)), prob)) %>%
-  # ungroup() %>%
-  # spread(region, prob)
-sorites_results %>%
-  ggplot() +
-  aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax,
-      colour=src, group=paste(qtype, expt_id)) +
-  # geom_line() +
-  geom_pointrange() +
-  facet_wrap(qtype~object, scale="free_x", ncol = 5) +
-  scale_colour_solarized()
-ggsave("img/l0_fit_to_bins_and_sorites.png", width=15, height=8)
-```
+If we only give the model data from the final bins prior elicitation, the model has high uncertainty about the concrete premise, but has a decent correlation with the data.
 
-
-```{r, fig.width=10, fig.height=4}
-concrete_results = plot_concrete(model_results_file, zscore=T)
-inductive_results = plot_inductive(model_results_file, zscore=T)
-sorites_results = concrete_results$df %>%
-  mutate(qtype="concrete") %>%
-  rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-  gather("region", "prob", c(y, ymin, ymax)) %>%
-  unite("variable", src, region) %>%
-  spread(variable, prob)
-sorites_results %>%
-  ggplot() +
-  aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
-      y=data_y, ymin=data_ymin, ymax=data_ymax,
-      colour=expt_id, shape=object) +
-  geom_errorbarh(alpha=1/2) +
-  geom_pointrange(alpha=1/2) +
-  facet_wrap(~qtype, scales="free") +
-  scale_colour_solarized()
-ggsave("img/l0_fit_to_bins_and_sorites_cor.png", width=10, height=4)
+```{r}
+fit_to_final_bins_only = plot_sorites(
+  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F
+)
 ```
 
 ```{r, fig.width=10, fig.height=4}
-concrete_results = plot_concrete(model_results_file, zscore=F)
-inductive_results = plot_inductive(model_results_file, zscore=F)
-sorites_results = concrete_results$df %>%
-  mutate(qtype="concrete") %>%
-  rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-  gather("region", "prob", c(y, ymin, ymax)) %>%
-  unite("variable", src, region) %>%
-  spread(variable, prob)
-sorites_results %>%
-  ggplot() +
-  aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
-      y=data_y, ymin=data_ymin, ymax=data_ymax,
-      colour=expt_id#, shape=object
-      ) +
-  geom_abline(intercept=0, slope = 1, alpha=0.5) +
-  geom_errorbarh(alpha=1/3) +
-  geom_pointrange(alpha=1/3) +
-  facet_wrap(~qtype, scales="free") +
-  scale_colour_solarized() +
-  ylim(0,1) +
-  xlim(0,1)
-ggsave("img/l0_fit_to_bins_and_sorites_cor.png", width=10, height=4)
+fit_to_final_bins_only$final_sorites_cor
 ```
-
-```{r}
-inductive_r_squared = sorites_results %>% filter(qtype=="inductive") %>% with(cor(model_y, data_y)^2)
-concrete_r_squared = sorites_results %>% filter(qtype=="concrete") %>% with(cor(model_y, data_y)^2)
-inductive_r_squared
-concrete_r_squared
-```
-
-
-```{r}
-read.csv(
-  model_results_file,
-  col.names = c("result_type", "specifics",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "global_param", specifics == "speakerOptimality") %>%
-  select(value) %>%
-  ggplot(aes(x=value)) + geom_histogram(bins=30)
-ggsave("img/l0_fit_to_bins_and_sorites_speakerOptimality.png", width=3, height=2)
-```
-
-
 
 ```{r, fig.width=10, fig.height=2}
+# sanity check: yes, when we fit to bins only, the cor with bins is high
+# print(fit_to_final_bins_only$final_prior_ecdf)
+```
+
+However, the priors on prices we would infer from the sorites responses alone are quite different from both the give-a-number priors and the final experiment bins priors.
+
+```{r}
+fit_to_final_sorites_only = plot_sorites(
+  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F
+)
+```
+
+```{r, fig.width=10, fig.height=2}
+print(fit_to_final_sorites_only$giveanumber_ecdf)
+print(fit_to_final_sorites_only$final_prior_ecdf)
+```
+
+In this situation, when we just fit the priors to the sorites data, the model can "explain" a lot of the variance, but it's likely overfitting to this particular dataset. I haven't tried to predict held-out data, which would show how much overfitting is happening here.
+
+```{r, fig.width=10, fig.height=4}
+fit_to_final_sorites_only$final_sorites_cor
+```
+
+## Model fit: All Designs
+
+```{r}
+# fit_to_all_sorites_no_bins = plot_sorites(
+#   "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_12_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+#   zscore = F,
+#   all_experiments = F
+# )
+```
+
+```{r}
+# fit_to_all_sorites_and_bins = plot_sorites(
+#   "../models/results/",
+#   zscore = F,
+#   all_experiments = F
+# )
+```
+
+```{r}
+# fit_to_all_bins_no_sorites = plot_sorites(
+#   "../models/results/",
+#   zscore = F,
+#   all_experiments = F
+# )
+```
+
+
+
+
+
+
+
+```{r}
+#```{r}
+# fitting only to bins #12 and sorites #11
+# recap_model_file = "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
+#```
+# 
+# ## Sorites premises
+# 
+# # ```{r}
+# model_file_tag = "attempt_at_recap_"
+# model_results_file =
+#   "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
+# 
+# # model_file_tag = "fit to endorsement data only no bins"
+# # model_results_file =
+#   # "../models/results/results-S1-10000_burn5000_lag20_chain--all_sorites_concrete_inductive_12_allsorites_listener0_normed_rating_ignore_last_bin.csv"
+# 
+# # model_file_tag = "recap_"
+# # model_results_file = 
+# #   #"../models/results/results-S1-5000_burn2500_lag10_chain1_recap_concrete_inductive_bins_11_12_listener0_normed_rating_ignore_last_bin.csv"
+# #   "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
+# 
+# # sanity check that we fit the priors
+# # model_file_tag = "fit_to_everything_for_last_experiments_only_"
+# # model_results_file =
+# #   "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain1_sigbinmax0.5_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
+#   # "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain--fit_bins_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
+#   # "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain--fit_bins_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
+#   # "../models/results/results-S1-5000_burn2500_lag10_chain--all_sorites_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv" #80 minutes
+#   # "../models/results/results-S1-5000_burn2500_lag10_chain2_concrete_inductive_bins_11_12_listener0_normed_rating_ignore_last_bin.csv"
+#   # "../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv" #85 minutes
+#   # "../models/results/results-S1-500_burn250_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
+#   # "../models/results/results-S1-50_burn25_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
+#   # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv" # 20 mins
+#   # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
+#   # "../models/results/results-S1-10000_burn5000_lag20_chain1_bins_listener0_normed_rating_ignore_last_bin.csv" # 
+#   # "../models/results/results-S1-5000_burn2500_lag10_chain1_bins_listener0_normed_rating_ignore_last_bin.csv" # 10 mins
+# priors_results = plot_priors(model_results_file)
+# ```
+# 
+# If we fit to just the best bins prior elicitation, then we recover the prior with $R^2 = `r round(priors_results$bins_r_squared, 3)`$
+
+# ```{r, fig.width=15, fig.height=3}
+# priors_results$p
+# ```
+
+
+# ```{r, fig.width=15, fig.height=3}
+# priors_results$last_bins_ecdf
+# ggsave(paste("img/", model_file_tag, "priors_fit_to_last_bins_and_sorites.png", sep=""), width=15, height=3)
+# ```
+
+#```{r, fig.width=15, fig.height=8}
+# concrete_results = plot_concrete(model_results_file, zscore=F)
+# inductive_results = plot_inductive(model_results_file, zscore=F)
+# sorites_results = concrete_results$df %>%
+#   mutate(qtype="concrete") %>%
+#   rbind(inductive_results$df %>% mutate(qtype="inductive"))
+# sorites_results %>%
+#   ggplot() +
+#   aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax,
+#       colour=src, group=paste(qtype, expt_id)) +
+#   geom_pointrange() +
+#   facet_wrap(qtype~object, scale="free_x", ncol = 5) +
+#   scale_colour_solarized()
+# ggsave(paste("img/", model_file_tag, "all_expts_l0_fit_to_bins_and_sorites.png", sep=""), width=15, height=8)
+#```
+
+
+
+#```{r, fig.width=10, fig.height=4}
+# concrete_results = plot_concrete(model_results_file, zscore=T)
+# inductive_results = plot_inductive(model_results_file, zscore=T)
+# sorites_results = concrete_results$df %>%
+#   mutate(qtype="concrete") %>%
+#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
+#   gather("region", "prob", c(y, ymin, ymax)) %>%
+#   unite("variable", src, region) %>%
+#   spread(variable, prob)
+# sorites_results %>%
+#   ggplot() +
+#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
+#       y=data_y, ymin=data_ymin, ymax=data_ymax,
+#       colour=expt_id, shape=object
+#       ) +
+#   geom_errorbarh(alpha=1/3
+#     ) +
+#   geom_pointrange(alpha=1/3
+#     ) +
+#   facet_wrap(~qtype, scales="free") +
+#   scale_colour_solarized()
+# ggsave(paste("img/", model_file_tag, "all_expts_l0_fit_to_bins_and_sorites_cor_zscored.png", sep=""), width=10, height=4)
+
+# sorites_results %>%
+#   filter(qtype=="concrete") %>%
+#   with(cor(model_y, data_y)^2)
+# sorites_results %>%
+#   filter(qtype=="inductive") %>%
+#   with(cor(model_y, data_y)^2)
+#```
+
+#```{r, fig.width=10, fig.height=4}
+# concrete_results = plot_concrete(model_results_file, zscore=T)
+# inductive_results = plot_inductive(model_results_file, zscore=T)
+# sorites_results = concrete_results$df %>%
+#   mutate(qtype="concrete") %>%
+#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
+#   gather("region", "prob", c(y, ymin, ymax)) %>%
+#   unite("variable", src, region) %>%
+#   spread(variable, prob)
+
+# 
+# sorites_results %>%
+#   filter(expt_id == "11") %>%
+#   ggplot() +
+#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
+#       y=data_y, ymin=data_ymin, ymax=data_ymax,
+#       colour=object
+#       #colour=expt_id, shape=object
+#       ) +
+#   geom_errorbarh(#alpha=1/2
+#     ) +
+#   geom_pointrange(#alpha=1/2
+#     ) +
+#   facet_wrap(~qtype, scales="free") +
+#   scale_colour_solarized() +
+#   geom_text(data=data.frame(qtype=c("concrete", "inductive"), r2=c(concrete_r2, inductive_r2), model_y=0.3, data_y=1) %>% mutate(model_ymin=model_y, model_ymax=model_y, data_ymin=data_y, data_ymax=data_y, object="watch"), aes(label=r2, x=0.3, y=1), x=0.3, y=1, colour="black")
+# ggsave(paste("img/", model_file_tag, "final_expts_l0_fit_to_bins_and_sorites_cor_zscored.png", sep=""), width=10, height=4)
+#```
+
+#```{r, fig.width=10, fig.height=4}
+# concrete_results = plot_concrete(model_results_file, zscore=F)
+# inductive_results = plot_inductive(model_results_file, zscore=F)
+# sorites_results = concrete_results$df %>%
+#   mutate(qtype="concrete") %>%
+#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
+#   gather("region", "prob", c(y, ymin, ymax)) %>%
+#   unite("variable", src, region) %>%
+#   spread(variable, prob)
+# sorites_results %>%
+#   filter(expt_id=="11") %>%
+#   ggplot() +
+#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
+#       y=data_y, ymin=data_ymin, ymax=data_ymax,
+#       colour=object) +
+#   geom_abline(intercept=0, slope = 1, alpha=0.5) +
+#   geom_errorbarh() +
+#   geom_pointrange() +
+#   facet_wrap(~qtype, scales="free") +
+#   scale_colour_solarized() +
+#   ylim(0,1) +
+#   xlim(0,1)
+# ggsave(paste("img/", model_file_tag, "final_expts_l0_fit_to_bins_and_sorites_cor.png", sep=""), width=10, height=4)
+# 
+# sorites_results %>%
+#   filter(expt_id=="11") %>%
+#   filter(qtype=="concrete") %>%
+#   with(cor(model_y, data_y)^2)
+# sorites_results %>%
+#   filter(expt_id=="11") %>%
+#   filter(qtype=="inductive") %>%
+#   with(cor(model_y, data_y)^2)
+# ```
+# 
+# ```{r, fig.width=10, fig.height=4}
+# concrete_results = plot_concrete(model_results_file, zscore=F)
+# inductive_results = plot_inductive(model_results_file, zscore=F)
+# sorites_results = concrete_results$df %>%
+#   mutate(qtype="concrete") %>%
+#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
+#   gather("region", "prob", c(y, ymin, ymax)) %>%
+#   unite("variable", src, region) %>%
+#   spread(variable, prob)
+# sorites_results %>%
+#   ggplot() +
+#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
+#       y=data_y, ymin=data_ymin, ymax=data_ymax,
+#       colour=expt_id, shape=object
+#       ) +
+#   geom_abline(intercept=0, slope = 1, alpha=0.5) +
+#   geom_errorbarh(alpha=1/3) +
+#   geom_pointrange(alpha=1/3) +
+#   facet_wrap(~qtype, scales="free") +
+#   scale_colour_solarized() +
+#   ylim(0,1) +
+#   xlim(0,1)
+# ggsave(paste("img/", model_file_tag, "all_expts_l0_fit_to_bins_and_sorites_cor.png", sep=""), width=10, height=4)
+# 
+# sorites_results %>%
+#   filter(qtype=="concrete") %>%
+#   with(cor(model_y, data_y)^2)
+# sorites_results %>%
+#   filter(qtype=="inductive") %>%
+#   with(cor(model_y, data_y)^2)
+# ```
+# 
+# ```{r}
+# inductive_r_squared = sorites_results %>% filter(qtype=="inductive") %>% with(cor(model_y, data_y)^2)
+# concrete_r_squared = sorites_results %>% filter(qtype=="concrete") %>% with(cor(model_y, data_y)^2)
+# inductive_r_squared
+# concrete_r_squared
+# ```
+# 
+# 
+# ```{r}
+# read.csv(
+#   model_results_file,
+#   col.names = c("result_type", "specifics",
+#                 "expt_id", "object",
+#                 "value", "probability")) %>%
+#   filter(result_type == "global_param", specifics == "speakerOptimality") %>%
+#   select(value) %>%
+#   ggplot(aes(x=value)) + geom_histogram(bins=50) +
+#   ggtitle("speakerOptimality")
+# ggsave(paste("img/", model_file_tag, "l0_fit_to_bins_and_sorites_speakerOptimality.png", sep=""), width=3, height=2)
+# ```
+# 
+# 
+# 
+# ```{r, fig.width=10, fig.height=2}
 # # # this takes ~25 minutes to run
 # # model_results_file = "../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_giveanumber_inductive_all_listener0.csv"
 # # priors_results = plot_priors(model_results_file)
@@ -607,69 +813,69 @@ ggsave("img/l0_fit_to_bins_and_sorites_speakerOptimality.png", width=3, height=2
 # #     geom_abline(slope = 1, intercept = 0, alpha=0.2) +
 # #     geom_errorbarh() +
 # #     geom_pointrange() +
-# #   scale_color_solarized()
-# # ggsave("bda_correlations.png")
-# ```
+# # #   scale_color_solarized()
+# # # ggsave("bda_correlations.png")
+# # ```
+# # 
+# # ```{r}
+# # # full_concrete_giveanumber_inductive_comparison %>%
+# # #   select(-c(ymin, ymax)) %>%
+# # #   spread(src, y) %>%
+# # #   lm(data~model, data=.) %>%
+# # #   summary() %>%
+# # #   .$r.squared
+# # ```
+# # 
+# # 
+# # 
+# # ```{r, fig.width=10, fig.height=5}
+# # # full_concrete_giveanumber_inductive_comparison %>%
+# # #     ggplot() +
+# # #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
+# # #     geom_pointrange() +
+# # #     facet_wrap(qtype~object, scale="free_x", ncol = 5) +
+# # #     ylim(0, 1) +
+# # #     scale_colour_solarized()
+# # # ggsave("bda_data.png", width=10, height=5)
+# #```
 # 
-# ```{r}
-# # full_concrete_giveanumber_inductive_comparison %>%
-# #   select(-c(ymin, ymax)) %>%
-# #   spread(src, y) %>%
-# #   lm(data~model, data=.) %>%
-# #   summary() %>%
-# #   .$r.squared
-# ```
+# 
+# ## Checks of convergence
+# 
+# #```{r, fig.width=10, fig.height=10}
+# read.csv(
+#   model_results_file,
+#   col.names = c("result_type", "specifics",
+#                 "expt_id", "object",
+#                 "value", "probability")) %>%
+#   filter(result_type == "price_prior") %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram(bins=50) +
+#   facet_wrap(specifics ~ object, scales="free")
+# #```
+# 
+# #```{r, fig.width=4, fig.height=3}
+# read.csv(
+#   model_results_file,
+#   col.names = c("result_type", "specifics",
+#                 "expt_id", "object",
+#                 "value", "probability")) %>%
+#   filter(result_type == "global_param") %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram(bins=50) +
+#   facet_wrap(~specifics, scales="free")
+# #```
 # 
 # 
 # 
-# ```{r, fig.width=10, fig.height=5}
-# # full_concrete_giveanumber_inductive_comparison %>%
-# #     ggplot() +
-# #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
-# #     geom_pointrange() +
-# #     facet_wrap(qtype~object, scale="free_x", ncol = 5) +
-# #     ylim(0, 1) +
-# #     scale_colour_solarized()
-# # ggsave("bda_data.png", width=10, height=5)
-```
-
-
-## Checks of convergence
-
-```{r, fig.width=4, fig.height=4}
-read.csv(
-  model_results_file,
-  col.names = c("result_type", "specifics",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "price_prior") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram() +
-  facet_wrap(specifics ~ object, scales="free")
-```
-
-```{r, fig.width=2, fig.height=1.5}
-read.csv(
-  model_results_file,
-  col.names = c("result_type", "specifics",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "global_param") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram() +
-  facet_wrap(~specifics, scales="free")
-```
-
-
-
-```{r, fig.width=5, fig.height=20}
-read.csv(
-  model_results_file,
-  col.names = c("result_type", "dollar_amount",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "Inductive") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=30) +
-  facet_wrap(dollar_amount~object, ncol = 5, scales="free")
+# #```{r, fig.width=15, fig.height=20}
+# read.csv(
+#   model_results_file,
+#   col.names = c("result_type", "dollar_amount",
+#                 "expt_id", "object",
+#                 "value", "probability")) %>%
+#   filter(result_type == "Inductive") %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram(bins=50) +
+#   facet_wrap(dollar_amount~object, ncol = 5, scales="free")
 ```
