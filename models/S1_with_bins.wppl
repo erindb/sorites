@@ -8,6 +8,18 @@ var ignore_last_bin = true;
 // var rating_type = "rating";
 var rating_type = "normed_rating";
 
+var totalIterations = (
+  utils.get_variable("--iterations") ?
+  utils.float(utils.get_variable("--iterations")) :
+  50
+);
+
+var lag = (
+  utils.get_variable("--iterations") ?
+  utils.float(utils.get_variable("--iterations")) :
+  1
+);
+
 var fit_giveanumber = utils.get_flag("--fit_giveanumber");
 
 var fit_concrete = utils.get_flag("--fit_concrete");
@@ -68,7 +80,7 @@ var d_bins = _.filter(
 
 // __ minutes for L0, fitting all bins and all sorites data
 // 20 minutes for L0, fitting bins (12) only
-var totalIterations = 10000, lag = 20;
+// var totalIterations = 10000, lag = 20;
 
 // var totalIterations = 50000, lag =  10;
 
