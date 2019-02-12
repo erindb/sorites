@@ -174,7 +174,7 @@ var model = function(){
   // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
   var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
   query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
-  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.5});
+  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.005});
   query.add(["global_param", "sigbin", "NA", "NA"], sigbin);
   // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
   // standard deviation for bins responses
