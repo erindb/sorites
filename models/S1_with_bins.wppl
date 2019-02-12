@@ -15,8 +15,8 @@ var totalIterations = (
 );
 
 var lag = (
-  utils.get_variable("--iterations") ?
-  utils.float(utils.get_variable("--iterations")) :
+  utils.get_variable("--lag") ?
+  utils.float(utils.get_variable("--lag")) :
   1
 );
 
@@ -63,7 +63,7 @@ var d_bins = _.filter(
   dataFrame(
     utils.readCSV("../data/priors/reformatted_bins.csv").data
   ),
-  all_bins_at_once ? {} : {"id": bins_expt_id}
+  all_bins_at_once ? {} : {"exp": bins_expt_id}
 );
 
 
@@ -256,7 +256,8 @@ var model = function(){
     	  Infer({model: function(){
     	    var state = sample(statePrior);
           // theta might be lifted
-          var theta = utils.isNumber(theta) ? theta : sample(thetaPrior);
+          //  var theta = theta ? theta : sample(thetaPrior);
+            var theta = utils.isNumber(theta) ? theta : sample(thetaPrior);
     	    var m = meaning(utterance, state, theta);
     	    condition(m);
     	    return {state: state, theta: theta};
