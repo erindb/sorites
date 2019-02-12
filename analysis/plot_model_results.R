@@ -42,11 +42,19 @@ get_ecdf_with_errorbars = function(df, colname="price", reps=1000) {
   return(df)
 }
 
-plot_priors = function(model_results_file) {
-  prior_fit = read.csv(model_results_file,
-                                 col.names = c("result_type", "variable",
-                                               "IGNORE", "object",
-                                               "value", "probability")) %>%
+plot_priors = function(model_results_file, raw_model_output=raw_model_output) {
+
+  if (is.data.frame(raw_model_output)) {
+    names(raw_model_output) = c("result_type", "variable",
+                                "IGNORE", "object",
+                                "value", "probability")
+  } else {
+    raw_model_output = read.csv(model_results_file,
+                                col.names = c("result_type", "variable",
+                                              "IGNORE", "object",
+                                              "value", "probability"))
+  }
+  prior_fit = raw_model_output %>%
     select(-IGNORE) %>%
     filter(result_type == "price_prior") %>%
     group_by(result_type, variable, object) %>%
@@ -267,13 +275,21 @@ plot_bins = function(expt_label="07c") {
 }
 
 
-plot_concrete = function(model_results_file, zscore=F) {
+plot_concrete = function(model_results_file, zscore=F, raw_model_output=raw_model_output) {
+
+  if (is.data.frame(raw_model_output)) {
+    names(raw_model_output) = c("result_type", "dollar_amount",
+                                "expt_id", "object",
+                                "value", "probability")
+  } else {
+    raw_model_output = read.csv(model_results_file,
+                                col.names = c("result_type", "dollar_amount",
+                                              "expt_id", "object",
+                                              "value", "probability"))
+  }
 
   # load_concrete_model
-  concrete_fit = read.csv(model_results_file,
-                          col.names = c("result_type", "dollar_amount",
-                                        "expt_id", "object",
-                                        "value", "probability")) %>%
+  concrete_fit = raw_model_output %>%
     filter(result_type == "S1") %>%
     group_by(dollar_amount, expt_id, object) %>%
     do(quantile_errorbars(.$value)) %>%
@@ -349,7 +365,7 @@ plot_concrete = function(model_results_file, zscore=F) {
 }
 
 
-plot_inductive = function(model_results_file, zscore=F) {
+plot_inductive = function(model_results_file, zscore=F, raw_model_output=NA) {
   if (zscore) {
     inductive = df %>%
       mutate(response = num(response)) %>%
@@ -380,10 +396,18 @@ plot_inductive = function(model_results_file, zscore=F) {
     group_by(expt_id, object, dollar_amount) %>%
     summarise()
 
-  l0_comparison = read.csv(model_results_file,
-                           col.names = c("result_type", "dollar_amount",
-                                         "expt_id", "object",
-                                         "value", "probability")) %>%
+  if (is.data.frame(raw_model_output)) {
+    names(raw_model_output) = c("result_type", "dollar_amount",
+                                "expt_id", "object",
+                                "value", "probability")
+  } else {
+    raw_model_output = read.csv(model_results_file,
+                                col.names = c("result_type", "dollar_amount",
+                                              "expt_id", "object",
+                                              "value", "probability"))
+  }
+
+  l0_comparison = raw_model_output %>%
     filter(result_type == "Inductive") %>%
     group_by(expt_id, object, dollar_amount) %>%
     do(quantile_errorbars(.$value)) %>%
@@ -510,9 +534,14 @@ plot_sorites_curves = function(sorites_results) {
 }
 
 plot_sorites = function(model_results_file, zscore, all_experiments) {
-  priors_results = plot_priors(model_results_file)
-  concrete_results = plot_concrete(model_results_file, zscore=zscore)
-  inductive_results = plot_inductive(model_results_file, zscore=zscore)
+  raw_model_output = read.csv(
+    model_results_file,
+    col.names = c("result_type", "specifics",
+                  "expt_id", "object",
+                  "value", "probability"))
+  priors_results = plot_priors(model_results_file, raw_model_output=raw_model_output)
+  concrete_results = plot_concrete(model_results_file, zscore=zscore, raw_model_output=raw_model_output)
+  inductive_results = plot_inductive(model_results_file, zscore=zscore, raw_model_output=raw_model_output)
   sorites_results = concrete_results$df %>%
     mutate(qtype="concrete") %>%
     rbind(inductive_results$df %>% mutate(qtype="inductive"))
@@ -529,6 +558,7 @@ plot_sorites = function(model_results_file, zscore, all_experiments) {
     final_sorites_curves = final_sorites_curves,
     final_prior_ecdf = final_prior_ecdf,
     final_sorites_cor = final_sorites_cor,
-    giveanumber_ecdf = priors_results$p
+    giveanumber_ecdf = priors_results$p,
+    raw_model_output = raw_model_output
   ))
 }

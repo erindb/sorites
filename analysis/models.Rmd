@@ -146,736 +146,158 @@ fit_to_final_sorites_only$final_sorites_cor
 ```
 
 ```{r}
-# fit_to_all_bins_no_sorites = plot_sorites(
-#   "../models/results/",
-#   zscore = F,
-#   all_experiments = F
-# )
+fit_to_all_bins_no_sorites = plot_sorites(
+  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F
+)
+```
+
+```{r, fig.width=10, fig.height=4}
+fit_to_all_bins_no_sorites$final_sorites_cor
 ```
 
 
+## Checks of convergence
+
+### Final experiments, fitting everything at once
+
+```{r, fig.width=10, fig.height=6}
+reproduce_old_plots$raw_model_output %>%
+  filter(result_type == "price_prior") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(specifics ~ object, scales="free") +
+  ggtitle("inferred prior price params - reproduced (fit all final experiments")
+```
+
+```{r, fig.width=4, fig.height=2}
+reproduce_old_plots$raw_model_output %>%
+  filter(result_type == "global_param") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(~specifics, scales="free") +
+  ggtitle("inferred global params - reproduced (fit all final experiments")
+```
+
+```{r, fig.width=15, fig.height=17}
+reproduce_old_plots$raw_model_output %>%
+  change_names(c("result_type", "dollar_amount",
+                "expt_id", "object",
+                "value", "probability")) %>%
+  filter(result_type == "Inductive") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+  ggtitle("inferred inductive - reproduced (fit all final experiments")
+```
+
+```{r, fig.width=15, fig.height=17}
+reproduce_old_plots$raw_model_output %>%
+  change_names(c("result_type", "dollar_amount",
+                "expt_id", "object",
+                "value", "probability")) %>%
+  filter(result_type == "S1") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+  ggtitle("inferred concrete - reproduced (fit all final experiments")
+```
+
+### Final experiments, fitting bins only
 
 
+```{r, fig.width=10, fig.height=6}
+fit_to_final_bins_only$raw_model_output %>%
+  filter(result_type == "price_prior") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(specifics ~ object, scales="free") +
+  ggtitle("inferred prior price params - final bins")
+```
 
-
+```{r, fig.width=4, fig.height=2}
+fit_to_final_bins_only$raw_model_output %>%
+  filter(result_type == "global_param") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(~specifics, scales="free") +
+  ggtitle("inferred global params - final bins")
+```
 
 ```{r}
-#```{r}
-# fitting only to bins #12 and sorites #11
-# recap_model_file = "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
-#```
-# 
-# ## Sorites premises
-# 
-# # ```{r}
-# model_file_tag = "attempt_at_recap_"
-# model_results_file =
-#   "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
-# 
-# # model_file_tag = "fit to endorsement data only no bins"
-# # model_results_file =
-#   # "../models/results/results-S1-10000_burn5000_lag20_chain--all_sorites_concrete_inductive_12_allsorites_listener0_normed_rating_ignore_last_bin.csv"
-# 
-# # model_file_tag = "recap_"
-# # model_results_file = 
-# #   #"../models/results/results-S1-5000_burn2500_lag10_chain1_recap_concrete_inductive_bins_11_12_listener0_normed_rating_ignore_last_bin.csv"
-# #   "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
-# 
-# # sanity check that we fit the priors
-# # model_file_tag = "fit_to_everything_for_last_experiments_only_"
-# # model_results_file =
-# #   "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain1_sigbinmax0.5_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
-#   # "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain--fit_bins_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
-#   # "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain--fit_bins_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv"
-#   # "../models/results/results-S1-5000_burn2500_lag10_chain--all_sorites_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv" #80 minutes
-#   # "../models/results/results-S1-5000_burn2500_lag10_chain2_concrete_inductive_bins_11_12_listener0_normed_rating_ignore_last_bin.csv"
-#   # "../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv" #85 minutes
-#   # "../models/results/results-S1-500_burn250_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
-#   # "../models/results/results-S1-50_burn25_lag1_chain1_concrete_inductive_bins_all_listener0_normed_rating_ignore_last_bin.csv"
-#   # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv" # 20 mins
-#   # "../models/results/results-S1-10000_burn5000_lag20_chain1_concrete_inductive_bins_11_listener0_normed_rating_ignore_last_bin.csv"
-#   # "../models/results/results-S1-10000_burn5000_lag20_chain1_bins_listener0_normed_rating_ignore_last_bin.csv" # 
-#   # "../models/results/results-S1-5000_burn2500_lag10_chain1_bins_listener0_normed_rating_ignore_last_bin.csv" # 10 mins
-# priors_results = plot_priors(model_results_file)
-# ```
-# 
-# If we fit to just the best bins prior elicitation, then we recover the prior with $R^2 = `r round(priors_results$bins_r_squared, 3)`$
-
-# ```{r, fig.width=15, fig.height=3}
-# priors_results$p
-# ```
-
-
-# ```{r, fig.width=15, fig.height=3}
-# priors_results$last_bins_ecdf
-# ggsave(paste("img/", model_file_tag, "priors_fit_to_last_bins_and_sorites.png", sep=""), width=15, height=3)
-# ```
-
-#```{r, fig.width=15, fig.height=8}
-# concrete_results = plot_concrete(model_results_file, zscore=F)
-# inductive_results = plot_inductive(model_results_file, zscore=F)
-# sorites_results = concrete_results$df %>%
-#   mutate(qtype="concrete") %>%
-#   rbind(inductive_results$df %>% mutate(qtype="inductive"))
-# sorites_results %>%
-#   ggplot() +
-#   aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax,
-#       colour=src, group=paste(qtype, expt_id)) +
-#   geom_pointrange() +
-#   facet_wrap(qtype~object, scale="free_x", ncol = 5) +
-#   scale_colour_solarized()
-# ggsave(paste("img/", model_file_tag, "all_expts_l0_fit_to_bins_and_sorites.png", sep=""), width=15, height=8)
-#```
-
-
-
-#```{r, fig.width=10, fig.height=4}
-# concrete_results = plot_concrete(model_results_file, zscore=T)
-# inductive_results = plot_inductive(model_results_file, zscore=T)
-# sorites_results = concrete_results$df %>%
-#   mutate(qtype="concrete") %>%
-#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-#   gather("region", "prob", c(y, ymin, ymax)) %>%
-#   unite("variable", src, region) %>%
-#   spread(variable, prob)
-# sorites_results %>%
-#   ggplot() +
-#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
-#       y=data_y, ymin=data_ymin, ymax=data_ymax,
-#       colour=expt_id, shape=object
-#       ) +
-#   geom_errorbarh(alpha=1/3
-#     ) +
-#   geom_pointrange(alpha=1/3
-#     ) +
-#   facet_wrap(~qtype, scales="free") +
-#   scale_colour_solarized()
-# ggsave(paste("img/", model_file_tag, "all_expts_l0_fit_to_bins_and_sorites_cor_zscored.png", sep=""), width=10, height=4)
-
-# sorites_results %>%
-#   filter(qtype=="concrete") %>%
-#   with(cor(model_y, data_y)^2)
-# sorites_results %>%
-#   filter(qtype=="inductive") %>%
-#   with(cor(model_y, data_y)^2)
-#```
-
-#```{r, fig.width=10, fig.height=4}
-# concrete_results = plot_concrete(model_results_file, zscore=T)
-# inductive_results = plot_inductive(model_results_file, zscore=T)
-# sorites_results = concrete_results$df %>%
-#   mutate(qtype="concrete") %>%
-#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-#   gather("region", "prob", c(y, ymin, ymax)) %>%
-#   unite("variable", src, region) %>%
-#   spread(variable, prob)
-
-# 
-# sorites_results %>%
-#   filter(expt_id == "11") %>%
-#   ggplot() +
-#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
-#       y=data_y, ymin=data_ymin, ymax=data_ymax,
-#       colour=object
-#       #colour=expt_id, shape=object
-#       ) +
-#   geom_errorbarh(#alpha=1/2
-#     ) +
-#   geom_pointrange(#alpha=1/2
-#     ) +
-#   facet_wrap(~qtype, scales="free") +
-#   scale_colour_solarized() +
-#   geom_text(data=data.frame(qtype=c("concrete", "inductive"), r2=c(concrete_r2, inductive_r2), model_y=0.3, data_y=1) %>% mutate(model_ymin=model_y, model_ymax=model_y, data_ymin=data_y, data_ymax=data_y, object="watch"), aes(label=r2, x=0.3, y=1), x=0.3, y=1, colour="black")
-# ggsave(paste("img/", model_file_tag, "final_expts_l0_fit_to_bins_and_sorites_cor_zscored.png", sep=""), width=10, height=4)
-#```
-
-#```{r, fig.width=10, fig.height=4}
-# concrete_results = plot_concrete(model_results_file, zscore=F)
-# inductive_results = plot_inductive(model_results_file, zscore=F)
-# sorites_results = concrete_results$df %>%
-#   mutate(qtype="concrete") %>%
-#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-#   gather("region", "prob", c(y, ymin, ymax)) %>%
-#   unite("variable", src, region) %>%
-#   spread(variable, prob)
-# sorites_results %>%
-#   filter(expt_id=="11") %>%
-#   ggplot() +
-#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
-#       y=data_y, ymin=data_ymin, ymax=data_ymax,
-#       colour=object) +
-#   geom_abline(intercept=0, slope = 1, alpha=0.5) +
-#   geom_errorbarh() +
-#   geom_pointrange() +
-#   facet_wrap(~qtype, scales="free") +
-#   scale_colour_solarized() +
-#   ylim(0,1) +
-#   xlim(0,1)
-# ggsave(paste("img/", model_file_tag, "final_expts_l0_fit_to_bins_and_sorites_cor.png", sep=""), width=10, height=4)
-# 
-# sorites_results %>%
-#   filter(expt_id=="11") %>%
-#   filter(qtype=="concrete") %>%
-#   with(cor(model_y, data_y)^2)
-# sorites_results %>%
-#   filter(expt_id=="11") %>%
-#   filter(qtype=="inductive") %>%
-#   with(cor(model_y, data_y)^2)
-# ```
-# 
-# ```{r, fig.width=10, fig.height=4}
-# concrete_results = plot_concrete(model_results_file, zscore=F)
-# inductive_results = plot_inductive(model_results_file, zscore=F)
-# sorites_results = concrete_results$df %>%
-#   mutate(qtype="concrete") %>%
-#   rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
-#   gather("region", "prob", c(y, ymin, ymax)) %>%
-#   unite("variable", src, region) %>%
-#   spread(variable, prob)
-# sorites_results %>%
-#   ggplot() +
-#   aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
-#       y=data_y, ymin=data_ymin, ymax=data_ymax,
-#       colour=expt_id, shape=object
-#       ) +
-#   geom_abline(intercept=0, slope = 1, alpha=0.5) +
-#   geom_errorbarh(alpha=1/3) +
-#   geom_pointrange(alpha=1/3) +
-#   facet_wrap(~qtype, scales="free") +
-#   scale_colour_solarized() +
-#   ylim(0,1) +
-#   xlim(0,1)
-# ggsave(paste("img/", model_file_tag, "all_expts_l0_fit_to_bins_and_sorites_cor.png", sep=""), width=10, height=4)
-# 
-# sorites_results %>%
-#   filter(qtype=="concrete") %>%
-#   with(cor(model_y, data_y)^2)
-# sorites_results %>%
-#   filter(qtype=="inductive") %>%
-#   with(cor(model_y, data_y)^2)
-# ```
-# 
-# ```{r}
-# inductive_r_squared = sorites_results %>% filter(qtype=="inductive") %>% with(cor(model_y, data_y)^2)
-# concrete_r_squared = sorites_results %>% filter(qtype=="concrete") %>% with(cor(model_y, data_y)^2)
-# inductive_r_squared
-# concrete_r_squared
-# ```
-# 
-# 
-# ```{r}
-# read.csv(
-#   model_results_file,
-#   col.names = c("result_type", "specifics",
-#                 "expt_id", "object",
-#                 "value", "probability")) %>%
-#   filter(result_type == "global_param", specifics == "speakerOptimality") %>%
-#   select(value) %>%
-#   ggplot(aes(x=value)) + geom_histogram(bins=50) +
-#   ggtitle("speakerOptimality")
-# ggsave(paste("img/", model_file_tag, "l0_fit_to_bins_and_sorites_speakerOptimality.png", sep=""), width=3, height=2)
-# ```
-# 
-# 
-# 
-# ```{r, fig.width=10, fig.height=2}
-# # # this takes ~25 minutes to run
-# # model_results_file = "../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_giveanumber_inductive_all_listener0.csv"
-# # priors_results = plot_priors(model_results_file)
-# # concrete_results = plot_concrete(model_results_file)
-# # inductive_results = plot_inductive(model_results_file)
-# # l0_model_results = concrete_results$df %>% mutate(qtype="concrete") %>%
-# #   rbind(inductive_results$df %>% mutate(qtype="inductive"))
-# # priors_results$p
-# # ggsave("l0_fit_to_givanumber_et_al_prior.png", width=15, height=3)
-# ```
-# 
-# ```{r, fig.width=10, fig.height=4}
-# # priors_results$fit %>%
-# #   ggplot(aes(x=value)) +
-# #   geom_histogram(bins=15) +
-# #   facet_wrap(variable ~object, ncol=5, scales="free")
-# ```
-# 
-# 
-# ```{r, fig.width=10, fig.height=5}
-# # l0_model_results %>%
-# #     ggplot() +
-# #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
-# #     geom_pointrange() +
-# #     facet_wrap(qtype~object, scale="free_x", ncol = 5) +
-# #     ylim(0, 1) +
-# #     scale_colour_solarized()
-# # ggsave("l0_giveanumber_et_al.png", width=10, height=5)
-# ```
-# 
-# ```{r, fig.width=10, fig.height=5}
-# # l0_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   filter(expt_id=="11") %>%
-# #   ggplot() +
-# #   aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-# #       y=data.y, ymin=data.ymin, ymax=data.ymax,
-# #       colour=object) +
-# #   ylab("Data") +
-# #   xlab("Model") +
-# #   geom_pointrange() +
-# #   geom_errorbarh() +
-# #   scale_colour_solarized() +
-# #   geom_text_repel(aes(label=dollar_amount)) +
-# #   facet_wrap(expt_id ~ qtype, scales="free")
-# # ggsave("l0_expt11.png", width=10, height=5)
-# #
-# # l0_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   filter(expt_id=="11") %>%
-# #   group_by(qtype) %>%
-# #   summarise(rsquared = cor(model.y, data.y)^2)
-# ```
-# 
-# ```{r, fig.width=10, fig.height=5}
-# # l0_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   ggplot() +
-# #   aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-# #       y=data.y, ymin=data.ymin, ymax=data.ymax,
-# #       colour=object) +
-# #   ylab("Data") +
-# #   xlab("Model") +
-# #   geom_pointrange() +
-# #   geom_errorbarh() +
-# #   scale_colour_solarized() +
-# #   # geom_text_repel(aes(label=dollar_amount)) +
-# #   facet_wrap(~qtype, scales="free")
-# # ggsave("l0_all.png", width=10, height=5)
-# #
-# # l0_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   group_by(qtype) %>%
-# #   summarise(rsquared = cor(model.y, data.y)^2)
-# ```
-# 
-# ```{r, fig.width=10, fig.height=20}
-#  # l0_model_results %>%
-#  #    gather("var", "val", c(y, ymin, ymax)) %>%
-#  #    unite("tmp", src, var, sep=".") %>%
-#  #    spread(tmp, val) %>%
-#  #    ggplot() +
-#  #    aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-#  #        y=data.y, ymin=data.ymin, ymax=data.ymax,
-#  #        colour=object) +
-#  #    ylab("Data") +
-#  #    xlab("Model") +
-#  #    geom_abline(slope = 1, intercept = 0, alpha=0.2) +
-#  #    geom_pointrange() +
-#  #    geom_errorbarh() +
-#  #    scale_colour_solarized() +
-#  #  xlim(0, 1) +
-#  #  ylim(0, 1) +
-#  #  # geom_text_repel(aes(label=dollar_amount)) +
-#  #  facet_grid(expt_id ~ qtype)
-# ```
-# 
-# ```{r}
-# # concrete_results$R_squared
-# # inductive_results$R_squared
-# ```
-# 
-# 
-# ```{r}
-# # expt_results = df %>%
-# #   group_by(id, workerid) %>%
-# #   mutate(zscore = scale(response)) %>%
-# #   group_by(id, qtype, object, dollar_amount) %>%
-# #   do(mean_cl_boot(.$zscore)) %>%
-# #   rename(expt_id = id) %>%
-# #   mutate(src = "data") %>%
-# #   ungroup()
-# ```
-# 
-# 
-# ```{r, fig.width=10, fig.height=20}
-# # l0_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   ggplot() +
-# #   aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-# #       y=data.y, ymin=data.ymin, ymax=data.ymax,
-# #       colour=object) +
-# #   ylab("Data") +
-# #   xlab("Model") +
-# #   geom_pointrange() +
-# #   geom_errorbarh() +
-# #   scale_colour_solarized() +
-# #   # geom_text_repel(aes(label=dollar_amount)) +
-# #   facet_grid(expt_id ~ qtype)
-# ```
-# 
-# 
-# ```{r, fig.width=10, fig.height=5}
-# # # this takes ~100 minutes to run
-# # model_results_file = "../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_giveanumber_inductive_all_listener1.csv"
-# # priors_results = plot_priors(model_results_file)
-# # concrete_results = plot_concrete(model_results_file)
-# # inductive_results = plot_inductive(model_results_file)
-# # l1_model_results = concrete_results$df %>% mutate(qtype="concrete") %>%
-# #   rbind(inductive_results$df %>% mutate(qtype="inductive"))
-# #
-# # l1_model_results %>%
-# #     ggplot() +
-# #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
-# #     geom_pointrange() +
-# #     facet_wrap(qtype~object, scale="free_x", ncol = 5) +
-# #     ylim(0, 1) +
-# #     scale_colour_solarized()
-# ```
-# 
-# ```{r}
-# # concrete_results$R_squared
-# # inductive_results$R_squared
-# ```
-# 
-# 
-# ```{r, fig.width=10, fig.height=20}
-# # l1_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   ggplot() +
-# #   aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-# #       y=data.y, ymin=data.ymin, ymax=data.ymax,
-# #       colour=object) +
-# #   ylab("Data") +
-# #   xlab("Model") +
-# #   geom_pointrange() +
-# #   geom_errorbarh() +
-# #   scale_colour_solarized() +
-# #   geom_text_repel(aes(label=dollar_amount)) +
-# #   facet_grid(expt_id ~ qtype)
-# ```
-# 
-# ```{r}
-# # #L0 vs L1
-# # l0_vs_l1 = l0_model_results %>% mutate(listener_level = "L0") %>%
-# #   rbind(l1_model_results %>% mutate(listener_level = "L1")) %>%
-# #   filter(qtype=="inductive") %>%
-# #   filter(src=="model") %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", listener_level, var, sep=".") %>%
-# #   spread(tmp, val)
-# # cor(l0_vs_l1$L0.y, l0_vs_l1$L1.y)^2
-# # l0_vs_l1 %>%
-# #   ggplot(aes(x=L0.y, y=L1.y, colour=object)) +
-# #   geom_point() +
-# #   scale_colour_solarized()
-# # ggsave("l0_vs_l1.png", width=5, height=3)
-# ```
-# 
-# ```{r, fig.width=10, fig.height=5}
-# # l1_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   filter(expt_id=="11") %>%
-# #   ggplot() +
-# #   aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-# #       y=data.y, ymin=data.ymin, ymax=data.ymax,
-# #       colour=object) +
-# #   ylab("Data") +
-# #   xlab("Model") +
-# #   geom_pointrange() +
-# #   geom_errorbarh() +
-# #   scale_colour_solarized() +
-# #   geom_text_repel(aes(label=dollar_amount)) +
-# #   facet_wrap(expt_id ~ qtype, scales="free")
-# ```
-# 
-# 
-# 
-# 
-# ```{r, fig.width=10, fig.height=5}
-# # model_results_file = "../models/results/results-S1-5000_burn2500_lag10_chain1_giveanumber_all_listener1.csv"
-# # priors_results = plot_priors(model_results_file)
-# # concrete_results = plot_concrete(model_results_file)
-# # inductive_results = plot_inductive(model_results_file)
-# # l1_model_results = concrete_results$df %>% mutate(qtype="concrete") %>%
-# #   rbind(inductive_results$df %>% mutate(qtype="inductive"))
-# #
-# # l1_model_results %>%
-# #     ggplot() +
-# #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
-# #     geom_pointrange() +
-# #     facet_wrap(qtype~object, scale="free_x", ncol = 5) +
-# #     ylim(0, 1) +
-# #     scale_colour_solarized()
-# ```
-# 
-# ```{r}
-# # concrete_results$R_squared
-# # inductive_results$R_squared
-# ```
-# 
-# 
-# ```{r, fig.width=10, fig.height=20}
-# # l1_model_results %>%
-# #   filter(src=="model") %>%
-# #   rbind(expt_results) %>%
-# #   gather("var", "val", c(y, ymin, ymax)) %>%
-# #   unite("tmp", src, var, sep=".") %>%
-# #   spread(tmp, val) %>%
-# #   ggplot() +
-# #   aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-# #       y=data.y, ymin=data.ymin, ymax=data.ymax,
-# #       colour=object) +
-# #   ylab("Data") +
-# #   xlab("Model") +
-# #   geom_pointrange() +
-# #   geom_errorbarh() +
-# #   scale_colour_solarized() +
-# #   geom_text_repel(aes(label=dollar_amount)) +
-# #   facet_grid(expt_id ~ qtype)
-# ```
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# ## Concrete premise
-# 
-# ```{r, fig.height=2, fig.width=10}
-# # concrete_concrete = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain1_concrete.csv")
-# # # print(concrete_concrete$plot_responses)
-# ```
-# 
-# ```{r}
-# # print(concrete_concrete$plot_correlation)
-# 
-# # Fitting just to concrete data, $R^2 = `r round(concrete_concrete[["R_squared"]], 3)`$.
-# 
-# # concrete_concrete_giveanumber = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain1_concrete_giveanumber.csv")
-# 
-# # Additionally fitting to giveanumber data, $R^2 = `r round(concrete_concrete_giveanumber[["R_squared"]], 3)`$.
-# #
-# # {r, fig.height=2, fig.width=10}
-# # print(concrete_concrete_giveanumber$plot_responses)
-# ```
-# 
-# ```{r}
-# # print(concrete_concrete_giveanumber$plot_correlation)
-# ```
-# 
-# ```{r}
-# # concrete_giveanumber = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain1_giveanumber.csv")
-# ```
-# 
-# <!-- *Only* fitting to giveanumber data, $R^2 = `r round(concrete_giveanumber[["R_squared"]], 3)`$. -->
-# 
-# ```{r, fig.height=2, fig.width=10}
-# # print(concrete_giveanumber$plot_responses)
-# ```
-# 
-# ```{r}
-# # print(concrete_giveanumber$plot_correlation)
-# ```
-# 
-# 
-# ```{r, fig.width=10, fig.height=2}
-# # prior_concrete = plot_priors("../models/results/results-S1-5000_burn2500_lag10_chain1_concrete.csv")
-# # # print(prior_concrete$p)
-# ```
-# 
-# <!-- Fitting to the concrete premise only, the fit to the *prior* price distributions in the giveanumber experiment is $R^2 = `r round(prior_concrete[["R_squared"]], 3)`$. -->
-# 
-# ```{r}
-# # question: does prior fit get worse over time? (hypothesis: prices are changing over time for these items)
-# ```
-# 
-# <!-- ## Inductive
-# 
-# Now to model the indutive premise... -->
-# 
-# ```{r}
-# # inductive = df %>%
-# #   filter(qtype=="inductive") %>%
-# #   select(id, object, dollar_amount, response) %>%
-# #   rename(expt_id = id) %>%
-# #   group_by(expt_id, dollar_amount, object) %>%
-# #   do(mean_cl_boot(.$response/9)) %>%
-# #   ungroup() %>%
-# #   mutate(src = "data")
-# #
-# # epsilons = inductive %>%
-# #   group_by(expt_id, object, dollar_amount) %>%
-# #   summarise()
-# ```
-# 
-# ```{r}
-# # inductive %>%
-# #     ggplot() +
-# #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
-# #     geom_pointrange() +
-# #     facet_wrap(~object, scale="free_x", ncol = 5) +
-# #     ylim(0, 1) +
-# #     scale_colour_solarized()
-# ```
-# 
-# <!-- As a first pass, I'm just taking the expectation over L0 of the inductive premise being true. -->
-# 
-# ```{r}
-# # model_results_file = "../models/results/results-S1-5000_burn2500_lag10_chain5_concrete_giveanumber_inductive.csv"
-# #
-# # l0_comparison = read.csv(model_results_file,
-# #                   col.names = c("result_type", "dollar_amount",
-# #                                 "expt_id", "object",
-# #                                 "value", "probability")) %>%
-# #   filter(result_type == "Inductive") %>%
-# #   group_by(expt_id, object, dollar_amount) %>%
-# #   do(quantile_errorbars(.$value)) %>%
-# #   ungroup() %>%
-# #   mutate(dollar_amount = num(dollar_amount)) %>%
-# #   mutate(src="model") %>%
-# #   rbind(inductive)
-# ```
-# 
-# ```{r, fig.height=2, fig.width=10}
-# # l0_comparison %>%
-# #     ggplot() +
-# #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
-# #     geom_pointrange() +
-# #     facet_wrap(~object, scale="free_x", ncol = 5) +
-# #     ylim(0, 1) +
-# #     scale_colour_solarized()
-# ```
-# 
-# ```{r}
-# # R_squared = l0_comparison %>%
-# #   select(-c(ymin, ymax)) %>%
-# #   spread(src, y) %>%
-# #   lm(data~model, data=.) %>%
-# #   summary() %>%
-# #   .$r.squared
-# ```
-# 
-# 
-# ```{r}
-# # concrete_concrete_giveanumber_inductive = plot_concrete("../models/results/results-S1-5000_burn2500_lag10_chain5_concrete_giveanumber_inductive.csv")
-# ```
-# 
-# <!-- Additionally fitting to giveanumber data, $R^2 = `r round(concrete_concrete_giveanumber_inductive[["R_squared"]], 3)`$. -->
-# 
-# ```{r, fig.height=2, fig.width=10}
-# # print(concrete_concrete_giveanumber_inductive$plot_responses)
-# ```
-# 
-# ```{r}
-# # print(concrete_concrete_giveanumber_inductive$plot_correlation)
-# ```
-# 
-# ```{r}
-# # full_concrete_giveanumber_inductive_comparison = rbind(concrete_concrete_giveanumber_inductive$concrete_comparison %>% mutate(qtype = "concrete"),
-# # l0_comparison %>% mutate(qtype = "inductive"))
-# # full_concrete_giveanumber_inductive_comparison %>%
-# #     gather("var", "val", c(y, ymin, ymax)) %>%
-# #     unite("tmp", src, var, sep=".") %>%
-# #     spread(tmp, val) %>%
-# #     ggplot() +
-# #     aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
-# #         y=data.y, ymin=data.ymin, ymax=data.ymax,
-# #         colour=qtype) +
-# #     ylab("Data") +
-# #     xlab("Model") +
-# #     geom_abline(slope = 1, intercept = 0, alpha=0.2) +
-# #     geom_errorbarh() +
-# #     geom_pointrange() +
-# # #   scale_color_solarized()
-# # # ggsave("bda_correlations.png")
-# # ```
-# # 
-# # ```{r}
-# # # full_concrete_giveanumber_inductive_comparison %>%
-# # #   select(-c(ymin, ymax)) %>%
-# # #   spread(src, y) %>%
-# # #   lm(data~model, data=.) %>%
-# # #   summary() %>%
-# # #   .$r.squared
-# # ```
-# # 
-# # 
-# # 
-# # ```{r, fig.width=10, fig.height=5}
-# # # full_concrete_giveanumber_inductive_comparison %>%
-# # #     ggplot() +
-# # #     aes(x=dollar_amount, y=y, ymin=ymin, ymax=ymax, colour=src) +
-# # #     geom_pointrange() +
-# # #     facet_wrap(qtype~object, scale="free_x", ncol = 5) +
-# # #     ylim(0, 1) +
-# # #     scale_colour_solarized()
-# # # ggsave("bda_data.png", width=10, height=5)
-# #```
-# 
-# 
-# ## Checks of convergence
-# 
-# #```{r, fig.width=10, fig.height=10}
-# read.csv(
-#   model_results_file,
-#   col.names = c("result_type", "specifics",
-#                 "expt_id", "object",
-#                 "value", "probability")) %>%
-#   filter(result_type == "price_prior") %>%
-#   ggplot(aes(x=value)) +
-#   geom_histogram(bins=50) +
-#   facet_wrap(specifics ~ object, scales="free")
-# #```
-# 
-# #```{r, fig.width=4, fig.height=3}
-# read.csv(
-#   model_results_file,
-#   col.names = c("result_type", "specifics",
-#                 "expt_id", "object",
-#                 "value", "probability")) %>%
+# fit_to_final_bins_only$raw_model_output %>%
 #   filter(result_type == "global_param") %>%
-#   ggplot(aes(x=value)) +
-#   geom_histogram(bins=50) +
-#   facet_wrap(~specifics, scales="free")
-# #```
-# 
-# 
-# 
-# #```{r, fig.width=15, fig.height=20}
-# read.csv(
-#   model_results_file,
-#   col.names = c("result_type", "dollar_amount",
-#                 "expt_id", "object",
-#                 "value", "probability")) %>%
-#   filter(result_type == "Inductive") %>%
-#   ggplot(aes(x=value)) +
-#   geom_histogram(bins=50) +
-#   facet_wrap(dollar_amount~object, ncol = 5, scales="free")
+#   filter(specifics == "sigbin")
+```
+
+
+```{r, fig.width=15, fig.height=17}
+fit_to_final_bins_only$raw_model_output %>%
+  change_names(c("result_type", "dollar_amount",
+                "expt_id", "object",
+                "value", "probability")) %>%
+  filter(result_type == "Inductive") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+  ggtitle("inferred inductive - final bins")
+```
+
+```{r, fig.width=15, fig.height=17}
+fit_to_final_bins_only$raw_model_output %>%
+  change_names(c("result_type", "dollar_amount",
+                "expt_id", "object",
+                "value", "probability")) %>%
+  filter(result_type == "S1") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+  ggtitle("inferred concrete - final bins")
+```
+
+
+### Final experiments, fitting sorites only
+
+
+```{r, fig.width=10, fig.height=6}
+fit_to_final_sorites_only$raw_model_output %>%
+  filter(result_type == "price_prior") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(specifics ~ object, scales="free") +
+  ggtitle("inferred prior price params - final sorites")
+```
+
+```{r, fig.width=4, fig.height=2}
+fit_to_final_sorites_only$raw_model_output %>%
+  filter(result_type == "global_param") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(~specifics, scales="free") +
+  ggtitle("inferred global params - final sorites")
+```
+
+```{r, fig.width=15, fig.height=17}
+fit_to_final_sorites_only$raw_model_output %>%
+  change_names(c("result_type", "dollar_amount",
+                "expt_id", "object",
+                "value", "probability")) %>%
+  filter(result_type == "Inductive") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+  ggtitle("inferred inductive - final sorites")
+```
+
+```{r, fig.width=15, fig.height=17}
+fit_to_final_sorites_only$raw_model_output %>%
+  change_names(c("result_type", "dollar_amount",
+                "expt_id", "object",
+                "value", "probability")) %>%
+  filter(result_type == "S1") %>%
+  ggplot(aes(x=value)) +
+  geom_histogram(bins=50) +
+  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+  ggtitle("inferred concrete - final sorites")
 ```
