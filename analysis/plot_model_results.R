@@ -450,77 +450,74 @@ plot_inductive = function(model_results_file, zscore=F, raw_model_output=NA) {
               df=l0_comparison))
 }
 
-plot_sorites_cor = function(concrete_results, inductive_results, all_experiments) {
+plot_sorites_cor = function(concrete_results, inductive_results, all_experiments, zscored=F) {
   sorites_results_wide = concrete_results$df %>%
     mutate(qtype="concrete") %>%
     rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
     gather("region", "prob", c(y, ymin, ymax)) %>%
     unite("variable", src, region) %>%
     spread(variable, prob)
-  concrete_r2 = sorites_results_wide %>%
-    filter(expt_id=="11") %>%
-    filter(qtype=="concrete") %>%
-    with(cor(model_y, data_y)^2) %>%
-    round(3)
-  inductive_r2 = sorites_results_wide %>%
-    filter(expt_id=="11") %>%
-    filter(qtype=="inductive") %>%
-    with(cor(model_y, data_y)^2) %>%
-    round(3)
   if (all_experiments) {
-    sorites_results_wide %>%
+    concrete_r2 = sorites_results_wide %>%
+      filter(qtype=="concrete") %>%
+      with(cor(model_y, data_y)^2) %>%
+      round(3)
+    inductive_r2 = sorites_results_wide %>%
+      filter(qtype=="inductive") %>%
+      with(cor(model_y, data_y)^2) %>%
+      round(3)
+  } else {
+    concrete_r2 = sorites_results_wide %>%
+      filter(expt_id=="11") %>%
+      filter(qtype=="concrete") %>%
+      with(cor(model_y, data_y)^2) %>%
+      round(3)
+    inductive_r2 = sorites_results_wide %>%
+      filter(expt_id=="11") %>%
+      filter(qtype=="inductive") %>%
+      with(cor(model_y, data_y)^2) %>%
+      round(3)
+  }
+  if (all_experiments) {
+    p = sorites_results_wide %>%
       ggplot() +
       aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
           y=data_y, ymin=data_ymin, ymax=data_ymax,
-          colour=expt_id, shape=object) +
-      # geom_abline(intercept=0, slope = 1, alpha=0.5) +
-      geom_errorbarh(alpha=1/3) +
-      geom_pointrange(alpha=1/3) +
-      facet_wrap(~qtype, scales="free") +
-      scale_colour_solarized() +
-      geom_text(
-        data=data.frame(
-          qtype=c("concrete", "inductive"),
-          r2=c(concrete_r2, inductive_r2),
-          model_y=0.3, data_y=1) %>%
-          mutate(model_ymin=model_y,
-                 model_ymax=model_y,
-                 data_ymin=data_y,
-                 data_ymax=data_y,
-                 object="watch"),
-        aes(label=r2, x=0.3, y=1),
-        x=0.3,
-        y=1,
-        colour="black"
-      )
+          colour=expt_id, shape=object)
+    alpha = 1/3
   } else {
-    sorites_results_wide %>%
+    p = sorites_results_wide %>%
       filter(expt_id == "11") %>%
       ggplot() +
       aes(x=model_y, xmin=model_ymin, xmax=model_ymax,
           y=data_y, ymin=data_ymin, ymax=data_ymax,
-          colour=object) +
-      # geom_abline(intercept=0, slope = 1, alpha=0.5) +
-      geom_errorbarh() +
-      geom_pointrange() +
-      facet_wrap(~qtype, scales="free") +
-      scale_colour_solarized() +
-      geom_text(
-        data=data.frame(
-          qtype=c("concrete", "inductive"),
-          r2=c(concrete_r2, inductive_r2),
-          model_y=0.3, data_y=1) %>%
-          mutate(model_ymin=model_y,
-                 model_ymax=model_y,
-                 data_ymin=data_y,
-                 data_ymax=data_y,
-                 object="watch"),
-        aes(label=r2, x=0.3, y=1),
-        x=0.3,
-        y=1,
-        colour="black"
-      )
+          colour=object)
+    alpha = 1
   }
+
+  if (!zscored) {
+    p = p + geom_abline(intercept=0, slope = 1, alpha=0.5)
+  }
+
+  cor_df = data.frame(
+    qtype=c("concrete", "inductive"),
+    r2=c(concrete_r2, inductive_r2),
+    model_y=0.3, data_y=1) %>%
+    mutate(model_ymin=model_y,
+           model_ymax=model_y,
+           data_ymin=data_y,
+           data_ymax=data_y,
+           object="watch")
+
+  p = p +
+    geom_errorbarh(alpha=alpha) +
+    geom_pointrange(alpha=alpha) +
+    facet_wrap(~qtype, scales="free") +
+    scale_colour_solarized() +
+    geom_text(data=cor_df, aes(label=r2, x=0.3, y=1),
+              x=0.3, y=1, colour="black")
+
+  return(p)
 }
 
 plot_sorites_curves = function(sorites_results) {
@@ -533,7 +530,7 @@ plot_sorites_curves = function(sorites_results) {
     scale_colour_solarized()
 }
 
-plot_sorites = function(model_results_file, zscore, all_experiments) {
+plot_sorites = function(model_results_file, zscore, all_experiments, model_fit_label) {
   raw_model_output = read.csv(
     model_results_file,
     col.names = c("result_type", "specifics",
@@ -552,13 +549,64 @@ plot_sorites = function(model_results_file, zscore, all_experiments) {
 
   final_sorites_curves = plot_sorites_curves(sorites_results)
   final_prior_ecdf = priors_results$last_bins_ecdf
-  final_sorites_cor =plot_sorites_cor(concrete_results, inductive_results, all_experiments)
+  final_sorites_cor =plot_sorites_cor(concrete_results, inductive_results, all_experiments, zscored=zscore)
+  all_sorites_cor = plot_sorites_cor(concrete_results, inductive_results, T, zscored=zscore)
+  # all_sorites_curves = plot_sorites_curves(sorites_results)
+
+  price_params = raw_model_output %>%
+    filter(result_type == "price_prior") %>%
+    ggplot(aes(x=value)) +
+    geom_histogram(bins=50) +
+    facet_wrap(specifics ~ object, scales="free") +
+    ggtitle(model_fit_label)
+
+  global_params_plot = raw_model_output %>%
+    filter(result_type == "global_param") %>%
+    ggplot(aes(x=value)) +
+    geom_histogram(bins=50) +
+    facet_wrap(~specifics, scales="free") +
+    ggtitle(model_fit_label)
+
+  inductive_plot = raw_model_output %>%
+    change_names(c("result_type", "dollar_amount",
+                   "expt_id", "object",
+                   "value", "probability")) %>%
+    filter(result_type == "Inductive") %>%
+    ggplot(aes(x=value)) +
+    geom_histogram(bins=50) +
+    facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+    ggtitle(model_fit_label)
+
+  concrete_plot = raw_model_output %>%
+    change_names(c("result_type", "dollar_amount",
+                   "expt_id", "object",
+                   "value", "probability")) %>%
+    filter(result_type == "S1") %>%
+    ggplot(aes(x=value)) +
+    geom_histogram(bins=50) +
+    facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
+    ggtitle(model_fit_label)
+
+  params_plot = raw_model_output %>%
+    mutate(variable = paste(result_type, specifics, object)) %>%
+    ggplot(aes(x=value)) +
+    geom_histogram(bins=50) +
+    facet_wrap(~variable, ncol = 8, scales="free") +
+    theme_bw(6) +
+    ggtitle(model_fit_label)
 
   return(list(
     final_sorites_curves = final_sorites_curves,
     final_prior_ecdf = final_prior_ecdf,
     final_sorites_cor = final_sorites_cor,
+    # all_sorites_curves = all_sorites_curves,
+    all_sorites_cor = all_sorites_cor,
     giveanumber_ecdf = priors_results$p,
-    raw_model_output = raw_model_output
+    raw_model_output = raw_model_output,
+    price_params = price_params,
+    global_params = global_params_plot,
+    inductive = inductive_plot,
+    concrete = concrete_plot,
+    params = params_plot
   ))
 }

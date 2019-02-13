@@ -21,7 +21,140 @@ df = load_sorites()
 give_a_number = load_give_a_number() %>%
   mutate(src = "data")
 prior_bins = load_priors()
+
+reproduce_old_plots = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = T,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit"
+)
+
+fit_to_final_bins_only = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_bins_12_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "final prior (no sorites) fit"
+)
+
+fit_to_final_sorites_only = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "final sorites (no prior) fit"
+)
+
+fit_to_all_sorites_and_bins = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all prior & sorites fit"
+)
+
+fit_to_all_bins_no_sorites = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all prior (no sorites) fit"
+)
+
+fit_to_all_sorites_no_bins = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_12_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all sorites (no prior) fit"
+)
 ```
+
+
+## Model fit: Final Design
+
+### Old version
+
+In Noah's slides, we show model fit for only the final prior elicitaiton and the final sorites design (relative clause, with the final set of ranges). In the past, we fit the price prior parameters in R and then did a course grid search for speakerOptimality. We used the joint posterior distribution over the price $x$ and the threshold $\theta$ from listener1 (the pragmatic listener) to get model predictions for both sorites premises. For inductive, we took the proportion of the model samples where $x-\varepsilon > \theta$. For concrete, we took the proportion of the model samples where $given\ price > \theta$. We z-scored participants' responses for the correlation plots.
+
+### BDA version
+
+We can reproduce the old results from Noah's slides with our new `webppl` implementation with Bayesiean data analysis. We can simultaneously fit participants' bin ratings from the final prior elicitation and their responses for the final version of the sorites premises study.
+
+```{r, fig.width=15, fig.height=6}
+# the scaling is off here, if we're using z-scores
+fit_to_final_sorites_and_bins = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all prior & sorites fit"
+)
+print(fit_to_final_sorites_and_bins$final_sorites_curves)
+```
+
+```{r, fig.width=10, fig.height=4}
+print(reproduce_old_plots$final_sorites_cor)
+```
+
+Fitting to the final sorites *and* bins data does not significantly change the inferred priors relative to fitting only to the bins data. That is, the prior fits are being driven by the bins data and the concrete and inductive premise data mostly affect the optimality parameter. Since this is exactly how I used that information in the old version, it makes sense that we reproduce the results even with the BDA.
+
+```{r, fig.width=15, fig.height=3}
+print(reproduce_old_plots$final_prior_ecdf)
+```
+
+If we only give the model data from the final bins prior elicitation, the model has high uncertainty about the concrete premise, but has a decent correlation with the data.
+
+```{r, fig.width=10, fig.height=4}
+fit_to_final_bins_only$final_sorites_cor
+fit_to_final_bins_only$all_sorites_cor
+```
+
+```{r, fig.width=10, fig.height=2}
+# sanity check: yes, when we fit to bins only, the cor with bins is high
+# print(fit_to_final_bins_only$final_prior_ecdf)
+```
+
+However, the priors on prices we would infer from the sorites responses alone are quite different from both the give-a-number priors and the final experiment bins priors.
+
+```{r, fig.width=10, fig.height=2}
+print(fit_to_final_sorites_only$giveanumber_ecdf)
+print(fit_to_final_sorites_only$final_prior_ecdf)
+```
+
+In this situation, when we just fit the priors to the sorites data, the model can "explain" a lot of the variance, but it's likely overfitting to this particular dataset. I haven't tried to predict held-out data, which would show how much overfitting is happening here.
+
+```{r, fig.width=10, fig.height=4}
+fit_to_final_sorites_only$final_sorites_cor
+```
+
+## Model fit: All Designs
+
+
+### Fit to *all* data, prior and sorites
+
+
+```{r, fig.width=10, fig.height=4}
+fit_to_all_sorites_and_bins$all_sorites_cor
+fit_to_all_sorites_and_bins$final_sorites_cor
+```
+
+
+### Fit to all prior data, no sorites
+
+```{r, fig.width=10, fig.height=4}
+fit_to_all_bins_no_sorites$all_sorites_cor
+fit_to_all_bins_no_sorites$final_sorites_cor
+```
+
+
+
+### Fit to all sorites data, no prior data
+
+```{r, fig.width=10, fig.height=4}
+fit_to_all_sorites_no_bins$all_sorites_cor
+fit_to_all_sorites_no_bins$final_sorites_cor
+```
+
+```{r, fig.width=10, fig.height=2}
+print(fit_to_all_sorites_no_bins$giveanumber_ecdf)
+print(fit_to_all_sorites_no_bins$final_prior_ecdf)
+```
+
 
 
 ## Discretization
@@ -55,249 +188,31 @@ expand.grid(e = seq(0.1, 0.9, 0.1),
   geom_bar(stat="identity")
 ```
 
-## Model fit: Final Design
-
-### Old version
-
-In Noah's slides, we show model fit for only the final prior elicitaiton and the final sorites design (relative clause, with the final set of ranges). In the past, we fit the price prior parameters in R and then did a course grid search for speakerOptimality. We used the joint posterior distribution over the price $x$ and the threshold $\theta$ from listener1 (the pragmatic listener) to get model predictions for both sorites premises. For inductive, we took the proportion of the model samples where $x-\varepsilon > \theta$. For concrete, we took the proportion of the model samples where $given\ price > \theta$. We z-scored participants' responses for the correlation plots.
-
-### BDA version
-
-We can reproduce the old results from Noah's slides with our new `webppl` implementation with Bayesiean data analysis. We can simultaneously fit participants' bin ratings from the final prior elicitation and their responses for the final version of the sorites premises study.
-
-```{r}
-reproduce_old_plots = plot_sorites(
-  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = T,
-  all_experiments = F
-)
-```
-
-```{r, fig.width=15, fig.height=6}
-print(reproduce_old_plots$final_sorites_curves)
-```
-
-```{r, fig.width=10, fig.height=4}
-print(reproduce_old_plots$final_sorites_cor)
-```
-
-Fitting to the final sorites *and* bins data does not significantly change the inferred priors relative to fitting only to the bins data. That is, the prior fits are being driven by the bins data and the concrete and inductive premise data mostly affect the optimality parameter. Since this is exactly how I used that information in the old version, it makes sense that we reproduce the results even with the BDA.
-
-```{r, fig.width=15, fig.height=3}
-print(reproduce_old_plots$final_prior_ecdf)
-```
-
-If we only give the model data from the final bins prior elicitation, the model has high uncertainty about the concrete premise, but has a decent correlation with the data.
-
-```{r}
-fit_to_final_bins_only = plot_sorites(
-  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = F,
-  all_experiments = F
-)
-```
-
-```{r, fig.width=10, fig.height=4}
-fit_to_final_bins_only$final_sorites_cor
-```
-
-```{r, fig.width=10, fig.height=2}
-# sanity check: yes, when we fit to bins only, the cor with bins is high
-# print(fit_to_final_bins_only$final_prior_ecdf)
-```
-
-However, the priors on prices we would infer from the sorites responses alone are quite different from both the give-a-number priors and the final experiment bins priors.
-
-```{r}
-fit_to_final_sorites_only = plot_sorites(
-  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_12_11_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = F,
-  all_experiments = F
-)
-```
-
-```{r, fig.width=10, fig.height=2}
-print(fit_to_final_sorites_only$giveanumber_ecdf)
-print(fit_to_final_sorites_only$final_prior_ecdf)
-```
-
-In this situation, when we just fit the priors to the sorites data, the model can "explain" a lot of the variance, but it's likely overfitting to this particular dataset. I haven't tried to predict held-out data, which would show how much overfitting is happening here.
-
-```{r, fig.width=10, fig.height=4}
-fit_to_final_sorites_only$final_sorites_cor
-```
-
-## Model fit: All Designs
-
-```{r}
-# fit_to_all_sorites_no_bins = plot_sorites(
-#   "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_concrete_inductive_12_allsorites_listener0_normed_rating_ignore_last_bin.csv",
-#   zscore = F,
-#   all_experiments = F
-# )
-```
-
-```{r}
-# fit_to_all_sorites_and_bins = plot_sorites(
-#   "../models/results/",
-#   zscore = F,
-#   all_experiments = F
-# )
-```
-
-```{r}
-fit_to_all_bins_no_sorites = plot_sorites(
-  "../models/results/results-S1-sigmax10_10000_burn5000_lag20_chain001_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = F,
-  all_experiments = F
-)
-```
-
-```{r, fig.width=10, fig.height=4}
-fit_to_all_bins_no_sorites$final_sorites_cor
-```
-
 
 ## Checks of convergence
 
-### Final experiments, fitting everything at once
-
-```{r, fig.width=10, fig.height=6}
-reproduce_old_plots$raw_model_output %>%
-  filter(result_type == "price_prior") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(specifics ~ object, scales="free") +
-  ggtitle("inferred prior price params - reproduced (fit all final experiments")
+```{r, fig.height=10, fig.width=10}
+reproduce_old_plots$params
 ```
 
-```{r, fig.width=4, fig.height=2}
-reproduce_old_plots$raw_model_output %>%
-  filter(result_type == "global_param") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(~specifics, scales="free") +
-  ggtitle("inferred global params - reproduced (fit all final experiments")
+```{r, fig.height=20, fig.width=10}
+fit_to_final_bins_only$params
 ```
 
-```{r, fig.width=15, fig.height=17}
-reproduce_old_plots$raw_model_output %>%
-  change_names(c("result_type", "dollar_amount",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "Inductive") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
-  ggtitle("inferred inductive - reproduced (fit all final experiments")
+```{r, fig.height=10, fig.width=10}
+fit_to_final_sorites_only$params
 ```
 
-```{r, fig.width=15, fig.height=17}
-reproduce_old_plots$raw_model_output %>%
-  change_names(c("result_type", "dollar_amount",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "S1") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
-  ggtitle("inferred concrete - reproduced (fit all final experiments")
+```{r, fig.height=20, fig.width=10}
+fit_to_all_sorites_and_bins$params
 ```
 
-### Final experiments, fitting bins only
-
-
-```{r, fig.width=10, fig.height=6}
-fit_to_final_bins_only$raw_model_output %>%
-  filter(result_type == "price_prior") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(specifics ~ object, scales="free") +
-  ggtitle("inferred prior price params - final bins")
+```{r, fig.height=20, fig.width=10}
+fit_to_all_bins_no_sorites$params
 ```
 
-```{r, fig.width=4, fig.height=2}
-fit_to_final_bins_only$raw_model_output %>%
-  filter(result_type == "global_param") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(~specifics, scales="free") +
-  ggtitle("inferred global params - final bins")
-```
-
-```{r}
-# fit_to_final_bins_only$raw_model_output %>%
-#   filter(result_type == "global_param") %>%
-#   filter(specifics == "sigbin")
+```{r, fig.height=20, fig.width=10}
+fit_to_all_sorites_no_bins$params
 ```
 
 
-```{r, fig.width=15, fig.height=17}
-fit_to_final_bins_only$raw_model_output %>%
-  change_names(c("result_type", "dollar_amount",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "Inductive") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
-  ggtitle("inferred inductive - final bins")
-```
-
-```{r, fig.width=15, fig.height=17}
-fit_to_final_bins_only$raw_model_output %>%
-  change_names(c("result_type", "dollar_amount",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "S1") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
-  ggtitle("inferred concrete - final bins")
-```
-
-
-### Final experiments, fitting sorites only
-
-
-```{r, fig.width=10, fig.height=6}
-fit_to_final_sorites_only$raw_model_output %>%
-  filter(result_type == "price_prior") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(specifics ~ object, scales="free") +
-  ggtitle("inferred prior price params - final sorites")
-```
-
-```{r, fig.width=4, fig.height=2}
-fit_to_final_sorites_only$raw_model_output %>%
-  filter(result_type == "global_param") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(~specifics, scales="free") +
-  ggtitle("inferred global params - final sorites")
-```
-
-```{r, fig.width=15, fig.height=17}
-fit_to_final_sorites_only$raw_model_output %>%
-  change_names(c("result_type", "dollar_amount",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "Inductive") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
-  ggtitle("inferred inductive - final sorites")
-```
-
-```{r, fig.width=15, fig.height=17}
-fit_to_final_sorites_only$raw_model_output %>%
-  change_names(c("result_type", "dollar_amount",
-                "expt_id", "object",
-                "value", "probability")) %>%
-  filter(result_type == "S1") %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=50) +
-  facet_wrap(dollar_amount~object, ncol = 5, scales="free") +
-  ggtitle("inferred concrete - final sorites")
-```
