@@ -1,15 +1,10 @@
 ---
-title: "Sorites Model Fits"
+title: "Sorites Model Results"
 author: "Erin Bennett"
-output:
-  pdf_document: default
-  html_document:
-    df_print: paged
 header-includes:
-- \usepackage{tikz}
-- \usetikzlibrary{bayesnet}
-- \usepackage{amsmath}
-- \usepackage[makeroom]{cancel}
+   - \usepackage{tikz}
+   - \usetikzlibrary{bayesnet}
+output: html_document
 ---
 
 ```{r global_options, include=FALSE}
@@ -18,389 +13,206 @@ knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
                       sanitiz = F, fig.width = 5, fig.height = 3)
 ```
 
-```{r load (and reformat) data}
+```{r load_experiment_data_and_libraries, message=F, warning=F}
 source("utils.R")
 source("reformatting_data.R")
-df = load_sorites(F)
-give_a_number = load_give_a_number(F)
-prior_bins_data = load_priors(F)
+source("plot_model_results.R")
+df = load_sorites()
+give_a_number = load_give_a_number() %>%
+  mutate(src = "data")
+prior_bins = load_priors()
+
+reproduce_old_plots = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = T,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit"
+)
+
+fit_to_final_bins_only = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_bins_12_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "final prior (no sorites) fit"
+)
+
+fit_to_final_sorites_only = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "final sorites (no prior) fit"
+)
+
+fit_to_all_sorites_and_bins = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all prior & sorites fit"
+)
+
+fit_to_all_bins_no_sorites = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all prior (no sorites) fit"
+)
+
+fit_to_all_sorites_no_bins = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_12_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all sorites (no prior) fit"
+)
 ```
 
-# Model
 
-## Definitions
+## Model fit: Final Design
 
-* $w_i$ := width of histogram bins for item $i$
-* $x_i$ := sample in give a number trial
-* $P_{ib}$ := true probability of bin $b$ for item $i$
-* $d_{ib}$ := slider rating for bin $b$ for item $i$
-* $S2(I_{i\varepsilon})$ := RSA S2(L1(expensive) + $\varepsilon$) for item $i$
-* $S2(C_{iv})$ := RSA S2(expensive) for item $i$
-* $s^I_{i\varepsilon}$ := binarization of likert rating for inductive premise for item $i$ and epsilon $\varepsilon$
-* $s^C_{iv}$ := binarization of likert rating for concrete premise for item $i$ and value $v$
-* $\alpha^I_2$ := speaker rationality for S1 for inductive premise
+### Old version
 
-## Diagram
+In Noah's slides, we show model fit for only the final prior elicitaiton and the final sorites design (relative clause, with the final set of ranges). In the past, we fit the price prior parameters in R and then did a course grid search for speakerOptimality. We used the joint posterior distribution over the price $x$ and the threshold $\theta$ from listener1 (the pragmatic listener) to get model predictions for both sorites premises. For inductive, we took the proportion of the model samples where $x-\varepsilon > \theta$. For concrete, we took the proportion of the model samples where $given\ price > \theta$. We z-scored participants' responses for the correlation plots.
 
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-  
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-  
-  \node[latent, right=4cm of sigmax] (sigbin) {$\sigma_{bin}$};
-  \node[right=of sigbin] (alpha1max) {$\alpha_1^{max}$};
-  \node[right=of alpha1max] (alpha2max) {$\alpha_2^{max}$};
-  \node[right=of alpha2max, xshift=2cm] (costmax) {$c_{max}$};
-  
-  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
-  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
-  
-  \node[obs, left=of pbin] (giveanum) {$x_{i}$};
-  
-  \node[latent, below=of costmax] (cost) {$c$};
-  \node[latent, below=of alpha1max] (alpha2C) {$\alpha_{2}^{C}$};
-  \node[latent, below=of alpha2max] (alpha1I) {$\alpha_{1}^{I}$};
-  \node[latent, left=of alpha2C] (alpha1C) {$\alpha_{1}^{C}$};
-  \node[latent, right=of alpha1I] (alpha2I) {$\alpha_{2}^{I}$};
-  
-  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S2(C_{iv})$};
-  \node[latent, right=of s2concrete] (s2inductive) {$S2(I_{i\varepsilon})$};
-  
-  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
-  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
-  
-  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
-  
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {pbin}
-  \edge {mu, sig} {giveanum}
-  \edge {pbin, sigbin} {dbin}
-  \edge {pbin} {s2inductive, s2concrete}
-  \edge {s2inductive} {sI}
-  \edge {s2concrete} {sC}
-  \edge {alpha1I, alpha2I} {s2inductive}
-  \edge {alpha1C, alpha2C} {s2concrete}
-  \edge {alpha1max} {alpha1C, alpha1I}
-  \edge {alpha2max} {alpha2C, alpha2I}
-  \edge {cost} {s2concrete, s2inductive}
-  \edge {costmax} {cost}
-  \edge {sigbinmax} {sigbin}
-  
-  \plate {bin} {
-    (pbin) (dbin)
-  } {$b\in{Bins_i}$};
-  \plate {epsilon} {
-    (s2inductive) (sI)
-  } {$\varepsilon \in Epsilons$};
-  \plate {value} {
-    (s2concrete) (sC)
-  } {$v \in Values$};
-  \plate {item} {
-    (mu) (sig)
-    (giveanum)
-    (bin.south east)
-    (epsilon.south east)
-    (value.south east)
-    (s2inductive) (s2concrete)
-  } {$i\in{Objects}$};
-}
+### BDA version
 
-## Distributions/Functions/Values:
+We can reproduce the old results from Noah's slides with our new `webppl` implementation with Bayesiean data analysis. We can simultaneously fit participants' bin ratings from the final prior elicitation and their responses for the final version of the sorites premises study.
 
-Experiment design parameters:
-
-* $Objects$
-* $Bins$
-* $Epsilons$
-* $Values$
-
-Assumed model parameters:
-
-* $\mu^{max}$ = 20
-* $\sigma^{max}$ = 5
-* $\sigma_{binned\ hist}$ = ??
-* $\alpha_1^{max}$ = 20
-* $\alpha_2^{max}$ = 5
-* $\sigma_{bin}^{max}$ = 5
-
-Inferred Latent variables:
-
-* $\mu_i \sim \mathcal{U}\{0, \mu^{max}\}$
-* $\sigma_i \sim \mathcal{U}\{0, \sigma^{max}\}$
-* $\alpha_1^I \sim \mathcal{U}\{0, \alpha_1^{max}\}$
-* $\alpha_2^I \sim \mathcal{U}\{0, \alpha_2^{max}\}$
-* $\alpha_1^C \sim \mathcal{U}\{0, \alpha_1^{max}\}$
-* $\alpha_2^C \sim \mathcal{U}\{0, \alpha_2^{max}\}$
-* $\sigma_{bin} \sim \mathcal{U}\{0, \sigma_{bin}^{max}\}$
-* $P_{ib} = \int_{LB_{ib}}^{UB_{ib}} \varphi(\ln(t)|\mu_i, \sigma_i) dt$
-
-Observations from experimental data:
-
-* $logit(d_{ib}) \sim \mathcal{N}(logit(p_{ib}), \sigma_{bin})$
-* $\ln(x_i) \sim \mathcal{N}(\mu_i, \sigma_i)$
-* $s_{iv}^C$
-* $s_{i\varepsilon}^I$
-
-# Model fit
-
-## Give a Number ~ Log Normal
-
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-  
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-  
-  \node[obs] (giveanum) {$x_{i}$};
-  
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {giveanum}
-  
-  \plate {item} {
-    (mu) (sig)
-    (giveanum)
-  } {$i\in{Objects}$};
-}
-
-Model fit for Give a Number as log normal using Incremental MH.
-
-```{r, echo = T}
-iterations = 500
-burn = iterations/2
-lag = 10
-```
-
-```{r}
-RUN_MODEL = T
-if (RUN_MODEL) {
-  raw_rs = webppl(
-      program_file = model_dir("bda_give_a_number.wppl"),
-      inference_opts = list(method="incrementalMH",
-                            samples=iterations,
-                            burn=burn,
-                            verbose = T,
-                            verboseLag = iterations*lag / 10,
-                            lag=lag),
-      model_var = "give_a_number_model",
-      data_var = "ARGS",
-        packages = c(model_dir("/node_modules/utils/")),
-        data = list(priorbins = prior_bins_data,
-                    sorites = select(df, qtype, dollar_amount, object, response),
-                    give_a_number = give_a_number,
-                    nbins = 10)
-    )
-    rs = cbind(raw_rs, do.call(rbind,lapply(char(raw_rs$Parameter),function(jsonkey) {return(fromJSON(jsonkey) %>% as.data.frame)}))) %>%
-      select(-Parameter) %>%
-      mutate(dollar_amount = num(dollar_amount))
-    write.csv(rs,
-              cache_dir(paste("give_a_number_model_cache", iterations, ".csv", sep="")),
-              row.names = F)
-} else {
-  rs = read.csv(cache_dir(paste("give_a_number_model_cache", iterations, ".csv", sep="")))
-}
-give_a_number_fit = rs
-```
-
-```{r, fig.width=10, fig.height=2}
-give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
- # group_by(Iteration, label, object) %>%
-  #summarise(value = mean(value)) %>%
-  spread(label, value) %>%
-  rowwise() %>%
-  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-         price = exp(log_price),
-         src = "model") %>%
-  as.data.frame %>%
-  select(price, object, src) %>%
-  rbind(., (give_a_number %>% mutate(src="data"))) %>%
-  as.data.frame %>%
-  ggplot(., aes(x=price, color=src)) +
-  stat_ecdf(geom="step") +
-  facet_wrap(~object, scales="free", ncol=5)+
-  xlim(0, 1000)
-ggsave("images/give_a_number_fit.png", width=10, height=2)
+```{r, fig.width=15, fig.height=6}
+# the scaling is off here, if we're using z-scores
+fit_to_final_sorites_and_bins = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all prior & sorites fit"
+)
+print(fit_to_final_sorites_and_bins$final_sorites_curves)
 ```
 
 ```{r, fig.width=10, fig.height=4}
-give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
- # group_by(Iteration, label, object) %>%
-  #summarise(value = mean(value)) %>%
-  spread(label, value) %>%
-  rowwise() %>%
-  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-         price = exp(log_price),
-         src = "model") %>%
-  as.data.frame %>%
-  select(price, object, src) %>%
-  rbind(., (give_a_number %>% mutate(src="data"))) %>%
-  as.data.frame %>%
-  ggplot(., aes(x=price, fill=src)) +
-  geom_histogram(bins=30)+
-  facet_wrap(src~object, scales="free", ncol=5)+
-  xlim(0, 1000)
-ggsave("images/give_a_number_fit2.png", width=10, height=4)
+print(reproduce_old_plots$final_sorites_cor)
 ```
 
-```{r, fig.width=7, fig.height=3}
-give_a_number_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
-  ggplot(., aes(x=value)) +
-  geom_histogram() +
-  facet_grid(label~object, scales="free")
+Fitting to the final sorites *and* bins data does not significantly change the inferred priors relative to fitting only to the bins data. That is, the prior fits are being driven by the bins data and the concrete and inductive premise data mostly affect the optimality parameter. Since this is exactly how I used that information in the old version, it makes sense that we reproduce the results even with the BDA.
+
+```{r, fig.width=15, fig.height=3}
+print(reproduce_old_plots$final_prior_ecdf)
 ```
 
-## Concrete Premise ~ lifted L1
+If we only give the model data from the final bins prior elicitation, the model has high uncertainty about the concrete premise, but has a decent correlation with the data.
 
-```{r}
-params = give_a_number_fit %>%
-  filter(type == "prior" &
-           (label == "mu" | label=="sigma") &
-           object == "laptop") %>%
-  group_by(object, label) %>%
-  summarise(value = median(value)) %>%
-  named_vec(label, value)
-price_cdf = function(x) {
-  return(plnorm(x, params["mu"], params["sigma"]))
-}
-max_value = 2000
-bin_width = 200
-x = seq(0, max_value, 1)
-b = seq(bin_width/2, max_value, bin_width)
-upper = b + (bin_width/2)
-lower = b - (bin_width/2)
-px = dlnorm(x, params["mu"], params["sigma"])
-pb = price_cdf(upper) - price_cdf(lower)
-pb[length(pb)] = 1 - price_cdf(lower[length(lower)])
-cdf_max = max(pb)
-df_max = max(px)
-px = cdf_max/df_max * px
-ggplot() +
-  geom_bar(aes(x=b, y=pb), stat = "identity", fill = "gray") +
-  geom_line(aes(x=x, y=px))
+```{r, fig.width=10, fig.height=4}
+fit_to_final_bins_only$final_sorites_cor
+fit_to_final_bins_only$all_sorites_cor
 ```
-
-
-```{r params, echo = T}
-iterations = 10
-burn = iterations/2
-lag = 10
-```
-
-```{r run.concrete.model}
-RUN_MODEL = T
-if (RUN_MODEL) {
-  start_time = Sys.time()
-  raw_rs = webppl(
-    program_file = model_dir("bda_rsa_priors.wppl"),
-    inference_opts = list(method="incrementalMH",
-                          samples=iterations,
-                          burn=burn,
-                          verbose = T,
-                          verboseLag = lag * iterations / 10,
-                          lag=lag),
-    model_var = "concrete_premise_model",
-    data_var = "ARGS",
-    packages = model_dir("node_modules/utils/"),
-    data = list(priorbins = prior_bins_data,
-                sorites = select(df, qtype, dollar_amount, object, response),
-                give_a_number = give_a_number,
-                n_bins = 10)
-  )
-  end_time = Sys.time()
-  print(end_time - start_time)
-  rs = raw_rs %>%
-    filter(!is.na(value)) %>%
-    mutate(json = map(char(Parameter), jsonlite::fromJSON)) %>%
-    select(-Parameter) %>%
-    mutate(param_type = map(json, names)) %>%
-    mutate(param_label = map(json, simplify)) %>%
-    mutate(id = 1:length(value)) %>%
-    unnest(param_type, param_label) %>%
-    spread(key = param_type, value = param_label)
-  write.csv(rs,
-            cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")),
-            row.names = F)
-} else {
-  rs = read.csv(cache_dir(paste("concrete_model_cache", iterations, ".csv", sep="")))
-}
-concrete_premise_fit = rs
-concrete_premise_fit %>% group_by(dollar_amount) %>%
-  filter(type == "concrete") %>%
-  filter(object == "laptop") %>% summarise(value = mean(value))
-```
-
-memoized `listener1` and `listener1_score`, 500 iterations, lag 10: 
-
-```{r}
-RUN_CONCRETE_AGG = T
-if (RUN_CONCRETE_AGG) {
-  concrete_model_agg = concrete_premise_fit %>% filter(type=="concrete") %>%
-    group_by(object, dollar_amount) %>%
-    summarise(low = ci.low(value),
-              high = ci.high(value),
-              value = mean(value))
-  write.csv(concrete_model_agg,
-            paste(".concrete_model_agg_cache", iterations, ".csv", sep=""),
-            row.names = F)
-} else {
-  concrete_model_agg = read.csv(paste(".concrete_model_agg_cache", iterations, ".csv", sep=""))
-}
-opacity = 0.5
-concrete_model_agg %>%
-  ggplot(., aes(x=dollar_amount, y=value)) +
-  geom_point(alpha=opacity) +
-  geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
-  facet_wrap(~object, scales="free")
-# unique((agg %>% filter(qtype=="concrete" & object=="laptop"))$dollar_amount) %>% sort
-```
-
-```{r, fig.width=12, fig.height=3}
-df %>% filter(qtype=="concrete") %>% select(object, dollar_amount, response) %>%
-  mutate(src = "data") %>%
-  rbind(., concrete_premise_fit %>% filter(type=="concrete") %>%
-          mutate(response = value, src = "model") %>%
-          select(object, dollar_amount, response, src)) %>%
-  as.data.frame %>%
-  ggplot(., aes(x=dollar_amount, color=src)) +
-  stat_ecdf(geom="step") +
-  facet_wrap(~object, scales="free", ncol=5)
-```
-
 
 ```{r, fig.width=10, fig.height=2}
-concrete_premise_fit %>% filter(type=="prior" & (label=="mu" | label=="sigma")) %>%
- # group_by(Iteration, label, object) %>%
-  #summarise(value = mean(value)) %>%
-  spread(label, value) %>%
-  rowwise() %>%
-  mutate(log_price = rnorm(1, mean = mu, sd = sigma),
-         price = exp(log_price),
-         src = "model") %>%
-  as.data.frame %>%
-  select(price, object, src) %>%
-  rbind(., (give_a_number %>% mutate(src="data"))) %>%
-  as.data.frame %>%
-  ggplot(., aes(x=price, color=src)) +
-  stat_ecdf(geom="step") +
-  facet_wrap(~object, scales="free", ncol=5)+
-  xlim(0, 1000)
+# sanity check: yes, when we fit to bins only, the cor with bins is high
+# print(fit_to_final_bins_only$final_prior_ecdf)
 ```
 
-<!-- ### Questions
+However, the priors on prices we would infer from the sorites responses alone are quite different from both the give-a-number priors and the final experiment bins priors.
 
-1. concrete -> inductive and inductive -> concrete
-    - if you don't have a constrained way to get from priors to posteriors, then you will overfit (bayes factor)
-2. priors -> threshold distributions
-    - 
+```{r, fig.width=10, fig.height=2}
+print(fit_to_final_sorites_only$giveanumber_ecdf)
+print(fit_to_final_sorites_only$final_prior_ecdf)
+```
 
-* If we lesion data from the model can we infer it?
-* Is there a regression to compare to?
-* Can we argue that RSA is necessary?
-* What other thresholds could be used?
-    - quantiles
-* priors + rsa arrrrrrrow posteriors to fit data
-* stone model not from priors -->
+In this situation, when we just fit the priors to the sorites data, the model can "explain" a lot of the variance, but it's likely overfitting to this particular dataset. I haven't tried to predict held-out data, which would show how much overfitting is happening here.
+
+```{r, fig.width=10, fig.height=4}
+fit_to_final_sorites_only$final_sorites_cor
+```
+
+## Model fit: All Designs
+
+
+### Fit to *all* data, prior and sorites
+
+
+```{r, fig.width=10, fig.height=4}
+fit_to_all_sorites_and_bins$all_sorites_cor
+fit_to_all_sorites_and_bins$final_sorites_cor
+```
+
+
+### Fit to all prior data, no sorites
+
+```{r, fig.width=10, fig.height=4}
+fit_to_all_bins_no_sorites$all_sorites_cor
+fit_to_all_bins_no_sorites$final_sorites_cor
+```
+
+
+
+### Fit to all sorites data, no prior data
+
+```{r, fig.width=10, fig.height=4}
+fit_to_all_sorites_no_bins$all_sorites_cor
+fit_to_all_sorites_no_bins$final_sorites_cor
+```
+
+```{r, fig.width=10, fig.height=2}
+print(fit_to_all_sorites_no_bins$giveanumber_ecdf)
+print(fit_to_all_sorites_no_bins$final_prior_ecdf)
+```
+
+
+
+## Discretization
+
+As discussed in `data_summary.html`, there were different prices used in the designs for different experiments. Since the range of prices is so wide, and since some prices are very close together, it would be difficult to create a discretization that works for every dollar amount used across all experiments. Because of this, I have implemented a separate discretization for each experiment.
+
+The discretization works by creating a set of bins (not necessarily of equal width) such that each price in the experiment falls into a unique bin. There must also be bins below the lowest price's bin and above the highest price's bin. The probability of each bin is computed from the cdf: `prob_bin = pnorm(upper_boundary) - pnorm(lower_boundary)`. The probability of theta falling between prices from adjacent bins depends on the widths of those bins (and also the cdf, but I'm ignoring that for now).
+
+Here's the discretization used for the full set of sorites experiments.
+
+Bins are shown divided by vertical lines. The midpoints of the bins, used as the value, appear in black. The thetas, which appear at the boundaries of the bins, are shown in grey. The height of the bars represent the probability that theta will fall between each pair of midpoints.
+
+```{r discretization, fig.width=10, fig.height=2}
+print(plot_bins("all"))
+```
+
+## Likert responses
+
+For a linking function from S1 endorsement probabilities to Likert scale responses, I use a binomial with parameter equal to the endorsement probability. So for endorsement probability 0.7, the expected distribution of Likert responses would be
+
+```{r likert, fig.width=3, fig.height=1.75}
+expand.grid(e = seq(0.1, 0.9, 0.1),
+            r = seq(0, 9, 1)) %>%
+  mutate(p = dbinom(r, 9, e)) %>%
+  filter(abs(e - 0.7) < 0.001) %>%
+  ggplot() +
+  aes(x=r, y=p) +
+  ylab("probability") +
+  xlab("response") +
+  # facet_wrap(~e) +
+  geom_bar(stat="identity")
+```
+
+
+## Checks of convergence
+
+```{r, fig.height=10, fig.width=10}
+reproduce_old_plots$params
+```
+
+```{r, fig.height=20, fig.width=10}
+fit_to_final_bins_only$params
+```
+
+```{r, fig.height=10, fig.width=10}
+fit_to_final_sorites_only$params
+```
+
+```{r, fig.height=20, fig.width=10}
+fit_to_all_sorites_and_bins$params
+```
+
+```{r, fig.height=20, fig.width=10}
+fit_to_all_bins_no_sorites$params
+```
+
+```{r, fig.height=20, fig.width=10}
+fit_to_all_sorites_no_bins$params
+```
+
+
