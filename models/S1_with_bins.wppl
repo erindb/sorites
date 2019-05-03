@@ -20,6 +20,12 @@ var lag = (
   1
 );
 
+var inductive_version = (
+  utils.get_variable("--inductive_version") ?
+  utils.get_variable("--inductive_version") :
+  "inspect_joint"
+);
+
 var fit_giveanumber = utils.get_flag("--fit_giveanumber");
 
 var fit_concrete = utils.get_flag("--fit_concrete");
@@ -40,7 +46,7 @@ display(fit_inductive ? "fitting to inductive" : "");
 display(fit_bins ? "fitting to bins" : "");
 display(all_sorites_at_once ? "model all_sorites_at_once" : "returning results from specific sorties expt");
 display(all_bins_at_once ? "model all_bins_at_once" : "returning results from specific prior expt");
-
+display("inductive version: " + inductive_version);
 
 // Justine's give-a-number data.
 var d_giveanumber = dataFrame(
@@ -96,6 +102,7 @@ var outfile = (
   '_burn'+burn+
   '_lag'+lag+
   '_chain'+chain+
+  ("_inductive_version_"+inductive_version) +
   (fit_concrete ? "_concrete" : "") +
   (fit_giveanumber ? "_giveanumber" : "") +
   (fit_inductive ? "_inductive" : "") +
@@ -152,6 +159,10 @@ var utterancePrior = Infer({model: function(){
 	return uniformDraw(["expensive", "silence"])
 }});
 
+var inductive_utterance_prior = Infer({model: function(){
+  return uniformDraw(["inductive", "silence"])
+}});
+
 var meaning = function(utt,state, theta) {
   return utt=="expensive"? state > theta :
          utt=="expensive is false"? state<=theta :
@@ -174,7 +185,7 @@ var model = function(){
   // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
   var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
   query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
-  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.005});
+  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.005}); // prob too small 10% is like prob good
   query.add(["global_param", "sigbin", "NA", "NA"], sigbin);
   // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
   // standard deviation for bins responses
@@ -252,32 +263,46 @@ var model = function(){
       var thetaPrior = thetaPriors[item]["all"];
 
     	/// RSA model
-    	var listener0_with_theta = cache(function(utterance, theta) {
-    	  Infer({model: function(){
-    	    var state = sample(statePrior);
-          // theta might be lifted
-          //  var theta = theta ? theta : sample(thetaPrior);
-            var theta = utils.isNumber(theta) ? theta : sample(thetaPrior);
-    	    var m = meaning(utterance, state, theta);
-    	    condition(m);
-    	    return {state: state, theta: theta};
-      }})}, 10000);
-
-      var listener0 = cache(function(utterance, theta) {
-        Infer({model: function() {
-          var rs = sample(listener0_with_theta(utterance, theta));
-          var state = rs.state;
-          return state;
-      }})}, 10000)
-
-      var speaker1 = function(state, theta) {
-        Infer({model: function(){
-          var utterance = sample(utterancePrior);
-          var L0 = listener0(utterance, theta);
-          factor(speakerOptimality * L0.score(state))
-          return utterance == "expensive" ? 1 : 0
-        }})
+    	var make_listener0_with_theta = function(erp) {
+        return function(utterance, theta) {
+      	  Infer({model: function(){
+      	    var state = sample(statePrior);
+            // theta might be lifted
+            //  var theta = theta ? theta : sample(thetaPrior);
+              var theta = utils.isNumber(theta) ? theta : sample(thetaPrior);
+      	    var m = meaning(utterance, state, theta);
+      	    condition(m);
+      	    return {state: state, theta: theta};
+        }})};
       };
+      var listener0_with_theta = cache(make_listener0_with_theta(statePrior), 10000);
+
+      var make_listener0 = function(erp, joint_version) {
+        return function(utterance, theta) {
+          Infer({model: function() {
+            var rs = sample(joint_version(utterance, theta));
+            var state = rs.state;
+            return state;
+        }})
+        };
+      };
+      var listener0 = cache(
+        make_listener0(statePrior, listener0_with_theta),
+        10000
+      );
+
+      var make_speaker = function(listener_fn) {
+        return function(state, theta) {
+          Infer({model: function(){
+            var utterance = sample(utterancePrior);
+            var L0 = listener_fn(utterance, theta);
+            factor(speakerOptimality * L0.score(state))
+            return utterance == "expensive" ? 1 : 0
+          }})
+        };
+      };
+
+      var speaker1 = make_speaker(listener0);
 
       var d_expt_obj = _.filter(d_sorites,
         {"object": item, "id": expt_id, "qtype": "concrete"});
@@ -313,7 +338,7 @@ var model = function(){
       }})}, 10000);
 
       // Expected probabiity that x-eps > theta given the L0 posterior on x and theta.
-      var inductive = function(epsilon, listener_level) {
+      var joint_inductive = function(epsilon, listener_level) {
         var listener_function = listener_level==0?listener0_with_theta:listener1;
         // listener_function("expensive");
         var listener_joint_distribution = listener_function("expensive");
@@ -336,6 +361,162 @@ var model = function(){
             return inductive_prob/theta_prob;
           }
         });
+      };
+
+      var shift_price_dist = function(old_dist, epsilon) {
+        var old_support = old_dist.support();
+        var probs = map(function(x) {
+          return Math.exp(old_dist.score(x));
+        }, old_support);
+        var vals = map(function(x) {
+          return Math.max(0, x - epsilon);
+        }, old_support);
+        return Categorical({ps: probs, vs: vals});
+      };
+
+      var post_to_prior_inductive = function(epsilon, listener_level) {
+        display("error q049u5r: this isn't well defined.")
+        if (listener_level == 1) {
+          display("pragmatic listener not implemented");
+        }
+        // get L0 distribution over PRICES
+        var expensive_prices_dist = listener0("expensive");
+        // transform that distribution
+        var less_expensive_prices_dist = shift_price_dist(
+          expensive_prices_dist,
+          epsilon
+        );
+        // use that distribution as a prior for S1
+        var l0_joint_dist = cache(make_listener0_with_theta(
+          less_expensive_prices_dist
+        ), 10000);
+        var l0_dist = cache(make_listener0(
+          less_expensive_prices_dist, l0_joint_dist
+        ), 10000);
+        var s1 = make_speaker(l0_dist);
+        // return probability of "expensive" under S1
+        // WE DON'T KNOW THE PRICE!!!
+        return Math.exp(s1.score(1));
+      };
+
+      // var communicate_dist_inductive = function(epsilon, listener_level) {
+      //   if (listener_level == 1) {
+      //     display("pragmatic listener not implemented");
+      //   }
+      //   // S1 knows the true params
+      //   display(item_params);
+      //   // listener tries to infer those params
+      //   var dist_qud_listener = function(utterance) {
+      //     var sampled_params = {
+      //       mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      //       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+      //     };
+      //     if (utterance == "inductive") {
+      //       // sample price x from these params
+      //       var statePrior = DiscretizedLognormal(
+      //         sampled_params,
+      //         bins[item]["all"]
+      //       );
+      //       var price = sample(statePrior);
+      //       // check if x - eps is "expensive" under these params.
+      //       var miniL0 = Infer(function() {});
+      //       var miniS1 = Infer(function() {
+      //         // given the actual price
+      //       });
+      //       // condition on the speaker having said the inductive premise.
+      //       factor(miniS1.score(1));
+      //     }
+      //     return sampled_params;
+      //   };
+      //   var dist_qud_s1 = function(known_params) {
+      //     var utterance = sample(utterancePrior);
+      //     var L0 = dist_qud_listener(utterance);
+      //     factor(speakerOptimality * L0.score(known_params));
+      //     return utterance == "expensive" ? 1 : 0;
+      //   };
+      //   return Math.exp(dist_qud_s1(item_params).score(1));
+      // }
+
+      var communicate_dist_inductive = function(epsilon, listener_level) {
+        if (listener_level == 1) {
+          display("pragmatic listener not implemented");
+        }
+        // S1 knows the true params: item_params
+        // inductive utterance:
+        //   * x > theta AND
+        //   * x - eps > theta
+        // since one implies the other, the utterance is basically just
+        //   x - eps > theta
+        // where x ~ lognormal(mu, sig) and theta, mu, sig ~ unif
+        var l0_given_inductive_premise = Infer({
+          method: "rejection",
+          samples: 100,
+          model: function() {
+            var a = 0;
+            var b = bins[item]["all"]["max_theta"];
+            var sampled_params = {
+              mu: uniform({a: 0, b: MUMAX, width: 1}),
+              sigma: uniform({a: 0, b: SIGMAX, width: 0.5})
+            };
+            var prob_inductive_true = (1 - (
+              (1 / (b - a)) *
+              (
+                utils.lognormalCDF(b + epsilon, sampled_params) -
+                utils.lognormalCDF(a + epsilon, sampled_params)
+              )
+            ));
+            factor(Math.log(prob_inductive_true));
+            return sampled_params;
+          }
+        });
+        // display(l0_given_inductive_premise);
+        // var l0_given_no_utterance = Infer({
+        //   method: rejection
+        //   model: function() {
+        //     return {
+        //       mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+        //       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+        //     };
+        //   }
+        // });
+        var s1_for_dist_qud = Infer({
+          method: "rejection",
+          samples: 100,
+          model: function() {
+            var utterance = sample(inductive_utterance_prior);
+            // var interpretation_dist = (
+            //   (utterance == "inductive") ?
+            //   l0_given_no_utterance :
+            //   l0_given_inductive_premise
+            // );
+            // S1 knows the true params: item_params
+            // so factor by how close the interpretation is to the truth!!!
+            var listener_params = (
+              (utterance=="inductive") ?
+              (sample(l0_given_inductive_premise)) :
+              {
+                mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+                sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+              }
+            );
+            factor(Gaussian({mu: item_params.mu, sigma: 1}).score(listener_params.mu));
+            factor(Gaussian({mu: item_params.sigma, sigma: 1}).score(listener_params.sigma));
+            return utterance;
+          }
+        });
+        return s1_for_dist_qud.score("inductive");
+      };
+
+      var inductive = function(epsilon, listener_level) {
+        if (inductive_version == "inspect_joint") {
+          return joint_inductive(epsilon, listener_level);
+        } else if (inductive_version == "post_to_prior") {
+          return post_to_prior_inductive(epsilon, listener_level);
+        } else if (inductive_version == "dist_qud") {
+          return communicate_dist_inductive(epsilon, listener_level);
+        } {
+          display("error a203984asf");
+        }
       };
 
       var ind_expt_obj = _.filter(d_sorites,
