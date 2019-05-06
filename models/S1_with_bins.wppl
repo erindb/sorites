@@ -437,75 +437,109 @@ var model = function(){
       //   return Math.exp(dist_qud_s1(item_params).score(1));
       // }
 
+      // analytic version?
       var communicate_dist_inductive = function(epsilon, listener_level) {
         if (listener_level == 1) {
           display("pragmatic listener not implemented");
         }
         // S1 knows the true params: item_params
-        // inductive utterance:
-        //   * x > theta AND
-        //   * x - eps > theta
-        // since one implies the other, the utterance is basically just
-        //   x - eps > theta
-        // where x ~ lognormal(mu, sig) and theta, mu, sig ~ unif
-        var l0_given_inductive_premise = Infer({
-          method: "rejection",
-          samples: 100,
-          model: function() {
-            var a = 0;
-            var b = bins[item]["all"]["max_theta"];
-            var sampled_params = {
-              mu: uniform({a: 0, b: MUMAX, width: 1}),
-              sigma: uniform({a: 0, b: SIGMAX, width: 0.5})
-            };
-            var prob_inductive_true = (1 - (
-              (1 / (b - a)) *
-              (
-                utils.lognormalCDF(b + epsilon, sampled_params) -
-                utils.lognormalCDF(a + epsilon, sampled_params)
-              )
-            ));
-            factor(Math.log(prob_inductive_true));
-            return sampled_params;
-          }
-        });
-        // display(l0_given_inductive_premise);
-        // var l0_given_no_utterance = Infer({
-        //   method: rejection
-        //   model: function() {
-        //     return {
-        //       mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
-        //       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
-        //     };
-        //   }
-        // });
-        var s1_for_dist_qud = Infer({
-          method: "rejection",
-          samples: 100,
-          model: function() {
-            var utterance = sample(inductive_utterance_prior);
-            // var interpretation_dist = (
-            //   (utterance == "inductive") ?
-            //   l0_given_no_utterance :
-            //   l0_given_inductive_premise
-            // );
-            // S1 knows the true params: item_params
-            // so factor by how close the interpretation is to the truth!!!
-            var listener_params = (
-              (utterance=="inductive") ?
-              (sample(l0_given_inductive_premise)) :
-              {
-                mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
-                sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
-              }
-            );
-            factor(Gaussian({mu: item_params.mu, sigma: 1}).score(listener_params.mu));
-            factor(Gaussian({mu: item_params.sigma, sigma: 1}).score(listener_params.sigma));
-            return utterance;
-          }
-        });
-        return s1_for_dist_qud.score("inductive");
+
+        // mu and sig are sampled from uniform
+        var p_mu = 1 / (MUMAX);
+        var p_sigma = 1 / (SIGMAX);
+        // assume yes/no equally costly
+        var p_silence = 0.5;
+        var p_inductive = 0.5;
+
+        // S1 depends on priors of mu and sig and on L0's prob of sampling mu
+        // and sigma
+        var a = 0;
+        var b = bins[item]["all"]["max_theta"];
+        var lncdf = function(x) {
+          return utils.lognormalCDF(x, item_params);
+        }
+        var inductive_l0 = (
+          1 -
+          (
+            (1 / (b - a)) *
+            (lncdf(b + epsilon) - lncdf(a + epsilon))
+          )
+        )
+        var unnormed_inductive = (p_inductive * p_mu * p_sigma * inductive_l0);
+        var unnormed_silence = (p_silence * p_mu * p_sigma);
+
+        return unnormed_inductive / (unnormed_inductive + unnormed_silence);
       };
+
+      // var communicate_dist_inductive = function(epsilon, listener_level) {
+      //   if (listener_level == 1) {
+      //     display("pragmatic listener not implemented");
+      //   }
+      //   // S1 knows the true params: item_params
+      //   // inductive utterance:
+      //   //   * x > theta AND
+      //   //   * x - eps > theta
+      //   // since one implies the other, the utterance is basically just
+      //   //   x - eps > theta
+      //   // where x ~ lognormal(mu, sig) and theta, mu, sig ~ unif
+      //   var l0_given_inductive_premise = Infer({
+      //     method: "rejection",
+      //     samples: 100,
+      //     model: function() {
+      //       var a = 0;
+      //       var b = bins[item]["all"]["max_theta"];
+      //       var sampled_params = {
+      //         mu: uniform({a: 0, b: MUMAX, width: 1}),
+      //         sigma: uniform({a: 0, b: SIGMAX, width: 0.5})
+      //       };
+      //       var prob_inductive_true = (1 - (
+      //         (1 / (b - a)) *
+      //         (
+      //           utils.lognormalCDF(b + epsilon, sampled_params) -
+      //           utils.lognormalCDF(a + epsilon, sampled_params)
+      //         )
+      //       ));
+      //       factor(Math.log(prob_inductive_true));
+      //       return sampled_params;
+      //     }
+      //   });
+      //   // display(l0_given_inductive_premise);
+      //   // var l0_given_no_utterance = Infer({
+      //   //   method: rejection
+      //   //   model: function() {
+      //   //     return {
+      //   //       mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      //   //       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+      //   //     };
+      //   //   }
+      //   // });
+      //   var s1_for_dist_qud = Infer({
+      //     method: "rejection",
+      //     samples: 100,
+      //     model: function() {
+      //       var utterance = sample(inductive_utterance_prior);
+      //       // var interpretation_dist = (
+      //       //   (utterance == "inductive") ?
+      //       //   l0_given_no_utterance :
+      //       //   l0_given_inductive_premise
+      //       // );
+      //       // S1 knows the true params: item_params
+      //       // so factor by how close the interpretation is to the truth!!!
+      //       var listener_params = (
+      //         (utterance=="inductive") ?
+      //         (sample(l0_given_inductive_premise)) :
+      //         {
+      //           mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      //           sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
+      //         }
+      //       );
+      //       factor(Gaussian({mu: item_params.mu, sigma: 1}).score(listener_params.mu));
+      //       factor(Gaussian({mu: item_params.sigma, sigma: 1}).score(listener_params.sigma));
+      //       return utterance;
+      //     }
+      //   });
+      //   return s1_for_dist_qud.score("inductive");
+      // };
 
       var inductive = function(epsilon, listener_level) {
         if (inductive_version == "inspect_joint") {
