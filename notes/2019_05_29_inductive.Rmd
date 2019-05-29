@@ -1,3 +1,14 @@
+---
+title: "Inductive"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: true
+    theme: cosmo
+header-includes:
+- \usepackage{amsmath}
+- \usepackage[makeroom]{cancel}
+---
 
 ```{r global_options, include=FALSE}
 rm(list = ls())
@@ -8,100 +19,64 @@ knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
 
 # Inductive
 
-Given that the participants hears "$x$ is expensive" and assumes the listener knows $\theta$, should participants endorse "$x - \varepsilon$ is expensive"?
+Participants choose how much they endorse "An X that costs $\varepsilon$ less than an expensive X is expensive."
 
-1. Participants sample $x$ and $\theta$ in one of the following ways:
+## Inspect joint distribution
 
-    - $x \sim Pr(x)$ and $\theta \sim Unif(\theta)$
-    - $x, \theta \sim L1(x, \theta|\mbox{"}x\mbox{ is expensive"})$
-    
-2. Participants decide whether to say $x - \varepsilon > \theta$.
+Directly inspecting the joint posterior distribution for "expensive", we take the expectation over $L_1(x, \theta)$ of $x-\varepsilon > \theta$.
 
-    - $L_0(x | \theta, u=\mbox{"}x-\varepsilon > \theta\mbox{"}) \propto Pr(x)\delta_{x > \theta+\varepsilon}$
-    
-        - If the "true" $x$ (that participants are imagining) is less than or equal to the "true" $\theta + \varepsilon$, then
-        
-            - $L_0(x | \theta, u=\mbox{"}x-\varepsilon > \theta\mbox{"}) = 0$
-            
-        - Otherwise,
-        
-            - $L_0(x | \theta, u=\mbox{"}x-\varepsilon > \theta\mbox{"}) = \frac{Pr(x)}{\int_{\theta + \varepsilon}^\infty Pr(x) dx}$
-            
-    - $S_1(u|x, \theta) \propto P(u)L_0(x|\theta, u)$
-    
-If participants are imagining an $x$ and $\theta$ s.t. $x - \varepsilon \leq \theta$, then the endorsement $S_1(\mbox{"}x - \varepsilon\mbox{ is expensive"}|x, \theta)=0$.
+That is,
 
-Otherwise,
+$S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive})
+\left.\begin{cases} 1 & x-\varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}\right\}dxd\theta$
 
-$\begin{align}S_1(\mbox{"}x - \varepsilon\mbox{ is expensive"}|x, \theta) &=
-\frac{P(\mbox{"}x - \varepsilon\mbox{ is expensive"})\frac{Pr(x)}{\int_{\theta + \varepsilon}^\infty Pr(x) dx}}
-{P(\mbox{"}x - \varepsilon\mbox{ is expensive"})\frac{Pr(x)}{\int_{\theta + \varepsilon}^\infty Pr(x) dx}   + P(\mbox{""})Pr(x)    }
-\end{align}$
+## Speaker model given "expensive"
 
-And assuming the utterances are equally costly:
+Here's a way to think about this with a speaker model:
+
+1. Participants know of an X that is expensive. They infer a price $x$ and threshold $\theta$ from this statement.
+2. Participants imagine a listener who knows $\theta$ but not $x$.
+3. Participants decided whether to tell this listener $x - \varepsilon > \theta$ or stay silent.
+
+### Step 1
+
+Participants are modeled by a listener model to get a joint distribution over $x$ and $\theta$, e.g. $L_1(x, \theta)$. We will take the expectation of responses over this distribution to get the average response.
+
+### Step 2
+
+Here's how the listener will interpret the two utterances:
+
+$\begin{align}L_0(x | \mbox{still expensive}, \theta) &=
+\frac{Pr(x)\delta_{x - \varepsilon > \theta}}{\int_\theta Pr(x)\delta_{x - \varepsilon > \theta} d\theta} \\ &=
+\begin{cases}\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}\end{align}$
+
+$L_0(x | \mbox{silent}, \theta) = Pr(x)$
+
+### Step 3
+
+If the utterances are equally costly, the speaker endorsements are:
 
 $\begin{align}
-S_1(\mbox{"}x - \varepsilon\mbox{ is expensive"}|x, \theta) &=
-\frac{\frac{1}{1 - {CDF}(\theta+\varepsilon)}}
-{\frac{1}{1 - {CDF}(\theta+\varepsilon)}   + 1  } = \frac{1}{2-{CDF}(\theta+\varepsilon)}
+S_1(u|x, \theta) &= \frac{\exp(\lambda\ln(L_0(x|u, \theta)) - c(u))}{\sum_{u'} \exp(\lambda\ln(L_0(x|u', \theta))-c(u'))} \\ &= \frac{L_0(x|u, \theta)}{\sum_{u'} L_0(x|u', \theta)}
 \end{align}$
 
-The endorsement of the inductive premise should be the expectation of that value over $L_1(x, \theta)$.
+So for the "still expensive" utterance:
 
-In the original version of this, I took the expectation over $L_1$ of $x-\varepsilon > \theta$.
+$\begin{align}
+S_1(\mbox{still expensive}|x, \theta) &=
+\frac{L_0(x|\mbox{still expensive}, \theta)}
+{L_0(x|\mbox{still expensive}, \theta) + L_0(x|\mbox{silent}, \theta)} \\
+&= \begin{cases}
+\frac{\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}}
+{\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)} + Pr(x)} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases} \\
+&= \begin{cases}\frac{1}{2 - {CDF}(\theta + \varepsilon)} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}
+\end{align}$
 
+### Final value
 
-```{r}
-    
-# So the endorsement for "A watch that costs $\varepsilon" less than an expensive watch" should be the expectation of the speaker endorsement over the listener function:
-#     
-# $\begin{align}
-# \int_\theta \int_x &L_1(x, \theta | \mbox{"}x\mbox{ is expensive"}) S_1(\mbox{"}x-\varepsilon\mbox{ is expensive"}|x, \theta) d x d\theta = \\
-# &\int_\theta \int_{x=\theta + \varepsilon}^\infty L_1(x, \theta | \mbox{"}x\mbox{ is expensive"}) \frac{1}{2-{CDF}_x(\theta+\varepsilon)} d x d\theta
-# \end{align}$
+When we take the expectation over $L_1$, we get:
 
-# Common ground:
-# 
-# - $\theta$
-# - $x \sim Pr(x)$
-# - $x > \theta$
-# 
-# New utterance:
-# 
-# - $x - \varepsilon > \theta$
-# 
-# QUD:
-# 
-# - $x$
-# 
-# Maths:
-# 
-# $\begin{align}
-# L_0(x|x-\varepsilon > \theta, \theta) &\propto Pr(x)\delta_{x>\theta+\varepsilon} \\
-# S_1(u | x, \theta) &\propto P(u) L_0(x|u, \theta)
-# \end{align}$
-# 
-# $\begin{align}
-# S_1(\mbox{"}x-\varepsilon > \theta\mbox{"}|x, \theta) &=
-#   \frac{P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta)}{
-#   P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta) + P("") Pr(x)}
-# \end{align}$
-# 
-# $\begin{align}
-# L_1(x, \theta|\mbox{"}x-\varepsilon > \theta\mbox{"}) &\propto Pr(x)Unif(\theta)S_1(\mbox{"}x-\varepsilon > \theta\mbox{"}|x, \theta) \\
-# L_1(x|\mbox{"}x-\varepsilon > \theta\mbox{"}) &\propto \int_\theta Pr(x)Unif(\theta)S_1(\mbox{"}x-\varepsilon > \theta\mbox{"}|x, \theta) d\theta \\
-# L_1(x|\mbox{"}x-\varepsilon > \theta\mbox{"}) &\propto \int_\theta Pr(x)Unif(\theta)\frac{P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta)}{
-#   P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta) + P("") Pr(x)} d\theta \\
-# \end{align}$
-# 
-# There are lots of participants. Each one might have a different sample of the price of the expensive $x$ (and less expensive $x-\varepsilon$) watch.
-# 
-# Suppose the speaker can count on the listener knowing $\theta$ but not $x$. Does asserting $x-\varepsilon$ is "expensive" offer more information when we already know that $x$ is "expensive"? Maybe it tells us something about the relation between $x$ and $\theta$?
-# 
-# $\begin{align}
-# L_0 &\propto \\
-# S_1 &\propto \\
-# L_1 &\propto \\
-# \end{align}$
+$S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive})
+\left.\begin{cases}\frac{1}{2 - {CDF}(\theta + \varepsilon)} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}\right\}dxd\theta$
 
-```
+Since the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$, this is very similar to the "Inspect joint posterior" version.
