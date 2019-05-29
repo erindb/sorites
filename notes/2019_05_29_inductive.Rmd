@@ -1,0 +1,107 @@
+
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
+
+
+# Inductive
+
+Given that the participants hears "$x$ is expensive" and assumes the listener knows $\theta$, should participants endorse "$x - \varepsilon$ is expensive"?
+
+1. Participants sample $x$ and $\theta$ in one of the following ways:
+
+    - $x \sim Pr(x)$ and $\theta \sim Unif(\theta)$
+    - $x, \theta \sim L1(x, \theta|\mbox{"}x\mbox{ is expensive"})$
+    
+2. Participants decide whether to say $x - \varepsilon > \theta$.
+
+    - $L_0(x | \theta, u=\mbox{"}x-\varepsilon > \theta\mbox{"}) \propto Pr(x)\delta_{x > \theta+\varepsilon}$
+    
+        - If the "true" $x$ (that participants are imagining) is less than or equal to the "true" $\theta + \varepsilon$, then
+        
+            - $L_0(x | \theta, u=\mbox{"}x-\varepsilon > \theta\mbox{"}) = 0$
+            
+        - Otherwise,
+        
+            - $L_0(x | \theta, u=\mbox{"}x-\varepsilon > \theta\mbox{"}) = \frac{Pr(x)}{\int_{\theta + \varepsilon}^\infty Pr(x) dx}$
+            
+    - $S_1(u|x, \theta) \propto P(u)L_0(x|\theta, u)$
+    
+If participants are imagining an $x$ and $\theta$ s.t. $x - \varepsilon \leq \theta$, then the endorsement $S_1(\mbox{"}x - \varepsilon\mbox{ is expensive"}|x, \theta)=0$.
+
+Otherwise,
+
+$\begin{align}S_1(\mbox{"}x - \varepsilon\mbox{ is expensive"}|x, \theta) &=
+\frac{P(\mbox{"}x - \varepsilon\mbox{ is expensive"})\frac{Pr(x)}{\int_{\theta + \varepsilon}^\infty Pr(x) dx}}
+{P(\mbox{"}x - \varepsilon\mbox{ is expensive"})\frac{Pr(x)}{\int_{\theta + \varepsilon}^\infty Pr(x) dx}   + P(\mbox{""})Pr(x)    }
+\end{align}$
+
+And assuming the utterances are equally costly:
+
+$\begin{align}
+S_1(\mbox{"}x - \varepsilon\mbox{ is expensive"}|x, \theta) &=
+\frac{\frac{1}{1 - {CDF}(\theta+\varepsilon)}}
+{\frac{1}{1 - {CDF}(\theta+\varepsilon)}   + 1  } = \frac{1}{2-{CDF}(\theta+\varepsilon)}
+\end{align}$
+
+The endorsement of the inductive premise should be the expectation of that value over $L_1(x, \theta)$.
+
+In the original version of this, I took the expectation over $L_1$ of $x-\varepsilon > \theta$.
+
+
+```{r}
+    
+# So the endorsement for "A watch that costs $\varepsilon" less than an expensive watch" should be the expectation of the speaker endorsement over the listener function:
+#     
+# $\begin{align}
+# \int_\theta \int_x &L_1(x, \theta | \mbox{"}x\mbox{ is expensive"}) S_1(\mbox{"}x-\varepsilon\mbox{ is expensive"}|x, \theta) d x d\theta = \\
+# &\int_\theta \int_{x=\theta + \varepsilon}^\infty L_1(x, \theta | \mbox{"}x\mbox{ is expensive"}) \frac{1}{2-{CDF}_x(\theta+\varepsilon)} d x d\theta
+# \end{align}$
+
+# Common ground:
+# 
+# - $\theta$
+# - $x \sim Pr(x)$
+# - $x > \theta$
+# 
+# New utterance:
+# 
+# - $x - \varepsilon > \theta$
+# 
+# QUD:
+# 
+# - $x$
+# 
+# Maths:
+# 
+# $\begin{align}
+# L_0(x|x-\varepsilon > \theta, \theta) &\propto Pr(x)\delta_{x>\theta+\varepsilon} \\
+# S_1(u | x, \theta) &\propto P(u) L_0(x|u, \theta)
+# \end{align}$
+# 
+# $\begin{align}
+# S_1(\mbox{"}x-\varepsilon > \theta\mbox{"}|x, \theta) &=
+#   \frac{P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta)}{
+#   P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta) + P("") Pr(x)}
+# \end{align}$
+# 
+# $\begin{align}
+# L_1(x, \theta|\mbox{"}x-\varepsilon > \theta\mbox{"}) &\propto Pr(x)Unif(\theta)S_1(\mbox{"}x-\varepsilon > \theta\mbox{"}|x, \theta) \\
+# L_1(x|\mbox{"}x-\varepsilon > \theta\mbox{"}) &\propto \int_\theta Pr(x)Unif(\theta)S_1(\mbox{"}x-\varepsilon > \theta\mbox{"}|x, \theta) d\theta \\
+# L_1(x|\mbox{"}x-\varepsilon > \theta\mbox{"}) &\propto \int_\theta Pr(x)Unif(\theta)\frac{P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta)}{
+#   P(\mbox{"}x-\varepsilon > \theta\mbox{"}) L_0(x|x-\varepsilon > \theta, \theta) + P("") Pr(x)} d\theta \\
+# \end{align}$
+# 
+# There are lots of participants. Each one might have a different sample of the price of the expensive $x$ (and less expensive $x-\varepsilon$) watch.
+# 
+# Suppose the speaker can count on the listener knowing $\theta$ but not $x$. Does asserting $x-\varepsilon$ is "expensive" offer more information when we already know that $x$ is "expensive"? Maybe it tells us something about the relation between $x$ and $\theta$?
+# 
+# $\begin{align}
+# L_0 &\propto \\
+# S_1 &\propto \\
+# L_1 &\propto \\
+# \end{align}$
+
+```

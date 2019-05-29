@@ -1,0 +1,199 @@
+
+/* Basic model */
+
+var n_bins = 10;
+var prior_type = "symmetric_state_prior";
+var epsilon = 1;
+
+var utterancePrior = function() {return uniformDraw(["adj", "silence"]);};
+var priors = {
+  symmetric_state_prior: function() {return binomial({p:0.5, n: n_bins-1});},
+  skewed_state_prior: function() {return binomial({p:0.1, n: n_bins-1});}
+};
+var theta_prior = function() {return uniformDraw(_.range(0, n_bins, 0.5));};
+
+var l0_with_theta = function(utterance, state_prior_label, infer_theta, theta) {
+  var state_prior = priors[state_prior_label];
+  return safe_infer({}, function() {
+    var theta = infer_theta ? theta_prior() : theta;
+    var state = state_prior();
+    var f = (
+      (utterance == "adj") ?
+      ((state > theta) ? 0 : -Infinity) :
+      0);
+    return {result: {"state": state, "theta": theta}, factor: f};
+  });
+};
+
+var l0 = cache(function(utterance, state_prior_label, infer_theta, theta) {
+  var state_prior = priors[state_prior_label];
+  return safe_infer({}, function() {
+    var theta = infer_theta ? theta_prior() : theta;
+    var state = state_prior();
+    var f = (
+      (utterance == "adj") ?
+      ((state > theta) ? 0 : -Infinity) :
+      0);
+    return {result: state, factor: f};
+  });
+});
+
+// // var l0_fn = function(utterance, state_prior, infer_theta, theta) {
+// //   return function() {
+// //     var theta = infer_theta ? theta_prior() : theta;
+// //     var state = state_prior();
+// //     var f = (
+// //       (utterance == "adj") ?
+// //       ((state > theta) ? 0 : -Infinity) :
+// //       0);
+// //     factor(f);
+// //     return state;
+// //   }
+// // }
+
+// var s1 = cache(function(actual_state_value, state_prior_label, infer_theta, theta) {
+//   return Infer(function() {
+//     var utterance = utterancePrior();
+//     var interpretation_distribution = l0(
+//       utterance,
+//       state_prior_label,
+//       false,
+//       infer_theta ? theta_prior() : theta
+//     );
+//     if (interpretation_distribution == "Impossible") {
+//       factor(-Infinity);
+//     } else {
+//       factor(interpretation_distribution.score(actual_state_value));
+//     }
+//     return utterance;
+//   });
+// });
+
+// var l1_with_theta = function(utterance, state_prior_label) {
+//   var state_prior = priors[state_prior_label];
+//   return Infer(function() {
+//     var state = state_prior();
+//     var theta = theta_prior();
+//     var likelihood_distribution = s1(
+//       state,
+//       state_prior_label,
+//       false,
+//       theta
+//     );
+//     factor(likelihood_distribution.score(utterance));
+//     return {"state": state, "theta": theta};
+//   });
+// }
+
+// var l1 = function(utterance, state_prior_label) {
+//   var state_prior = priors[state_prior_label];
+//   return Infer(function() {
+//     var state = state_prior();
+//     var theta = theta_prior();
+//     var likelihood_distribution = s1(
+//       state,
+//       state_prior_label,
+//       false,
+//       theta
+//     );
+//     factor(likelihood_distribution.score(utterance));
+//     return state;
+//   });
+// }
+
+// /* Post to prior */
+
+
+// For each bin, we have P(x \in B).
+// For the lowest bin, keep all the probability mass and add eps of the next bin.
+
+// // For each bin, we know L(x \in bin).
+// // We want to shift this down eps to find L(x - eps \in bin).
+// // This is the distribution over y that we're integrating over.
+// // We can approximate this by adding eps/width_of_bin probability mass
+// // from each bin (after the first) to the bin below.
+// var shift_price_dist = function(old_dist, epsilon) {
+//   // the bins in question stay the same
+//   var bin_mids = old_dist.support(); //e.g. 0, 1, 2
+//   // e.g. [0.25, 0], [0.5, 1], [0.25, 2]
+//   var old_probs_and_bin_mids = map(function(x) {
+//     return [Math.exp(old_dist.score(x)), x];
+//   }, bin_mids);
+//   var new_probs = reduce(function(x, collected_probs) {
+//     var bin_prob = x[0];
+//     var bin_mid = x[1];
+//     if (collected_probs.length == 0) {
+//       return [bin_prob]; // start with partial prob for 1st bin being the whole bin
+//     } else if (collected_probs.length == 1) {
+//       return completed_probs.concat[bin_prob, 0];
+//     } else {
+//       // binomial, so each bin width is 1
+//       var width = 1;
+
+//       var completed_probs = collected_probs.slice(0, collected_probs.length-1);
+
+//       var partial_prob_for_prev_bin = collected_probs[collected_probs.length-1];
+//       var extra_prob_for_prev_bin = bin_prob * (eps/width);
+//       var prev_bin_prob = partial_prob_for_prev_bin + extra_prob_for_prev_bin;
+
+//       var partial_prob_for_current_bin = bin_prob * (1-eps/width);
+//       return completed_probs.concat([prev_bin_prob, partial_prob_for_current_bin]);
+//     }
+//   }, [], _.reverse(old_probs_and_bin_mids.concat([[0, 0]])));
+
+//   var probs = new_probs.slice(0, new_probs.length-1);
+//   var vals = bin_mids;
+//   return Categorical({ps: probs, vs: vals});
+// };
+
+// var post_to_prior_inductive = function(epsilon, listener_level) {
+//   if (listener_level == 1) {
+//     display("pragmatic listener not implemented");
+//   }
+//   // Listener distribution gives us the probability that x falls into each
+//   // bin B given that the speaker says "expensive", averaging out theta.
+//   var expensive_prices_dist = listener0("expensive");
+//   // But what we want is the probability that x-eps falls into each bin B.
+//   // We can approximate this by adding eps/width_of_bin probability mass
+//   // from each bin (after the first) to the bin below.
+//   var less_expensive_prices_dist = shift_price_dist(
+//     expensive_prices_dist,
+//     epsilon
+//   );
+
+//   // We sample a bin, and we know the probability under L that Y's price
+//   // is in that bin. Then we just figure out the probability under S1 of
+//   // saying "expensive" given that the object in questions's price is in
+//   // that bin.
+//   return expectation(less_expensive_prices_dist, function(y) {
+//     var endorsement_for_y = speaker1(y).score(1);
+//     return endorsement_for_y;
+//   });
+// };
+
+var prior = Infer({method: "enumerate", model: priors[prior_type]});
+utils.writeJSON(prior, "minimal_inductive/prior.js");
+
+var l0 = l0("adj", prior_type, true);
+utils.writeJSON(l0, "minimal_inductive/l0.js");
+
+var widths = map(function(x) {return 1;}, l0.support());
+utils.writeJSON(shift_dist(l0, 0.1, widths), "minimal_inductive/l0_shifted_0.1.js");
+utils.writeJSON(shift_dist(l0, 0.5, widths), "minimal_inductive/l0_shifted_0.5.js");
+utils.writeJSON(shift_dist(l0, 1, widths), "minimal_inductive/l0_shifted_1.js");
+utils.writeJSON(shift_dist(l0, 5, widths), "minimal_inductive/l0_shifted_5.js");
+
+
+// // var prior = priors[prior_type];
+// // var literal_listener = l0_fn("adj", prior, true);
+// // var expensive_prices_dist = l0("expensive", prior, true);
+// // var less_expensive_prices_dist = shift_price_dist(
+// //   expensive_prices_dist,
+// //   epsilon
+// // );
+// // var shifted_dist = function() {return sample(less_expensive_prices_dist);};
+
+// /* Dist QUD */ 
+
+
+"finish"
