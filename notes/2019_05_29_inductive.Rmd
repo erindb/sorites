@@ -79,4 +79,4 @@ When we take the expectation over $L_1$, we get:
 $S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive})
 \left.\begin{cases}\frac{1}{1 + \left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}\right\}dxd\theta$
 
-Since the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$, this is very similar to the "Inspect joint posterior" version.
+Since the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$, this is very similar to the "Inspect joint posterior" version. It's just that the smaller $\theta$ is, the less informative the "still expensive" utterance would be, and so the less likely it is that a speaker would actually endorse it over staying silent.
