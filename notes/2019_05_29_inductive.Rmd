@@ -57,19 +57,19 @@ $L_0(x | \mbox{silent}, \theta) = Pr(x)$
 If the utterances are equally costly, the speaker endorsements are:
 
 $\begin{align}
-S_1(u|x, \theta) &= \frac{\exp(\lambda\ln(L_0(x|u, \theta)) - c(u))}{\sum_{u'} \exp(\lambda\ln(L_0(x|u', \theta))-c(u'))} \\ &= \frac{L_0(x|u, \theta)}{\sum_{u'} L_0(x|u', \theta)}
+S_1(u|x, \theta) &= \frac{\exp(\lambda \left( \ln(L_0(x|u, \theta)) - c(u)\right))}{\sum_{u'} \exp(\lambda\left( \ln(L_0(x|u', \theta))-c(u') \right))} \\ &= \frac{\left( L_0(x|u, \theta)\right)^\lambda}{\sum_{u'} \left(L_0(x|u', \theta)\right)^\lambda}
 \end{align}$
 
 So for the "still expensive" utterance:
 
 $\begin{align}
 S_1(\mbox{still expensive}|x, \theta) &=
-\frac{L_0(x|\mbox{still expensive}, \theta)}
-{L_0(x|\mbox{still expensive}, \theta) + L_0(x|\mbox{silent}, \theta)} \\
+\frac{\left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda}
+{\left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda + \left(L_0(x|\mbox{silent}, \theta)\right)^\lambda} \\
 &= \begin{cases}
-\frac{\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}}
-{\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)} + Pr(x)} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases} \\
-&= \begin{cases}\frac{1}{2 - {CDF}(\theta + \varepsilon)} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}
+\frac{\left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda}
+{\left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda + \left(Pr(x)\right)^\lambda} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases} \\
+&= \begin{cases}\frac{1}{1 + \left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}
 \end{align}$
 
 ### Final value
@@ -77,6 +77,6 @@ S_1(\mbox{still expensive}|x, \theta) &=
 When we take the expectation over $L_1$, we get:
 
 $S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive})
-\left.\begin{cases}\frac{1}{2 - {CDF}(\theta + \varepsilon)} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}\right\}dxd\theta$
+\left.\begin{cases}\frac{1}{1 + \left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}\right\}dxd\theta$
 
 Since the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$, this is very similar to the "Inspect joint posterior" version.

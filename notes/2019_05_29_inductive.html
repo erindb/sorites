@@ -322,14 +322,14 @@ div.tocify {
 <div id="step-3" class="section level3">
 <h3>Step 3</h3>
 <p>If the utterances are equally costly, the speaker endorsements are:</p>
-<p><span class="math inline">\(\begin{align} S_1(u|x, \theta) &amp;= \frac{\exp(\lambda\ln(L_0(x|u, \theta)) - c(u))}{\sum_{u'} \exp(\lambda\ln(L_0(x|u', \theta))-c(u'))} \\ &amp;= \frac{L_0(x|u, \theta)}{\sum_{u'} L_0(x|u', \theta)} \end{align}\)</span></p>
+<p><span class="math inline">\(\begin{align} S_1(u|x, \theta) &amp;= \frac{\exp(\lambda \left( \ln(L_0(x|u, \theta)) - c(u)\right))}{\sum_{u'} \exp(\lambda\left( \ln(L_0(x|u', \theta))-c(u') \right))} \\ &amp;= \frac{\left( L_0(x|u, \theta)\right)^\lambda}{\sum_{u'} \left(L_0(x|u', \theta)\right)^\lambda} \end{align}\)</span></p>
 <p>So for the “still expensive” utterance:</p>
-<p><span class="math inline">\(\begin{align} S_1(\mbox{still expensive}|x, \theta) &amp;= \frac{L_0(x|\mbox{still expensive}, \theta)} {L_0(x|\mbox{still expensive}, \theta) + L_0(x|\mbox{silent}, \theta)} \\ &amp;= \begin{cases} \frac{\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}} {\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)} + Pr(x)} &amp; x - \varepsilon &gt; \theta \\ 0 &amp; \mbox{otherwise}\end{cases} \\ &amp;= \begin{cases}\frac{1}{2 - {CDF}(\theta + \varepsilon)} &amp; x - \varepsilon &gt; \theta \\ 0 &amp; \mbox{otherwise}\end{cases} \end{align}\)</span></p>
+<p><span class="math inline">\(\begin{align} S_1(\mbox{still expensive}|x, \theta) &amp;= \frac{\left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda} {\left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda + \left(L_0(x|\mbox{silent}, \theta)\right)^\lambda} \\ &amp;= \begin{cases} \frac{\left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda} {\left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda + \left(Pr(x)\right)^\lambda} &amp; x - \varepsilon &gt; \theta \\ 0 &amp; \mbox{otherwise}\end{cases} \\ &amp;= \begin{cases}\frac{1}{1 + \left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} &amp; x - \varepsilon &gt; \theta \\ 0 &amp; \mbox{otherwise}\end{cases} \end{align}\)</span></p>
 </div>
 <div id="final-value" class="section level3">
 <h3>Final value</h3>
 <p>When we take the expectation over <span class="math inline">\(L_1\)</span>, we get:</p>
-<p><span class="math inline">\(S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive}) \left.\begin{cases}\frac{1}{2 - {CDF}(\theta + \varepsilon)} &amp; x - \varepsilon &gt; \theta \\ 0 &amp; \mbox{otherwise}\end{cases}\right\}dxd\theta\)</span></p>
+<p><span class="math inline">\(S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive}) \left.\begin{cases}\frac{1}{1 + \left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} &amp; x - \varepsilon &gt; \theta \\ 0 &amp; \mbox{otherwise}\end{cases}\right\}dxd\theta\)</span></p>
 <p>Since the <span class="math inline">\(S_1(\mbox{still expensive}|x, \theta)\)</span> value is always between <span class="math inline">\(1/2\)</span> and <span class="math inline">\(1\)</span> whenever <span class="math inline">\(x-\varepsilon &gt; \theta\)</span>, this is very similar to the “Inspect joint posterior” version.</p>
 </div>
 </div>
