@@ -6,10 +6,14 @@ var prior_type = "symmetric_state_prior";
 var epsilon = 1;
 
 var utterancePrior = function() {return uniformDraw(["adj", "silence"]);};
+
 var priors = {
   symmetric_state_prior: function() {return binomial({p:0.5, n: n_bins-1});},
   skewed_state_prior: function() {return binomial({p:0.1, n: n_bins-1});}
 };
+var prior = Infer({method: "enumerate", model: priors[prior_type]});
+utils.writeJSON(prior, "minimal_inductive/prior.json");
+
 var theta_prior = function() {return uniformDraw(_.range(0, n_bins, 0.5));};
 
 var l0_with_theta = function(utterance, state_prior_label, infer_theta, theta) {
@@ -37,6 +41,16 @@ var l0 = cache(function(utterance, state_prior_label, infer_theta, theta) {
     return {result: state, factor: f};
   });
 });
+var l0 = l0("adj", prior_type, true);
+utils.writeJSON(l0, "minimal_inductive/l0.json");
+
+var widths = map(function(x) {return 1;}, l0.support());
+var shifted_1 = shift_dist(l0, 0.1, widths);
+utils.writeJSON(shifted_1, "minimal_inductive/l0_shifted_0.1.json");
+utils.writeJSON(shift_dist(l0, 0.5, widths), "minimal_inductive/l0_shifted_0.5.json");
+utils.writeJSON(shift_dist(l0, 1, widths), "minimal_inductive/l0_shifted_1.json");
+utils.writeJSON(shift_dist(l0, 2, widths), "minimal_inductive/l0_shifted_2.json");
+utils.writeJSON(shift_dist(l0, 5, widths), "minimal_inductive/l0_shifted_5.json");
 
 // // var l0_fn = function(utterance, state_prior, infer_theta, theta) {
 // //   return function() {
@@ -51,23 +65,34 @@ var l0 = cache(function(utterance, state_prior_label, infer_theta, theta) {
 // //   }
 // // }
 
-// var s1 = cache(function(actual_state_value, state_prior_label, infer_theta, theta) {
-//   return Infer(function() {
-//     var utterance = utterancePrior();
-//     var interpretation_distribution = l0(
-//       utterance,
-//       state_prior_label,
-//       false,
-//       infer_theta ? theta_prior() : theta
-//     );
-//     if (interpretation_distribution == "Impossible") {
-//       factor(-Infinity);
-//     } else {
-//       factor(interpretation_distribution.score(actual_state_value));
-//     }
-//     return utterance;
-//   });
-// });
+var s1 = cache(function(actual_state_value, state_prior_label, infer_theta, theta) {
+  return Infer(function() {
+    var utterance = utterancePrior();
+    var interpretation_distribution = l0(
+      utterance,
+      state_prior_label,
+      false,
+      infer_theta ? theta_prior() : theta
+    );
+    if (interpretation_distribution == "Impossible") {
+      factor(-Infinity);
+    } else {
+      factor(interpretation_distribution.score(actual_state_value));
+    }
+    return utterance;
+  });
+});
+
+// Inductive endorsement (average over price y):
+// endorsement = S("Y is expensive" | "X is expensive", y = x-eps) =
+//     \int_{y} S_1(“y is expensive” | y) P(y | "X is expensive", y = x-eps) dy \propto 
+// \int_{\theta} L_0(y, \theta | “expensive”) d\theta
+var eps = 1;
+var inductive_1 = shifted_1.expectation(function(y) {
+  Math.exp(s1(y, "shifted_" + eps + "_" + prior_type, true).score("adj"));
+});
+console.log(inductive_1);
+
 
 // var l1_with_theta = function(utterance, state_prior_label) {
 //   var state_prior = priors[state_prior_label];
@@ -171,17 +196,8 @@ var l0 = cache(function(utterance, state_prior_label, infer_theta, theta) {
 //   });
 // };
 
-var prior = Infer({method: "enumerate", model: priors[prior_type]});
-utils.writeJSON(prior, "minimal_inductive/prior.js");
 
-var l0 = l0("adj", prior_type, true);
-utils.writeJSON(l0, "minimal_inductive/l0.js");
 
-var widths = map(function(x) {return 1;}, l0.support());
-utils.writeJSON(shift_dist(l0, 0.1, widths), "minimal_inductive/l0_shifted_0.1.js");
-utils.writeJSON(shift_dist(l0, 0.5, widths), "minimal_inductive/l0_shifted_0.5.js");
-utils.writeJSON(shift_dist(l0, 1, widths), "minimal_inductive/l0_shifted_1.js");
-utils.writeJSON(shift_dist(l0, 5, widths), "minimal_inductive/l0_shifted_5.js");
 
 
 // // var prior = priors[prior_type];
