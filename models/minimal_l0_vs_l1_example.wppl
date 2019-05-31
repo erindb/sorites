@@ -22,6 +22,10 @@ var run_cor = function(n_bins) {
     symmetric_state_prior: function() {return binomial({p:0.5, n: n_bins});},
     skewed_state_prior: function() {return binomial({p:0.1, n: n_bins});}
   };
+  var cdf = function(x, state_prior_label) {
+    var state_prior = priors[state_prior_label];
+    return expectation(Infer(state_prior), function(t) {return t <= x;});
+  }
   // var theta_prior = function() {return uniformDraw(_.range(-10, 30));};
   var theta_prior = function() {return uniformDraw(_.range(0, n_bins, 0.5));};
   var safe_infer = function(args, f) {
@@ -123,7 +127,7 @@ var run_cor = function(n_bins) {
     });
   }
 
-  var inductive = function(epsilon, listener_level, state_prior_label, prior) {
+  var joint_inductive = function(epsilon, listener_level, state_prior_label, prior, speaker_optimality) {
     var listener_fn = listener_level==0 ? l0_with_theta : l1_with_theta;
     return Infer(function() {
       var listener_dist = prior ? listener_fn("silence", state_prior_label, true) : listener_fn("adj", state_prior_label, true);
@@ -132,46 +136,83 @@ var run_cor = function(n_bins) {
     });
   }
 
-  // viz(Infer(priors["symmetric_state_prior"]));
-  // viz(l0("adj", "symmetric_state_prior", true));
-  // l1("adj", "symmetric_state_prior");
-  // viz(Infer(priors["skewed_state_prior"]));
-  // viz(l0("adj", "skewed_state_prior", true));
-  // l1("adj", "skewed_state_prior");
+  var s1_inductive = function(epsilon, listener_level, state_prior_label, prior, speaker_optimality) {
+    var listener_fn = listener_level==0 ? l0_with_theta : l1_with_theta;
+    // return Infer(function() {
+    var listener_dist = prior ? listener_fn("silence", state_prior_label, true) : listener_fn("adj", state_prior_label, true);
+    //   var rs = sample(listener_dist);
+    //   // 1 / ( 1 + (1 - CDF(theta + eps))^lambda )
+    //   return 1 / (1 + Math.pow((1 - cdf(rs.theta + epsilon, state_prior_label)), speaker_optimality))
+    // });
+    return expectation(listener_dist, function(rs) {
+      if (rs.state - epsilon >= rs.theta) {
+        return 1 / (1 + Math.pow((1 - cdf(rs.theta + epsilon, state_prior_label)), speaker_optimality));
+      } else {
+        return 0;
+      }
+    })
+  }
 
-  var prior_skewed_inductive = map(function(epsilon) {
-    return Math.exp(inductive(epsilon, 0, "skewed_state_prior", true).score(true));
-  }, _.range(n_bins));
-  var l0_skewed_inductive = map(function(epsilon) {
-    return Math.exp(inductive(epsilon, 0, "skewed_state_prior").score(true));
-  }, _.range(n_bins));
-  var l1_skewed_inductive = map(function(epsilon) {
-    return Math.exp(inductive(epsilon, 1, "skewed_state_prior").score(true));
-  }, _.range(n_bins))
+  var inductive = function(epsilon, listener_level, state_prior_label, prior, speaker_optimality, inductive_type) {
+    if (inductive_type == "joint") {
+      return joint_inductive(epsilon, listener_level, state_prior_label, prior, speaker_optimality);
+    } else {
+      return s1_inductive(epsilon, listener_level, state_prior_label, prior, speaker_optimality);
+    }
+  }
 
-  var prior_symmetric_inductive = map(function(epsilon) {
-    return Math.exp(inductive(epsilon, 0, "symmetric_state_prior", true).score(true));
-  }, _.range(n_bins));
-  var l0_symmetric_inductive = map(function(epsilon) {
-    return Math.exp(inductive(epsilon, 0, "symmetric_state_prior").score(true));
-  }, _.range(n_bins));
-  var l1_symmetric_inductive = map(function(epsilon) {
-    return Math.exp(inductive(epsilon, 1, "symmetric_state_prior").score(true));
-  }, _.range(n_bins))
+  display(inductive(0.5, 0, "symmetric_state_prior", false, 1, "s1"));
+  display(inductive(1, 0, "symmetric_state_prior", false, 1, "s1"));
+  display(inductive(2, 0, "symmetric_state_prior", false, 1, "s1"));
+  display(inductive(3, 0, "symmetric_state_prior", false, 1, "s1"));
+  display(inductive(4, 0, "symmetric_state_prior", false, 1, "s1"));
+  display(inductive(5, 0, "symmetric_state_prior", false, 1, "s1"));
 
-  return {
-    "symmetric cor": utils.cor(l0_symmetric_inductive, l1_symmetric_inductive),
-    "skewed cor": utils.cor(l0_skewed_inductive, l1_skewed_inductive),
-    "l0_symmetric[5]": l0_symmetric_inductive[5],
-    "L1_symmetric[5]": l1_symmetric_inductive[5],
-    "prior_symmetric[5]": prior_symmetric_inductive[5],
-    "skewed L0 ~ prior": utils.cor(prior_skewed_inductive, l0_skewed_inductive),
-    "symmetric L0 ~ prior": utils.cor(prior_symmetric_inductive, l0_symmetric_inductive),
-    "skewed ~ symmetric": utils.cor(l0_symmetric_inductive, l0_skewed_inductive)
-  };
+  // display(cdf(1, priors["symmetric_state_prior"]));
+
+  // // viz(Infer(priors["symmetric_state_prior"]));
+  // // viz(l0("adj", "symmetric_state_prior", true));
+  // // l1("adj", "symmetric_state_prior");
+  // // viz(Infer(priors["skewed_state_prior"]));
+  // // viz(l0("adj", "skewed_state_prior", true));
+  // // l1("adj", "skewed_state_prior");
+
+  // var prior_skewed_inductive = map(function(epsilon) {
+  //   return Math.exp(inductive(epsilon, 0, "skewed_state_prior", true).score(true));
+  // }, _.range(n_bins));
+  // var l0_skewed_inductive = map(function(epsilon) {
+  //   return Math.exp(inductive(epsilon, 0, "skewed_state_prior").score(true));
+  // }, _.range(n_bins));
+  // var l1_skewed_inductive = map(function(epsilon) {
+  //   return Math.exp(inductive(epsilon, 1, "skewed_state_prior").score(true));
+  // }, _.range(n_bins))
+
+  // var prior_symmetric_inductive = map(function(epsilon) {
+  //   return Math.exp(inductive(epsilon, 0, "symmetric_state_prior", true).score(true));
+  // }, _.range(n_bins));
+  // var l0_symmetric_inductive = map(function(epsilon) {
+  //   return Math.exp(inductive(epsilon, 0, "symmetric_state_prior").score(true));
+  // }, _.range(n_bins));
+  // var l1_symmetric_inductive = map(function(epsilon) {
+  //   return Math.exp(inductive(epsilon, 1, "symmetric_state_prior").score(true));
+  // }, _.range(n_bins))
+
+  // return {
+  //   "symmetric cor": utils.cor(l0_symmetric_inductive, l1_symmetric_inductive),
+  //   "skewed cor": utils.cor(l0_skewed_inductive, l1_skewed_inductive),
+  //   "l0_symmetric[5]": l0_symmetric_inductive[5],
+  //   "L1_symmetric[5]": l1_symmetric_inductive[5],
+  //   "prior_symmetric[5]": prior_symmetric_inductive[5],
+  //   "skewed L0 ~ prior": utils.cor(prior_skewed_inductive, l0_skewed_inductive),
+  //   "symmetric L0 ~ prior": utils.cor(prior_symmetric_inductive, l0_symmetric_inductive),
+  //   "skewed ~ symmetric": utils.cor(l0_symmetric_inductive, l0_skewed_inductive)
+  // };
 }
 
-display(run_cor(10));
-display(run_cor(20));
-display(run_cor(30));
-display(run_cor(40));
+// display(run_cor(10));
+// display(run_cor(20));
+// display(run_cor(30));
+// display(run_cor(40));
+
+run_cor(10);
+"finished"
