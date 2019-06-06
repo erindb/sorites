@@ -63,8 +63,39 @@ fit_to_all_sorites_no_bins = plot_sorites(
   all_experiments = F,
   model_fit_label = "all sorites (no prior) fit"
 )
+
+post_to_prior_reproduce_old_plots = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_post_to_prior_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = T,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit"
+)
+
+post_to_prior_fit_to_all_sorites_and_bins = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_post_to_prior_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = T,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit"
+)
 ```
 
+
+```{r, fig.width=10, fig.height=4}
+print(post_to_prior_fit_to_all_sorites_and_bins$final_sorites_cor)
+ggsave("img/post_to_prior_fit_to_all_sorites_and_bins_cor.png", width=10, height=4)
+print(post_to_prior_reproduce_old_plots$final_sorites_cor)
+ggsave("img/post_to_prior_reproduce_old_plots_cor.png", width=10, height=4)
+```
+
+```{r}
+post_to_prior_fit_to_all_sorites_and_bins
+```
+
+
+```{r, fig.width=15, fig.height=3}
+print(post_to_prior_fit_to_all_sorites_and_bins$final_prior_ecdf)
+ggsave("img/post_to_prior_fit_to_all_sorites_and_bins_bins.png", width=10, height=2)
+```
 
 ## Model fit: Final Design
 
@@ -89,24 +120,32 @@ print(fit_to_final_sorites_and_bins$final_sorites_curves)
 
 ```{r, fig.width=10, fig.height=4}
 print(reproduce_old_plots$final_sorites_cor)
+ggsave("img/recap_cor.png", width=10, height=4)
 ```
 
 Fitting to the final sorites *and* bins data does not significantly change the inferred priors relative to fitting only to the bins data. That is, the prior fits are being driven by the bins data and the concrete and inductive premise data mostly affect the optimality parameter. Since this is exactly how I used that information in the old version, it makes sense that we reproduce the results even with the BDA.
 
 ```{r, fig.width=15, fig.height=3}
 print(reproduce_old_plots$final_prior_ecdf)
+ggsave("img/recap_bins.png", width=10, height=2)
 ```
+
 
 If we only give the model data from the final bins prior elicitation, the model has high uncertainty about the concrete premise, but has a decent correlation with the data.
 
 ```{r, fig.width=10, fig.height=4}
 fit_to_final_bins_only$final_sorites_cor
+ggsave("img/final_bins_cor.png", width=10, height=4)
 fit_to_final_bins_only$all_sorites_cor
 ```
 
 ```{r, fig.width=10, fig.height=2}
 # sanity check: yes, when we fit to bins only, the cor with bins is high
 # print(fit_to_final_bins_only$final_prior_ecdf)
+```
+```{r, fig.width=10, fig.height=2}
+fit_to_final_bins_only$final_prior_ecdf
+ggsave("img/final_bins_bins.png", width=10, height=2)
 ```
 
 However, the priors on prices we would infer from the sorites responses alone are quite different from both the give-a-number priors and the final experiment bins priors.
@@ -120,7 +159,14 @@ In this situation, when we just fit the priors to the sorites data, the model ca
 
 ```{r, fig.width=10, fig.height=4}
 fit_to_final_sorites_only$final_sorites_cor
+ggsave("img/final_sorites_cor.png", width=10, height=4)
 ```
+
+```{r, fig.width=10, fig.height=2}
+fit_to_final_sorites_only$final_prior_ecdf
+ggsave("img/final_sorites_bins.png", width=10, height=2)
+```
+
 
 ## Model fit: All Designs
 
@@ -130,16 +176,30 @@ fit_to_final_sorites_only$final_sorites_cor
 
 ```{r, fig.width=10, fig.height=4}
 fit_to_all_sorites_and_bins$all_sorites_cor
+ggsave("img/all_cor.png", width=10, height=4)
 fit_to_all_sorites_and_bins$final_sorites_cor
 ```
+
+```{r, fig.width=10, fig.height=2}
+fit_to_all_sorites_and_bins$final_prior_ecdf
+ggsave("img/all_bins.png", width=10, height=2)
+```
+
 
 
 ### Fit to all prior data, no sorites
 
 ```{r, fig.width=10, fig.height=4}
 fit_to_all_bins_no_sorites$all_sorites_cor
+ggsave("img/all_bins_cor.png", width=10, height=4)
 fit_to_all_bins_no_sorites$final_sorites_cor
 ```
+
+```{r, fig.width=10, fig.height=2}
+fit_to_all_bins_no_sorites$final_prior_ecdf
+ggsave("img/all_bins_bins.png", width=10, height=2)
+```
+
 
 
 
@@ -147,13 +207,72 @@ fit_to_all_bins_no_sorites$final_sorites_cor
 
 ```{r, fig.width=10, fig.height=4}
 fit_to_all_sorites_no_bins$all_sorites_cor
+ggsave("img/all_sorites_cor.png", width=10, height=4)
 fit_to_all_sorites_no_bins$final_sorites_cor
 ```
 
 ```{r, fig.width=10, fig.height=2}
+print(fit_to_all_sorites_no_bins$giveanumber_densities)
 print(fit_to_all_sorites_no_bins$giveanumber_ecdf)
 print(fit_to_all_sorites_no_bins$final_prior_ecdf)
+ggsave("img/all_sorites_bins.png", width=10, height=2)
 ```
+
+```{r}
+expt_label="all"
+
+rename_list = function(lst, name, new_name) {
+  lst[[new_name]] = lst[[name]]
+  lst[[name]] = NULL
+  return(lst)
+}
+
+select_expt = function(lst, expt_label) {
+  # for each object
+  for (name in names(lst)) {
+    lst[[name]] = lst[[name]][[expt_label]]
+    lst[[name]][["dollar_amount_lookups"]] = NULL
+    lst[[name]][["theta_lookups"]] = NULL
+    lst[[name]]$upper[[length(lst[[name]]$upper)]] = NA
+    lst[[name]]$upper = unlist(lst[[name]]$upper)
+  }
+  do.call(rbind, lapply(names(lst), function(name) {
+    lst[[name]] %>% as.data.frame() %>%
+      mutate(object = name) %>% return()
+  })) %>% return()
+}
+bins = RJSONIO::fromJSON("../models/results/bins.json") %>%
+  rename_list("coffee maker", "coffee_maker") %>%
+  select_expt(expt_label) %>%
+  gather("variable", "value", -object) %>%
+  group_by(object, variable) %>%
+  mutate(bin_number = 1:length(value)) %>%
+  spread(variable, value)
+theta_bins = bins %>%
+  select(object, mid, theta_prob) %>%
+  rename(upper_theta = mid) %>%
+  mutate(lower_theta = c(0, upper_theta[1:(length(upper_theta)-1)])) %>%
+  gather("var", "theta", c(upper_theta, lower_theta)) %>%
+  select(-var)
+p = bins %>%
+  ggplot() +
+  geom_point(aes(x=mid, y=0)) +
+  geom_point(aes(x=theta, y=theta_prob), alpha=0.2) +
+  geom_vline(aes(xintercept=lower), alpha=0.2) +
+  geom_ribbon(data=theta_bins, aes(x=theta, ymin=0, ymax=theta_prob), alpha=0.2) +
+  facet_wrap(~object, ncol = 5, scales="free")
+bins %>%
+  filter(object == "laptop") %>%
+  ggplot() +
+  geom_point(aes(x=mid, y=0)) +
+  geom_point(aes(x=theta, y=theta_prob), alpha=0.2) +
+  geom_vline(aes(xintercept=lower), alpha=0.2) +
+  geom_ribbon(data=theta_bins %>% filter(object=="laptop"), aes(x=theta, ymin=0, ymax=theta_prob), alpha=0.2)
+```
+
+
+
+
 
 
 

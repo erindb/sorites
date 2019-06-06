@@ -42,7 +42,7 @@ get_ecdf_with_errorbars = function(df, colname="price", reps=1000) {
   return(df)
 }
 
-plot_priors = function(model_results_file, raw_model_output=raw_model_output) {
+plot_priors = function(model_results_file, raw_model_output=NA) {
 
   if (is.data.frame(raw_model_output)) {
     names(raw_model_output) = c("result_type", "variable",
@@ -221,8 +221,52 @@ plot_priors = function(model_results_file, raw_model_output=raw_model_output) {
     ylab("Probability") +
     xlab("Price")
 
+
+  orig_draw_curves = function(mu, sigma, obj) {
+    x = seq(0, get_obj_max(obj), length.out = 100)
+    return(data.frame(
+      x=x,
+      density=dlnorm(x, meanlog=mu, sdlog=sigma)#*get_n_prices(obj)
+    ))
+  }
+
+  densitypriorfit = prior_fit %>%
+    filter(result_type=="price_prior") %>%
+    spread(variable, value) %>%
+    group_by(object) %>%
+    mutate(sigma = mean(sigma)) %>%
+    group_by(object, sigma) %>%
+    do(quantile_errorbars(.$mu)) %>%
+    ungroup() %>%
+    gather("region", "mu", c(y, ymin, ymax)) %>%
+    group_by(object, region) %>%
+    do(orig_draw_curves(.$mu, .$sigma, .$object)) %>%
+    # select(-prob) %>%
+    spread(region, density)
+
+  densities_plot = prior_comparison %>%
+    filter(src=="data") %>%
+    ggplot() +
+    geom_ribbon(data=densitypriorfit,
+                aes(x=x, ymin=ymin, ymax=ymax),
+                fill="black", alpha=1/3) +
+    geom_line(data=densitypriorfit,
+                aes(x=x, y=y),
+              colour="black", alpha=1/2) +
+    aes(x=price, colour=object, fill=object
+    ) +
+    geom_density(alpha=1/3) +
+    # geom_histogram(alpha=1/3, bins=10) +
+    facet_wrap(~object, ncol = 5, scales="free") +
+    scale_color_brewer(type="qual", palette = 6) +
+    scale_fill_brewer(type="qual", palette = 6) +
+    ylab("Density") +
+    xlab("Price") +
+    ggtitle("give a number densities vs inferred")
+
   return(list(
     p=p, df=prior_comparison, R_squared=R_squared,
+    densities=densities_plot,
     fit=prior_fit, params=params,
     last_bins_ecdf=last_bins_ecdf, bins_r_squared=bins_r_squared,
     last_bins_fit_plot=last_bins_fit_plot
@@ -602,6 +646,7 @@ plot_sorites = function(model_results_file, zscore, all_experiments, model_fit_l
     # all_sorites_curves = all_sorites_curves,
     all_sorites_cor = all_sorites_cor,
     giveanumber_ecdf = priors_results$p,
+    giveanumber_densities = priors_results$densities,
     raw_model_output = raw_model_output,
     price_params = price_params,
     global_params = global_params_plot,
