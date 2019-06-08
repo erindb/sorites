@@ -8,6 +8,8 @@
 \usepackage{epstopdf}
 %\usepackage{todonotes}
 \usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usepackage{bayesnet}
 
 \newcommand{\ndg}[1]{{\color{ForestGreen}[#1]}}
 
@@ -158,6 +160,67 @@ this suggests rich quantitative patterns to explain.
 
 we make an uRSA model building on (or just using?) \cite{lassiter2015}.
 
+\begin{figure}
+\tikz{
+  \node[latent,] (mu) {$\mu_i$};
+  \node[latent, right=of mu] (sig) {$\sigma_i$};
+  
+  \node[above=of mu] (mumax) {$\mu^{max}$};
+  \node[above=of sig] (sigmax) {$\sigma^{max}$};
+  
+  \node[latent, right=of sigmax] (sigbin) {$\sigma_{bin}$};
+
+  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
+  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
+  
+  \node[latent, right=of sigbin] (alpha) {$\alpha$};
+  \node[above=of alpha] (alphamax) {$\alpha^{max}$};
+  \node[right=of alphamax] (costmax) {$c_{max}$};
+  \node[latent, below=of costmax] (cost) {$c$};
+
+  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S(C_{iv})$};
+  \node[latent, right=of s2concrete, xshift=.25cm] (s2inductive) {$S(I_{i\varepsilon})$};
+  
+  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
+  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
+  
+  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
+  
+  \edge {mumax} {mu}
+  \edge {sigmax} {sig}
+  \edge {mu, sig} {pbin}
+  \edge {pbin, sigbin} {dbin}
+  \edge {pbin} {s2inductive, s2concrete}
+  \edge {s2inductive} {sI}
+  \edge {s2concrete} {sC}
+  \edge {alpha} {s2concrete, s2inductive}
+  \edge {alphamax} {alpha}
+  \edge {cost} {s2concrete, s2inductive}
+  \edge {costmax} {cost}
+  \edge {sigbinmax} {sigbin}
+  
+  \plate {bin} {
+    (pbin) (dbin)
+  } {$b\in{Bins_i}$};
+  \plate {epsilon} {
+    (s2inductive) (sI)
+  } {$\varepsilon \in Epsilons$};
+  \plate {value} {
+    (s2concrete) (sC)
+  } {$v \in Values$};
+  \plate {item} {
+    (mu) (sig)
+    %(giveanum)
+    (bin.south east)
+    (epsilon.south east)
+    (value.south east)
+    (s2inductive) (s2concrete)
+  } {$i\in{Objects}$};
+}
+\caption{Graphical model}
+\end{figure}
+
+
 should we be using an S2 model, since this is agreement data?
 
 but to apply model need priors....
@@ -170,6 +233,16 @@ priors. do BDA with log-normal family? linking fn?
 
 \subsection{Comparison to endorsement data}
 model fit. 
+
+\begin{figure}
+\includegraphics[width=\textwidth]{../analysis/img/reproduce_old_plots_inductive_s1_fit_cost_model.pdf}
+\caption{Model fit for final experiments}
+\end{figure}
+
+\begin{figure}
+\includegraphics[width=\textwidth]{../analysis/img/reproduce_old_plots_inductive_s1_fit_cost_cor.pdf}
+\caption{Final experiments correlations}
+\end{figure}
 
 \section{Experiment 3}
 \label{exp3}

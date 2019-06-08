@@ -8,6 +8,13 @@ get_obj_max = function(obj) {
     return()
 }
 
+sum_lower = function(df) {
+  df$prob = mapply(function(p, x) {
+    sum(df$prob[df$x < x]) %>% return()
+  }, df$prob, df$x)
+  return(df)
+}
+
 quantile_errorbars = function(x) {
   return(data.frame(
     y = mean(x),
@@ -103,7 +110,7 @@ plot_priors = function(model_results_file, raw_model_output=NA) {
   p = prior_comparison %>%
     ggplot() +
     aes(x=price, color=src) +
-    stat_ecdf(geom="step") +
+    stat_ecdf(geom="step", alpha=1/2) +
     facet_wrap(~object, scales="free",
                ncol=5) +
     ggtitle(paste("Give a Number Data -- R^2 = ", round(R_squared, 3))) +
@@ -191,13 +198,6 @@ plot_priors = function(model_results_file, raw_model_output=NA) {
     ylab("Normalized slider ratings") +
     xlab("Price range lower bound")
 
-  sum_lower = function(df) {
-    df$prob = mapply(function(p, x) {
-      sum(df$prob[df$x < x]) %>% return()
-    }, df$prob, df$x)
-    return(df)
-  }
-
   bins_r_squared = last_expt_bins_comparison %>%
     group_by(object, region, src) %>%
     do(sum_lower(.)) %>%
@@ -265,11 +265,15 @@ plot_priors = function(model_results_file, raw_model_output=NA) {
     ggtitle("give a number densities vs inferred")
 
   return(list(
-    p=p, df=prior_comparison, R_squared=R_squared,
+    p=p,
+    df=prior_comparison,
+    R_squared=R_squared,
     densities=densities_plot,
-    fit=prior_fit, params=params,
-    last_bins_ecdf=last_bins_ecdf, bins_r_squared=bins_r_squared,
-    last_bins_fit_plot=last_bins_fit_plot
+    fit=prior_fit,
+    params=params,
+    last_bins_ecdf=last_bins_ecdf,
+    bins_r_squared=bins_r_squared,
+    last_expt_bins_comparison=last_expt_bins_comparison
     ))
 }
 
@@ -592,7 +596,8 @@ plot_sorites = function(model_results_file, zscore, all_experiments, model_fit_l
   }
 
   final_sorites_curves = plot_sorites_curves(sorites_results)
-  final_prior_ecdf = priors_results$last_bins_ecdf
+  final_prior_ecdf = priors_results$final_prior_ecdf
+  last_expt_bins_comparison = priors_results$last_expt_bins_comparison
   final_sorites_cor =plot_sorites_cor(concrete_results, inductive_results, all_experiments, zscored=zscore)
   all_sorites_cor = plot_sorites_cor(concrete_results, inductive_results, T, zscored=zscore)
   # all_sorites_curves = plot_sorites_curves(sorites_results)
@@ -652,6 +657,7 @@ plot_sorites = function(model_results_file, zscore, all_experiments, model_fit_l
     global_params = global_params_plot,
     inductive = inductive_plot,
     concrete = concrete_plot,
-    params = params_plot
+    params = params_plot,
+    last_expt_bins_comparison = last_expt_bins_comparison
   ))
 }

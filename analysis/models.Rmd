@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
 ```
 
 ```{r load_experiment_data_and_libraries, message=F, warning=F}
+project_dir = "../"
 source("utils.R")
 source("reformatting_data.R")
 source("plot_model_results.R")
@@ -22,8 +23,17 @@ give_a_number = load_give_a_number() %>%
   mutate(src = "data")
 prior_bins = load_priors()
 
+reproduce_old_plots_inductive_s1_fit_cost = plot_sorites("../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv", zscore=T, all_experiments = F, model_fit_label = "final prior & sorites fit")
+
 reproduce_old_plots = plot_sorites(
   "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = T,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit"
+)
+
+reproduce_old_plots_inductive_s1 = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
   zscore = T,
   all_experiments = F,
   model_fit_label = "final prior & sorites fit"
@@ -50,6 +60,13 @@ fit_to_all_sorites_and_bins = plot_sorites(
   model_fit_label = "all prior & sorites fit"
 )
 
+fit_to_all_sorites_and_bins_inductive_s1 = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "all prior & sorites fit"
+)
+
 fit_to_all_bins_no_sorites = plot_sorites(
   "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
   zscore = F,
@@ -63,38 +80,47 @@ fit_to_all_sorites_no_bins = plot_sorites(
   all_experiments = F,
   model_fit_label = "all sorites (no prior) fit"
 )
-
-post_to_prior_reproduce_old_plots = plot_sorites(
-  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_post_to_prior_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = T,
-  all_experiments = F,
-  model_fit_label = "final prior & sorites fit"
-)
-
-post_to_prior_fit_to_all_sorites_and_bins = plot_sorites(
-  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_post_to_prior_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = T,
-  all_experiments = F,
-  model_fit_label = "final prior & sorites fit"
-)
-```
-
-
-```{r, fig.width=10, fig.height=4}
-print(post_to_prior_fit_to_all_sorites_and_bins$final_sorites_cor)
-ggsave("img/post_to_prior_fit_to_all_sorites_and_bins_cor.png", width=10, height=4)
-print(post_to_prior_reproduce_old_plots$final_sorites_cor)
-ggsave("img/post_to_prior_reproduce_old_plots_cor.png", width=10, height=4)
 ```
 
 ```{r}
-post_to_prior_fit_to_all_sorites_and_bins
+print(reproduce_old_plots_inductive_s1$final_sorites_cor)
+ggsave("img/reproduce_old_plots_inductive_s1_cor.png", width=10, height=4)
+```
+
+```{r}
+print(reproduce_old_plots_inductive_s1_fit_cost$final_sorites_cor + theme_few() + aes(shape=object) + scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive')") + ylab("Normalized endorsement rating"))
+ggsave("img/reproduce_old_plots_inductive_s1_fit_cost_cor.pdf", width=10, height=4)
+```
+
+```{r}
+print(reproduce_old_plots_inductive_s1_fit_cost$final_sorites_curves + theme_few() + aes(shape=qtype, colour=qtype) + scale_colour_grey(start=0.8, end=0.2) + xlab("Dollar Amount") + ylab("Normalized endorsement rating") +
+        facet_grid(src ~ object, scales="free")) #+ xlab("Model S1('expensive')") + ylab("Participant endorsement ratings"))
+ggsave("img/reproduce_old_plots_inductive_s1_fit_cost_model.pdf", width=10, height=6)
 ```
 
 
-```{r, fig.width=15, fig.height=3}
-print(post_to_prior_fit_to_all_sorites_and_bins$final_prior_ecdf)
-ggsave("img/post_to_prior_fit_to_all_sorites_and_bins_bins.png", width=10, height=2)
+```{r}
+print(reproduce_old_plots_inductive_s1$last_expt_bins_comparison %>%
+    group_by(object, region, src) %>%
+    do(sum_lower(.)) %>%
+    spread(region, prob) %>%
+    ggplot(aes(x=x, y=y, ymin=ymin, ymax=ymax,
+               linetype=src,
+               fill=src)) +
+    geom_line(aes(colour=src)) +
+    geom_ribbon(alpha=1/2) +
+    facet_wrap(~object, ncol = 5, scales="free") +
+    scale_colour_grey(start=0.8, end=0.2) +
+    scale_fill_grey(start=0.8, end=0.2) +
+    ylab("Probability") +
+    xlab("Price"))
+ggsave("img/fit_to_all_sorites_and_bins_inductive_s1_bins.pdf", width=15, height=3)
+```
+
+
+ ```{r, fig.width=15, fig.height=3}
+print(reproduce_old_plots_inductive_s1$final_prior_ecdf)
+ggsave("img/reproduce_old_plots_inductive_s1_bins.png", width=10, height=2)
 ```
 
 ## Model fit: Final Design

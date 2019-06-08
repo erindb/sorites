@@ -4,7 +4,7 @@ library(jsonlite)
 library(ggthemes)
 library(pander)
 
-project_dir = "../"
+project_dir = ifelse(is.null(project_dir), "../", project_dir)
 data_dir = function(path) {
   return(paste(project_dir, "data/", path, sep = ""))
 }

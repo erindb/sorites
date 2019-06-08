@@ -1,4 +1,4 @@
-source("utils.R")
+source(paste(project_dir, "/analysis/utils.R", sep=""))
 
 load_give_a_number = function() {
   give_a_number = read.csv(data_dir("/priors/give-a-number.csv")) %>%
