@@ -1,4 +1,4 @@
-// time webppl S1_with_bins.wppl --require utils --fit_giveanumber 1
+// time webppl S1_with_bins.wppl --require utils --fit_bins --fit_concrete --fit_inductive --iterations 10 --lag 1 1
 
 // Load index as last command line input.
 var chain = last(process.argv);
@@ -28,6 +28,8 @@ var inductive_version = (
 
 var fit_giveanumber = utils.get_flag("--fit_giveanumber");
 
+var fit_cost_param = true;//utils.get_flag("--fit_cost_param");
+
 var fit_concrete = utils.get_flag("--fit_concrete");
 
 var fit_inductive = utils.get_flag("--fit_inductive");
@@ -46,6 +48,7 @@ display(fit_inductive ? "fitting to inductive" : "");
 display(fit_bins ? "fitting to bins" : "");
 display(all_sorites_at_once ? "model all_sorites_at_once" : "returning results from specific sorties expt");
 display(all_bins_at_once ? "model all_bins_at_once" : "returning results from specific prior expt");
+display(all_bins_at_once ? "model fit_cost_param" : "fitting cost parameter");
 display("inductive version: " + inductive_version);
 
 // Justine's give-a-number data.
@@ -109,6 +112,7 @@ var outfile = (
   (fit_bins ? "_bins" : "") +
   (all_bins_at_once ? "_allbins" : ("_" + bins_expt_id)) +
   (all_sorites_at_once ? "_allsorites" : ("_" + sorites_expt_id)) +
+  (fit_cost_param ? "_fit_cost_param" : "_no_cost_param") +
   ("_listener" + listener_level) +
   "_" + rating_type + 
   (ignore_last_bin ? "_ignore_last_bin" : "") +
@@ -155,9 +159,14 @@ utils.writeJSON(bins, bins_filename);
 display("bins file written to: " + bins_filename);
 
 
-var utterancePrior = Infer({model: function(){
-	return uniformDraw(["expensive", "silence"])
-}});
+var utterancePrior = function(cost_of_expensive) {
+  return Infer({model: function(){
+  	return categorical({
+      ps: map(function(c) {return Math.exp(-c);}, [cost_of_expensive, 1]),
+      vs: ["expensive", "silence"]
+    });
+  }});
+};
 
 var inductive_utterance_prior = Infer({model: function(){
   return uniformDraw(["inductive", "silence"])
@@ -175,7 +184,7 @@ var model = function(){
   // Prior parameters
   var ALPHA1MAX = 10; // maximum rationality for speaker1
   // var ALPHA2MAX = 5; // maximum rationality for speaker2
-  // var COSTMAX = 5; // maximum cost of the expensive utterance
+  var COSTMAX = 5; // maximum cost of the expensive utterance
   var MUMAX = 10; // maximum mu for lognormal price distributions
   var SIGMAX = 10; // maximum sigma for lognormal price distributions
   var SIGBINMAX = 0.5;//3; // for interpreting likert scale responses
@@ -187,7 +196,8 @@ var model = function(){
   query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
   var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.005}); // prob too small 10% is like prob good
   query.add(["global_param", "sigbin", "NA", "NA"], sigbin);
-  // cost: uniformDrift({a: 0, b: COSTMAX, width: 0.5}),
+  var cost = uniformDrift({a: 0, b: COSTMAX, width: 0.5});
+  query.add(["global_param", "cost", "NA", "NA"], cost);
   // standard deviation for bins responses
 
   // Iterate over all items in the sorites experiments.
@@ -294,7 +304,7 @@ var model = function(){
       var make_speaker = function(listener_fn) {
         return function(state, theta) {
           Infer({model: function(){
-            var utterance = sample(utterancePrior);
+            var utterance = sample(utterancePrior(cost));
             var L0 = listener_fn(utterance, theta);
             factor(speakerOptimality * L0.score(state))
             return utterance == "expensive" ? 1 : 0
