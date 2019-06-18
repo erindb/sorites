@@ -14,12 +14,14 @@ knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
 ```
 
 ```{r load (and reformat) data}
+project_dir = "../"
 source("utils.R")
 source("reformatting_data.R")
 df = load_sorites()
 give_a_number = load_give_a_number()
 prior_bins_data = load_priors()
 write.csv(df, "../data/sorites/sorites.csv")
+source("~/Settings/startup.R")
 ```
 
 # Experiments
@@ -59,8 +61,6 @@ Consistent across all experiments:
 
 ## Results of sorites experiments
 
-The range of values asked about in the experiment affected responses a bit. For smaller ranges, participants gave higher responses for lower prices (that were at the top range within the experiment).
-
 
 ```{r}
 RUN_AGG = F
@@ -77,48 +77,169 @@ write.csv(agg, cache_dir("agg_cache.csv"), row.names = F)
 }  else {
 agg = read.csv(cache_dir("agg_cache.csv"))
 }
-agg = agg %>% mutate(phrasing = factor(phrasing))
+agg = agg %>% mutate(phrasing = factor(phrasing)) %>%
+  mutate(logdollars = log(dollar_amount))
 ```
 
+### Graded endorsements
+
+### Range of values
+
+```{r}
+# agg %>%
+#   group_by(id, object, qtype) %>%
+#   mutate(maxQ = max(dollar_amount),
+#          meanQ = mean(dollar_amount),
+#          minQ = min(dollar_amount),
+#          prop = (dollar_amount - minQ)/(maxQ - minQ),
+#          disc_prop = discretize(prop, method="interval", ordered_result=T, breaks=3)) %>%
+#   filter(qtype == "concrete") %>%
+#   lmer(response ~ logdollars*meanQ + (1 + logdollars|object), data=.) %>%
+#   summary()
+```
+
+```{r, fig.width=8, fig.height=4}
+# # install.packages("arules")
+# library(arules)
+# agg %>%
+#   mutate(year = factor(ifelse(id=="00", 2013, ifelse(id %in% c("10", "11"), 2015, 2014)))) %>%
+#   erin_ggplot(aes(y=response,
+#              x=dollar_amount,
+#              ymin=low,
+#              ymax=high,
+#              group=id,
+#              colour=year)) +
+#   geom_point() +
+#   geom_line() +
+#   geom_errorbar() +
+#   facet_wrap(qtype~object, scales="free", ncol = 5) +
+#   scale_colour_grey()
+```
+
+
+
+```{r, fig.width=8, fig.height=4}
+# # install.packages("arules")
+# library(arules)
+# agg %>%
+#   group_by(id, object, qtype) %>%
+#   mutate(maxQ = max(dollar_amount),
+#          minQ = min(dollar_amount),
+#          prop = (dollar_amount - minQ)/(maxQ - minQ),
+#          disc_prop = discretize(prop, method="interval", ordered_result=T, breaks=3)) %>%
+#   ungroup() %>%
+#   group_by(qtype, object) %>%
+#   mutate(range_size = (maxQ - min(maxQ))/(max(maxQ) - min(maxQ))) %>%
+#   ungroup() %>%
+#   ggplot(aes(y=response,
+#              x=dollar_amount,
+#              colour=range_size,
+#              ymin=low,
+#              ymax=high,
+#              group=id)) +
+#   geom_point(alpha=2/3) +
+#   geom_line(alpha=2/3) +
+#   geom_errorbar(alpha=2/3) +
+#   facet_wrap(qtype~object, scales="free", ncol = 5) +
+#   theme(legend.position = "none") +
+#   ggtitle("Experiments with higher ranges of values are shown in lighter colors.")
+```
+
+Results from experiments with similar ranges are more similar to each other than to results from experiments with different ranges. But it's not clear to me why.
+
+
+```{r, fig.width=8, fig.height=4}
+# install.packages("arules")
+library(arules)
+agg %>%
+  group_by(id, object, qtype) %>%
+  mutate(maxQ = max(dollar_amount),
+         minQ = min(dollar_amount),
+         prop = (dollar_amount - minQ)/(maxQ - minQ),
+         range = maxQ - minQ,
+         disc_prop = discretize(prop, method="interval", ordered_result=T, breaks=3)) %>%
+  ungroup() %>%
+  group_by(qtype, object) %>%
+  mutate(range_max = (maxQ - min(maxQ))/(max(maxQ) - min(maxQ)),
+         range_size = (range - min(range)) / (max(range) - min(range))) %>%
+  ungroup() %>%
+  ggplot(aes(y=response,
+             x=dollar_amount,
+             colour=range_size,
+             ymin=low,
+             ymax=high,
+             group=id)) +
+  geom_point(alpha=2/3) +
+  geom_line(alpha=2/3) +
+  geom_errorbar(alpha=2/3) +
+  facet_wrap(qtype~object, scales="free", ncol = 5) +
+  theme(legend.position = "none") +
+  ggtitle("Experiments with wider ranges of values are shown in lighter colors.")
+```
+
+
+
+### Inductive premise phrasing
+
+There were two phrasings, "relative clause" and "conditional." They tend to get similar endorsements.
+
+```{r, fig.width=10, fig.height=2}
+agg %>%
+  filter(qtype=="inductive") %>%
+  filter(!is.na(phrasing)) %>%
+  erin_ggplot(aes(x=log(dollar_amount), y=response,
+             colour=phrasing,
+             shape=id,
+             ymin=low, ymax=high)) +
+  geom_point() +
+  geom_errorbar() +
+  facet_grid(~object, scales="free")
+```
+
+
+
+
+
 ```{r, fig.height=4, fig.width=12}
-opacity = 0.5
-agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=id, group=id)) +
-  geom_line(alpha=opacity) +
-  geom_point(alpha=opacity) +
-  # geom_line(alpha=opacity) +
-  geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
-  facet_grid(qtype~object, scale="free_x") +
-  ylim(1, 9) +
-  scale_colour_brewer(type="qual", palette = 2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+# opacity = 0.5
+# agg %>% ggplot(., aes(x=dollar_amount, y=response, colour=id, group=id)) +
+#   geom_line(alpha=opacity) +
+#   geom_point(alpha=opacity) +
+#   # geom_line(alpha=opacity) +
+#   geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+#   facet_grid(qtype~object, scale="free_x") +
+#   ylim(1, 9) +
+#   scale_colour_brewer(type="qual", palette = 2) +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
 ```{r}
-agg %>% filter(qtype == "inductive") %>% group_by(object) %>%
-  summarise(eps = min(dollar_amount),
-         max = max(dollar_amount),
-         nbins = max/eps)
+# agg %>% filter(qtype == "inductive") %>% group_by(object) %>%
+#   summarise(eps = min(dollar_amount),
+#          max = max(dollar_amount),
+#          nbins = max/eps)
 ```
 
 
 ## Priors experiments
 
-### Give a number
-
-I don't know Justine's exact phrasing for this, but participants were asked, for each item, a possible price for that item.
-
-```{r, fig.height=2, fig.width=12}
-give_a_number %>%
-  ggplot(., aes(x=price, colour=object, fill=object)) +
-  geom_density(alpha=1/2) +
-  geom_histogram(bins=30) +
-  facet_grid(~object, scales="free") +
-  scale_colour_brewer(type="qual", palette = 6) +
-  scale_fill_brewer(type="qual", palette = 6)
+```{r}
+# ### Give a number
+# 
+# I don't know Justine's exact phrasing for this, but participants were asked, for each item, a possible price for that item.
+# 
+# #```{r, fig.height=2, fig.width=12}
+# give_a_number %>%
+#   ggplot(., aes(x=price, colour=object, fill=object)) +
+#   geom_density(alpha=1/2) +
+#   geom_histogram(bins=30) +
+#   facet_grid(~object, scales="free") +
+#   scale_colour_brewer(type="qual", palette = 6) +
+#   scale_fill_brewer(type="qual", palette = 6)
+# #```
+# 
+# ### Bins
 ```
-
-
-### Bins
 
 Here are the instructions participants got in all of the prior experiments:
 
