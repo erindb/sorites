@@ -39,6 +39,8 @@ var fit_bins = utils.get_flag("--fit_bins");
 var all_bins_at_once = utils.get_flag("--all_bins");
 var all_sorites_at_once = utils.get_flag("--all_sorites");
 
+var final_sorites_held_out = utils.get_flag("--final_sorites_held_out");
+
 
 var listener_level = 0;
 
@@ -49,6 +51,7 @@ display(fit_bins ? "fitting to bins" : "");
 display(all_sorites_at_once ? "model all_sorites_at_once" : "returning results from specific sorties expt");
 display(all_bins_at_once ? "model all_bins_at_once" : "returning results from specific prior expt");
 display(all_bins_at_once ? "model fit_cost_param" : "fitting cost parameter");
+display(final_sorites_held_out ? "final_sorites_held_out" : "");
 display("inductive version: " + inductive_version);
 
 // Justine's give-a-number data.
@@ -58,22 +61,57 @@ var d_giveanumber = dataFrame(
 
 // This was the experiment in Noah's plots. It's the last one we did, it
 // includes the relative clause phrasing.
-var sorites_expt_id = "11";
+var sorites_final_expt_id = "11";
 // Sorites experiment data.
-var d_sorites = _.filter(dataFrame(
+var d_sorites = dataFrame(
   utils.readCSV("../data/sorites/sorites.csv").data
-), all_sorites_at_once ? {} : {"id": sorites_expt_id});
+);
+// var d_sorites = _.filter(
+//   dataFrame(
+//     utils.readCSV("../data/sorites/sorites.csv").data
+//   ),
+//   function(o) {
+//     if (all_sorites_at_once) {
+//       return true;
+//     } else if (final_bins_held_out) {
+//       return o["id"] != sorites_final_expt_id;
+//     } else {
+//       return o["id"] == sorites_final_expt_id;
+//     }
+//   }
+// );
+
+var fit_this_expt = function(expt_id) {
+  if (all_sorites_at_once) {
+    return true;
+  } else if (final_sorites_held_out) {
+    return expt_id != sorites_final_expt_id;
+  } else {
+    return expt_id == sorites_final_expt_id;
+  }
+};
 
 
 // Focus on this experiment for fitting bins.
 // This experiment used a pretty good range of values.
-var bins_expt_id = "12";
-var d_bins = _.filter(
-  dataFrame(
-    utils.readCSV("../data/priors/reformatted_bins.csv").data
-  ),
-  all_bins_at_once ? {} : {"exp": bins_expt_id}
+var bins_final_expt_id = "12";
+var d_bins = dataFrame(
+  utils.readCSV("../data/priors/reformatted_bins.csv").data
 );
+// var d_bins = _.filter(
+//   dataFrame(
+//     utils.readCSV("../data/priors/reformatted_bins.csv").data
+//   ),
+//   function(o) {
+//     if (all_bins_at_once) {
+//       return true;
+//     } else if (final_bins_held_out) {
+//       return o["exp"] != bins_final_expt_id;
+//     } else {
+//       return o["exp"] == bins_final_expt_id;
+//     }
+//   }
+// );
 
 
 // // 2 minutes for L0, fitting all bins and all sorites data
@@ -110,8 +148,8 @@ var outfile = (
   (fit_giveanumber ? "_giveanumber" : "") +
   (fit_inductive ? "_inductive" : "") +
   (fit_bins ? "_bins" : "") +
-  (all_bins_at_once ? "_allbins" : ("_" + bins_expt_id)) +
-  (all_sorites_at_once ? "_allsorites" : ("_" + sorites_expt_id)) +
+  (all_bins_at_once ? "_allbins" : ("_" + bins_final_expt_id)) +
+  (all_sorites_at_once ? "_allsorites" : ("_" + sorites_final_expt_id)) +
   (fit_cost_param ? "_fit_cost_param" : "_no_cost_param") +
   ("_listener" + listener_level) +
   "_" + rating_type + 
@@ -235,25 +273,27 @@ var model = function(){
       mapData(
         {data: item_bins},
         function(d) {
-          // display(d.UB);
-          var upper = d.UB=="Inf" ? Infinity : utils.float(d.UB);
-          var ignore_this_bin = (ignore_last_bin && upper == Infinity);
-          if (!ignore_this_bin) {
-            // display(upper);
-            var lower = utils.float(d.LB);
-            // display(upper);
-            var prob = utils.lognormalCDF(upper, item_params) - utils.lognormalCDF(lower, item_params);
-            // display(prob);
+          if  (fit_this_expt(d["id"])) {
+            // display(d.UB);
+            var upper = d.UB=="Inf" ? Infinity : utils.float(d.UB);
+            var ignore_this_bin = (ignore_last_bin && upper == Infinity);
+            if (!ignore_this_bin) {
+              // display(upper);
+              var lower = utils.float(d.LB);
+              // display(upper);
+              var prob = utils.lognormalCDF(upper, item_params) - utils.lognormalCDF(lower, item_params);
+              // display(prob);
 
-            var rating = utils.float(d[rating_type]);
-            // display(normed_rating);
-            factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
-            // display(prob);
-            // display(logit(prob));
-            // observe(
-            //   LogitNormal({mu: logit(prob), sigma: sigbin, a: 0-eps, b: 1+eps}),
-            //   rating
-            // );
+              var rating = utils.float(d[rating_type]);
+              // display(normed_rating);
+              factor(Gaussian({mu: prob, sigma: sigbin}).score(rating));
+              // display(prob);
+              // display(logit(prob));
+              // observe(
+              //   LogitNormal({mu: logit(prob), sigma: sigbin, a: 0-eps, b: 1+eps}),
+              //   rating
+              // );
+            }
           }
         }
       );
@@ -326,7 +366,7 @@ var model = function(){
         var likert_dist = Binomial({p: endorsement_prob, n: 9});
         // Iterate through responses.
 
-        if (fit_concrete) {
+        if (fit_concrete && fit_this_expt(expt_id)) {
           mapData(
             {data: _.filter(d_expt_obj, {"dollar_amount": dollar_amount})},
             function(d){
@@ -417,7 +457,7 @@ var model = function(){
         var inductive_endorsement = inductive(epsilon, listener_level);
         var ind_likert_dist = Binomial({p: remove_endpoints(inductive_endorsement), n: 9});
 
-        if (fit_inductive) {
+        if (fit_inductive && fit_this_expt(expt_id)) {
           mapData(
             {data: _.filter(ind_expt_obj, {"dollar_amount": dollar_amount})},
             function(d){
