@@ -9,7 +9,7 @@ output: html_document
 
 ```{r global_options, include=FALSE}
 rm(list = ls())
-knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+knitr::opts_chunk$set(echo = F, warning = F, cache = T, message = F,
                       sanitiz = F, fig.width = 5, fig.height = 3)
 ```
 
@@ -23,7 +23,11 @@ give_a_number = load_give_a_number() %>%
   mutate(src = "data")
 prior_bins = load_priors()
 
-reproduce_old_plots_inductive_s1_fit_cost = plot_sorites("../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv", zscore=T, all_experiments = F, model_fit_label = "final prior & sorites fit")
+reproduce_old_plots_inductive_s1_fit_cost = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+  zscore=F,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit")
 
 reproduce_old_plots = plot_sorites(
   "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain003-lower-sigbin-width-than-002_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
@@ -34,7 +38,7 @@ reproduce_old_plots = plot_sorites(
 
 reproduce_old_plots_inductive_s1 = plot_sorites(
   "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = T,
+  zscore = F,
   all_experiments = F,
   model_fit_label = "final prior & sorites fit"
 )
@@ -82,14 +86,23 @@ fit_to_all_sorites_no_bins = plot_sorites(
 )
 ```
 
+```{r, fig.width=10, fig.height=4}
+print(fit_to_all_sorites_and_bins_inductive_s1$final_sorites_cor + theme_few() + aes(shape=object) + scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive')") + ylab("Normalized endorsement rating"))
+print(fit_to_all_sorites_and_bins_inductive_s1$all_sorites_cor)
+```
+
+
+
+
+
 ```{r}
 print(reproduce_old_plots_inductive_s1$final_sorites_cor)
 ggsave("img/reproduce_old_plots_inductive_s1_cor.png", width=10, height=4)
 ```
 
 ```{r}
-print(reproduce_old_plots_inductive_s1_fit_cost$final_sorites_cor + theme_few() + aes(shape=object) + scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive')") + ylab("Normalized endorsement rating"))
-ggsave("img/reproduce_old_plots_inductive_s1_fit_cost_cor.pdf", width=10, height=4)
+# print(reproduce_old_plots_inductive_s1_fit_cost$final_sorites_cor + theme_few() + aes(shape=object) + scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive')") + ylab("Normalized endorsement rating"))
+# ggsave("img/reproduce_old_plots_inductive_s1_fit_cost_cor.pdf", width=10, height=4)
 ```
 
 ```{r}
@@ -97,6 +110,23 @@ print(reproduce_old_plots_inductive_s1_fit_cost$final_sorites_curves + theme_few
         facet_grid(src ~ object, scales="free")) #+ xlab("Model S1('expensive')") + ylab("Participant endorsement ratings"))
 ggsave("img/reproduce_old_plots_inductive_s1_fit_cost_model.pdf", width=10, height=6)
 ```
+
+
+```{r}
+reproduce_old_plots_inductive_s1_fit_cost$raw_model_output %>%
+  filter(result_type %in% c("Inductive", "S1")) %>%
+  mutate(dollar_amount = char(specifics),
+         qtype = factor(result_type, levels=c("Inductive", "S1"), labels=c("Inductive", "Concrete"))) %>%
+  select(-result_type, -specifics) %>%
+  group_by(object, qtype, dollar_amount) %>%
+  summarise(response = sum(value*probability)) %>%
+  ungroup() %>%
+  mutate(dollar_amount = as.numeric(char(dollar_amount))) %>%
+  ggplot(aes(x=log(dollar_amount), y=response)) +
+  facet_wrap(qtype~object, scales="free", ncol = 5) +
+  geom_point()
+```
+
 
 
 ```{r}
