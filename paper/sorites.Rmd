@@ -1,0 +1,265 @@
+---
+title: ""
+author: ""
+header-includes:
+   - \usepackage{tikz}
+   - \usetikzlibrary{bayesnet}
+   - \usepackage{float}
+output:
+  pdf_document:
+    number_sections: true
+    fig_caption: true
+---
+
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = T, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
+
+```{r load_experiment_data_and_libraries, message=F, warning=F}
+project_dir = "../"
+source("../analysis/utils.R")
+source("../analysis/reformatting_data.R")
+source("../analysis/plot_model_results.R")
+df = load_sorites()
+prior_bins = load_priors()
+give_a_number = load_give_a_number() %>% mutate(src = "data")
+library('bnlearn')
+source("~/Settings/startup.R")
+```
+
+```{r load_models}
+reproduce_old_plots_inductive_s1 = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = T,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit"
+)
+study3 = plot_sorites(
+  "../models/results/results-S1-sigmax10_1000_burn500_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_allbins_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  model_fit_label = "Study 3",
+  xyline=F
+)
+```
+
+```{r}
+reproduce_old_plots_inductive_s1 = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  xyline=F,
+  all_experiments = F,
+  model_fit_label = "final prior & sorites fit"
+)
+
+fit_to_all_sorites_and_bins_inductive_s1 = plot_sorites(
+  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
+  zscore = F,
+  all_experiments = F,
+  xyline=F,
+  model_fit_label = "all prior & sorites fit"
+)
+```
+
+```{r, fig.width=8, fig.height=3}
+reproduce_old_plots_inductive_s1$final_sorites_cor + xlim(0,1)
+ggsave("../analysis/img/fit_final_final_cor.png", width=8, height=3)
+# fit_to_all_sorites_and_bins_inductive_s1$final_sorites_cor +xlim(0,1)
+# ggsave("../analysis/img/fit_all_final_cor.png", width=8, height=3)
+```
+
+
+
+# Introduction
+
+In Section \ref{sec:sorites_exploration} we measure participants' endorsements of different versions of the sorites premises, exploring a range of phrasings and price ranges.
+We show that participants' endorsement of the inductive premise is graded, and depends on both the magnitude of change and the category of the object.
+In Section \ref{sec:model}, we show how a rational model of scalar adjectives can be applied to the sorites premises to quantitatively predict endorsements.
+This model requires an estimate of the prior distributions over prices for each object.
+So in Section \ref{sec:prior_elicitation} we present a prior elicitation study.
+In Section \ref{sec:replication} we present a replication of our first study, showing graded endorsements for sorites premises.
+We compare the results of this replication to the model posterior predictions when fit only to the results of Study 1.
+We show that the model generalizes well to the held-out prices ranges and endorsement data.
+
+# Study 1 - Endorsements of *sorites* premises \label{sec:sorites_exploration}
+
+```{r}
+RUN_AGG = F
+## computing confidence intervals takes a long time.
+## so just cache the results of this most of the time
+if (RUN_AGG) {
+  agg = df %>%
+  group_by(id, qtype, phrasing, object, dollar_amount) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response)) %>%
+    ungroup
+write.csv(agg, cache_dir("agg_cache.csv"), row.names = F)
+}  else {
+agg = read.csv(cache_dir("agg_cache.csv"))
+}
+agg = agg %>% mutate(phrasing = factor(phrasing)) %>%
+  mutate(logdollars = log(dollar_amount))
+```
+
+```{r}
+plot_study_1 = function() {
+  opacity = 0.5
+  agg %>%
+    filter(id != "11") %>%
+    mutate(condition = factor(as.numeric(id))) %>%
+    ggplot(., aes(x=dollar_amount, y=response, colour=condition,
+                  shape=condition,
+                       group=condition)) +
+    # geom_line(alpha=opacity) +
+    geom_point(alpha=opacity) +
+    geom_line(alpha=opacity) +
+    geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+    facet_grid(qtype~object, scale="free_x") +
+    scale_y_continuous(breaks=1:9, limits = c(1,9))+
+    scale_colour_grey() +
+    # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    theme_few()
+  ggsave("../analysis/img/pilots_curves.pdf", width=10, height=4)
+  ggsave("../analysis/img/pilots_curves_grey.png", width=10, height=4)
+}
+plot_study_1()
+```
+
+Figure \ref{fig:pilots}.
+
+\begin{figure}[htb]
+\includegraphics{../analysis/img/pilots_curves.pdf}
+\caption{Endorsement ratings from Study 1.\label{fig:pilots}}
+\end{figure}
+
+
+# Model \label{sec:model}
+
+# Study 2 - Prior elicitation \label{sec:prior_elicitation}
+
+# Study 3 - Replication & model evaluation \label{sec:replication}
+
+Figure \ref{fig:replication_cor}.
+
+```{r}
+plot_study_3 = function() {
+study3$final_sorites_cor + theme_few() + aes(shape=object) + ylim(0,1) +xlim(0,1)+ scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive') fit to Studies 1 and 2") + ylab("Study 3 endorsements")
+ggsave("../analysis/img/replication_cor.pdf", width=8, height=3)
+ggsave("../analysis/img/replication_cor_grey.png", width=8, height=3)
+
+study3$final_sorites_cor + theme_few() + ylim(0,1) +xlim(0,1)+ xlab("Model S1('expensive') fit to Studies 1 and 2") + ylab("Study 3 endorsements")
+ggsave("../analysis/img/replication_cor.png", width=8, height=3)
+}
+plot_study_3()
+```
+
+
+\begin{figure}[htb]
+\includegraphics{../analysis/img/replication_cor.pdf}
+\caption{Results of Study 3 plotted against model fit from Studies 1 and 2.\label{fig:replication_cor}}
+\end{figure}
+
+
+
+
+
+
+```{r, fig.width=8, fig.height=3}
+# print(reproduce_old_plots_inductive_s1$final_sorites_cor + theme_few() + aes(shape=object) + scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive')") + ylab("Participant endorsement ratings"))
+```
+
+```{r, fig.width=15, fig.height=3}
+# print(reproduce_old_plots_inductive_s1$last_expt_bins_comparison %>%
+#     group_by(object, region, src) %>%
+#     do(sum_lower(.)) %>%
+#     spread(region, prob) %>%
+#     ggplot(aes(x=x, y=y, ymin=ymin, ymax=ymax,
+#                linetype=src,
+#                fill=src)) +
+#     geom_line(aes(colour=src)) +
+#     geom_ribbon(alpha=1/2) +
+#     facet_wrap(~object, ncol = 5, scales="free") +
+#     scale_colour_grey(start=0.8, end=0.2) +
+#     scale_fill_grey(start=0.8, end=0.2) +
+#     ylab("Probability") +
+#     xlab("Price"))
+```
+
+# Discussion
+
+# Conclusion
+
+# References
+
+\appendix
+
+# Model implementation
+
+## Bayesian data analysis
+
+Figure \ref{fig:graphical_model}.
+
+\begin{figure}[htb]
+\tikz{
+  \node[latent,] (mu) {$\mu_i$};
+  \node[latent, right=of mu] (sig) {$\sigma_i$};
+  
+  \node[above=of mu] (mumax) {$\mu^{max}$};
+  \node[above=of sig] (sigmax) {$\sigma^{max}$};
+  
+  \node[latent, right=of sigmax] (sigbin) {$\sigma_{bin}$};
+
+  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
+  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
+  
+  \node[latent, right=of sigbin] (alpha) {$\alpha$};
+  \node[above=of alpha] (alphamax) {$\alpha^{max}$};
+  \node[right=of alphamax] (costmax) {$c_{max}$};
+  \node[latent, below=of costmax] (cost) {$c$};
+
+  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S(C_{iv})$};
+  \node[latent, right=of s2concrete] (s2inductive) {$S(I_{i\varepsilon})$};
+  
+  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
+  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
+  
+  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
+  
+  \edge {mumax} {mu}
+  \edge {sigmax} {sig}
+  \edge {mu, sig} {pbin}
+  \edge {pbin, sigbin} {dbin}
+  \edge {pbin} {s2inductive, s2concrete}
+  \edge {s2inductive} {sI}
+  \edge {s2concrete} {sC}
+  \edge {alpha} {s2concrete, s2inductive}
+  \edge {alphamax} {alpha}
+  \edge {cost} {s2concrete, s2inductive}
+  \edge {costmax} {cost}
+  \edge {sigbinmax} {sigbin}
+  
+  \plate {bin} {
+    (pbin) (dbin)
+  } {$b\in{Bins_i}$};
+  \plate {epsilon} {
+    (s2inductive) (sI)
+  } {$\varepsilon \in Epsilons$};
+  \plate {value} {
+    (s2concrete) (sC)
+  } {$v \in Values$};
+  \plate {item} {
+    (mu) (sig)
+    %(giveanum)
+    (bin.south east)
+    (epsilon.south east)
+    (value.south east)
+    (s2inductive) (s2concrete)
+  } {$i\in{Objects}$};
+}
+\caption{Graphical model for endorsement data.\label{fig:graphical_model}}
+\end{figure}
+
+## Discretization scheme
