@@ -1,5 +1,5 @@
 ---
-title: ""
+title: "Sorites"
 author: ""
 header-includes:
    - \usepackage{tikz}
@@ -9,163 +9,528 @@ output:
   pdf_document:
     number_sections: true
     fig_caption: true
+bibliography: sorites.bib
 ---
-
-```{r global_options, include=FALSE}
-rm(list = ls())
-knitr::opts_chunk$set(echo = F, warning = F, cache = T, message = F,
-                      sanitiz = F, fig.width = 5, fig.height = 3)
-```
-
-```{r load_experiment_data_and_libraries, message=F, warning=F}
-project_dir = "../"
-source("../analysis/utils.R")
-source("../analysis/reformatting_data.R")
-source("../analysis/plot_model_results.R")
-df = load_sorites()
-prior_bins = load_priors()
-give_a_number = load_give_a_number() %>% mutate(src = "data")
-library('bnlearn')
-source("~/Settings/startup.R")
-```
-
-```{r load_models}
-reproduce_old_plots_inductive_s1 = plot_sorites(
-  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = T,
-  all_experiments = F,
-  model_fit_label = "final prior & sorites fit"
-)
-study3 = plot_sorites(
-  "../models/results/results-S1-sigmax10_1000_burn500_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_allbins_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = F,
-  all_experiments = F,
-  model_fit_label = "Study 3",
-  xyline=F
-)
-```
-
-```{r}
-reproduce_old_plots_inductive_s1 = plot_sorites(
-  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = F,
-  xyline=F,
-  all_experiments = F,
-  model_fit_label = "final prior & sorites fit"
-)
-
-fit_to_all_sorites_and_bins_inductive_s1 = plot_sorites(
-  "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",
-  zscore = F,
-  all_experiments = F,
-  xyline=F,
-  model_fit_label = "all prior & sorites fit"
-)
-```
-
-```{r, fig.width=8, fig.height=3}
-reproduce_old_plots_inductive_s1$final_sorites_cor + xlim(0,1)
-ggsave("../analysis/img/fit_final_final_cor.png", width=8, height=3)
-# fit_to_all_sorites_and_bins_inductive_s1$final_sorites_cor +xlim(0,1)
-# ggsave("../analysis/img/fit_all_final_cor.png", width=8, height=3)
-```
-
-
 
 # Introduction
 
-In Section \ref{sec:sorites_exploration} we measure participants' endorsements of different versions of the sorites premises, exploring a range of phrasings and price ranges.
-We show that participants' endorsement of the inductive premise is graded, and depends on both the magnitude of change and the category of the object.
-In Section \ref{sec:model}, we show how a rational model of scalar adjectives can be applied to the sorites premises to quantitatively predict endorsements.
-This model requires an estimate of the prior distributions over prices for each object.
-So in Section \ref{sec:prior_elicitation} we present a prior elicitation study.
-In Section \ref{sec:replication} we present a replication of our first study, showing graded endorsements for sorites premises.
-We compare the results of this replication to the model posterior predictions when fit only to the results of Study 1.
-We show that the model generalizes well to the held-out prices ranges and endorsement data.
+```{r global_options, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+                      sanitiz = F, fig.width = 5, fig.height = 3)
+```
 
-# Study 1 - Endorsements of *sorites* premises \label{sec:sorites_exploration}
+```{r libraries}
+library(knitr)
+source("../analysis/startup.R")
+library(ggrepel)
+set.seed(123)
+```
+
+# Experiment 1: Sorites Statements
+
+```{r sorites data}
+df11 = read.csv("../data/sorites/data_exp11_2015_06_05_14.csv", stringsAsFactors = F)
+reward = df11$reward[[1]]
+mean_time = df11$Answer.time_in_minutes %>% mean() %>% round()
+df11 = df11 %>%
+  select(workerid, Answer.phrasing, Answer.responses,
+         Answer.time_in_minutes, Answer.subj_data) %>%
+  rename(phrasing = Answer.phrasing,
+         time = Answer.time_in_minutes)
+df11 = do.call(rbind, mapply(
+  function(w, subj_data, responses) {
+    df = responses %>% fromJSON() %>% as.data.frame()
+    df$workerid = w
+    df$trial_number = 1:nrow(df)
+    s = fromJSON(subj_data)
+    df$language = s$language
+    return(df)
+  },
+  df11$workerid,
+  df11$Answer.subj_data,
+  df11$Answer.responses,
+  SIMPLIFY = F
+))
+df11$response = num(df11$response)
+n_participants = df11 %>% group_by(qtype, object, dollar_amount) %>%
+  summarise(n = length(response)) %>% .$n
+stopifnot(min(n_participants) == max(n_participants))
+n_participants_total = n_participants[[1]]
+n_questions = df11 %>% group_by(workerid) %>%
+  summarise(n = length(response)) %>% .$n
+stopifnot(min(n_questions) == max(n_questions))
+n_questions = n_questions[[1]]
+likert_lower = min(df11$response)
+likert_upper = max(df11$response)
+stopifnot(length(likert_lower:likert_upper)==9)
+df11 = df11 %>%
+  filter(language %in% c("english", "English", "Engllish")) %>%
+  mutate(response = response + 1)
+n_participants = df11$workerid %>% unique() %>% length()
+n_excluded = n_participants_total - n_participants
+df11 %>% select(workerid, qtype, dollar_amount, object, response) %>%
+  mutate(id = "11") %>%
+  write.csv(file = "../data/sorites/final_sorites.csv")
+```
+
+## Participants
+
+We recruited `r n_participants_total` participants with US IP addresses over Amazon's Mechanical Turk.
+{{WHY THAT NUMBER?}}
+`r n_excluded` participants were exluded from analysis for not being native English speakers, leaving `r n_participants` participants for analysis.
+The experiment took about `r mean_time` minutes and participants were paid `r reward`.
+
+## Materials
+
+The experiment consisted of `r n_questions` questions. There were 2 basic question types, *concrete* and *inductive* of the form:
+
+* *Concrete*: An [OBJECT] that costs $[PRICE VALUE] is expensive.
+* *Inductive*: An [OBJECT] that costs $[PRICE VALUE] is expensive.
+
+There were 5 object categories (coffee maker, laptop, headphones, watch, and sweater) and 5 price values for each object category and premise type. The price values were chosen based on pilot experiments to capture a range of plausible values.
+
+```{r sorites price tables}
+dollar_amounts = df11 %>%
+  group_by(qtype, object, dollar_amount, level) %>%
+  summarise() %>%
+  ungroup() %>%
+  mutate(dollar_amount = sprintf("%.02f", dollar_amount)) %>%
+  spread(object, dollar_amount) %>%
+  select(-level)
+dollar_amounts %>% filter(qtype=="concrete") %>% kable(caption="Price values for concrete premise.", align="rrrrrr")
+dollar_amounts %>% filter(qtype=="inductive") %>% kable(caption="Price values for inductive premise.", align="rrrrrr")
+```
+
+
+## Methods
+
+At the start of the experiment, participants were told they would be asked questions about the prices of different household items. Each question started with a statment in bold, either the *concrete* statement or the *inductive* statement.
+For both types of questions, participants gave Likert responses for how much they agreed with the statement, on a scale from "Completely disagree" (1) to "Completely agree" (9).
+
+Each participant then saw all 5 object categories with all 5 price values for each kind of sentence. Trials were presented in random order.
+
+## Results
+
+```{r sorites figure, fig.width=10, fig.height=5, fig.cap="Results of Experiment 1. Error bars are 95% confidence intervals."}
+df11 %>%
+  ggplot(aes(x=dollar_amount, y=response)) +
+  # geom_point(alpha=0.1) +
+  # geom_line(alpha=0.05, aes(group=workerid)) +
+  stat_summary(geom="pointrange", fun.data="mean_cl_boot", alpha=0.7) +
+  facet_wrap(qtype~object, ncol=5, scales="free_x") +
+  scale_y_continuous(breaks=1:9, limits=c(0.9, 9.1)) +
+  xlab("Dollar Amount") +
+  ylab("Endorsement Rating")
+```
+
+```{r sorites pairwise cors}
+pairwise_correlation_matrix_sorites = df11 %>%
+  mutate(qid = paste(qtype, object, dollar_amount)) %>%
+  select(workerid, qid, response) %>%
+  spread(qid, response) %>%
+  select(-workerid) %>%
+  t() %>%
+  cor()
+pairwise_cors_sorites = pairwise_correlation_matrix_sorites %>%
+  .[upper.tri(., diag=F)]
+pairwise_correlation_range_sorites = pairwise_cors_sorites %>%
+  quantile(probs = c(0, 1)) %>%
+  round(3) %>%
+  unname()
+pairwise_correlation_mean_sorites = mean(pairwise_cors_sorites)
+```
+
+```{r sorites cor cluster}
+(1 - pairwise_correlation_matrix_sorites) %>% dist() %>% hclust() %>% plot()
+```
+
+```{r sorites pairwise cors}
+different_workers = c(10, 15)
+get_pairwise_cors_sorites = function(df) {
+  pairwise_correlation_matrix_sorites = df %>%
+    mutate(qid = paste(qtype, object, dollar_amount)) %>%
+    select(workerid, qid, response) %>%
+    spread(qid, response) %>%
+    select(-workerid) %>%
+    t() %>%
+    cor()
+  pairwise_cors_sorites = pairwise_correlation_matrix_sorites %>%
+    .[upper.tri(., diag=F)]
+  pairwise_correlation_range_sorites = pairwise_cors_sorites %>%
+    quantile(probs = c(0, 1)) %>%
+    round(3) %>%
+    unname()
+  pairwise_correlation_mean_sorites = mean(pairwise_cors_sorites)
+  return(list(mean = pairwise_correlation_mean_sorites, range = pairwise_correlation_range_sorites))
+}
+df11 %>% filter(workerid %in% different_workers) %>%
+  mutate(workerid = factor(workerid)) %>%
+  ggplot(aes(x=dollar_amount, y=response, colour=object, shape=workerid, alpha=trial_number)) +
+  # geom_line() +
+  geom_point() +
+  # geom_text_repel() +
+  facet_wrap(qtype~object, ncol=5, scales="free_x") +
+  # facet_grid(workerid~qtype) +
+  scale_y_continuous(breaks=1:9, limits=c(0.9, 9.1)) +
+  xlab("Dollar Amount") +
+  ylab("Endorsement Rating")
+get_pairwise_cors_sorites(df11 %>% filter(!(workerid %in% different_workers)))
+```
+
+Participants tended to be in agreement, though response patterns varied. The pairwise correlations between participants' responses were on average `r pairwise_correlation_mean_sorites` (range: [`r pairwise_correlation_range_sorites[1]`, `r pairwise_correlation_range_sorites[2]`]).
+
+
+```{r sorites split half}
+all_workers = df11$workerid %>% unique()
+split_half_cor = function(x) {
+  half = sample(
+    all_workers,
+    size = length(all_workers)/2,
+    replace = F
+  )
+  df11 %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
+    group_by(half, qtype, object, dollar_amount) %>%
+    summarise(response = mean(response)) %>%
+    spread(half, response) %>%
+    with(., cor(A, B))
+}
+n_resamples = 1000
+resamples = sapply(1:n_resamples, split_half_cor)
+split_half_conf = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation = mean(resamples) %>% round(3)
+```
+
+<!-- Participants tended to be in agreement. The split half correlation of mean responses to each question was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]). -->
+
+Results of Experiment 1 are shown in Figure 1. We qualitatively capture the three characteristic effects of vagueness:
+
+* We see that judgements depend on the object category (and on the price and statement type).
+* We see gradedness in endorsement of concrete premises, including borderline cases.
+* We see strong endorsement of some inductive premises. Importantly this is also graded, with some inductive sentences judged as not good at all.
+
+This suggests rich quantitative patterns to explain.
+
+# Experiment 2: Prior Distributions
+
+{{WHY RUN EXPERIMENT 2?}}
 
 ```{r}
-RUN_AGG = F
-## computing confidence intervals takes a long time.
-## so just cache the results of this most of the time
-if (RUN_AGG) {
-  agg = df %>%
-  group_by(id, qtype, phrasing, object, dollar_amount) %>%
-  summarise(low = ci.low(response),
-            high = ci.high(response),
-            response = mean(response)) %>%
-    ungroup
-write.csv(agg, cache_dir("agg_cache.csv"), row.names = F)
-}  else {
-agg = read.csv(cache_dir("agg_cache.csv"))
+df12 = read.csv("../data/priors/data_exp12_2015_04_08.csv", stringsAsFactors = F) %>%
+  select(workerid, reward, starts_with("Answer"))
+n_participants_total = nrow(df12)
+reward = df12$reward[[1]]
+mean_time = (num(df12$Answer.duration) %>% mean() / 60000) %>% round()
+df12 = df12 %>%
+  select(-c(reward, Answer.duration, Answer.age, Answer.comments, Answer.cond)) %>%
+  gather("trial", "data", -c(Answer.language, workerid))
+df12 = df12 %>%
+  ##actually, there's no need to leave out non-native speakers for this task
+  # filter(Answer.language %in% c('"English"', '"ENGLISH"', '"english"')) %>%
+  select(-Answer.language) %>%
+  with(., do.call(rbind, mapply(function(w, t, d) {
+    d = fromJSON(d)
+    d = data.frame(lower = d$lowers,
+               upper = d$uppers,
+               response = d$responses,
+               item = d$item,
+               max = d$max,
+               workerid = w,
+               trial = t)
+    return(d)
+  }, workerid, trial, data, SIMPLIFY = F)))
+df12 = df12 %>%
+  mutate(upper = num(ifelse(upper=="infty", max, upper))) %>%
+  mutate(mid = (lower + upper)/2)
+n_participants = df12$workerid %>% unique() %>% length()
+n_excluded = n_participants_total - n_participants
+df12 = df12 %>%
+  group_by(workerid, item) %>%
+  mutate(normed_response = response / sum(response)) %>%
+  ungroup()
+# df12 %>%
+#   rename(object = item, UB = upper, LB = lower, rating = response, normed_rating = normed_response) %>%
+#   group_by(workerid, object) %>%
+#   mutate(bin = 1:length(workerid)) %>%
+#   select(workerid, object, bin, UB, LB, rating, normed_rating) %>%
+#   write.csv("../data/priors/final_priors.csv", row.names = F)
+df12$reward = NULL
+```
+
+## Participants
+
+We recruited `r n_participants_total` participants with US IP addresses over Amazon's Mechanical Turk.
+{{WHY THAT NUMBER?}}
+<!-- `r n_excluded` participant was exluded from analysis for not being a native English speaker, leaving `r n_participants` participants for analysis. -->
+The experiment took about `r mean_time` minutes and participants were paid `r reward`.
+
+## Materials
+
+![Screenshot from Experiment 2](img/priors_screenshot.png)
+
+The experiment consisted of 5 question pages, on for each object category. Each page contained vertical slider bars corresponding to a range of prices (e.g. \$0 - \$50 or \$450-\$500). There were 50-80 sliders per page, depending on the object category (see Figure 2). The sliders were shown in rows of 10 sliders each.
+
+There were 5 object categories (coffee maker, laptop, headphones, watch, and sweater). The price ranges for each object category were chosen based on pilot experiments. We wanted sufficient detail about the tails of the distributions, so we chose maximum values for each object category such that the average endorsement of the highest bin was very low. We also wanted sufficient granularity to address the sorites inductive premise, even for very small price values. We threfore chose the width of the bins so that, for every concrete price value \$$x$ and for every inductive price value \$$\varepsilon$ in our sorites premises experiment, we could confidently estimate the probability of an item \$$\epsilon$ less expensive than \$$x$. The resulting distributions are fairly smooth, allowing us to interpolate within the bins as needed. Our level of resolution also allowed us to capture detail in especially dense parts of the distributions (usually the smaller ranges).
+
+## Methods
+Each participant saw all 5 objects, which were presented in random order. For each object, participants saw the statement:
+
+* [NAME] bought an [OBJECT]. Please rate how likely it is that the cost of the watch is within each of the following ranges.
+
+Sliders corresponding to each price range were arranged in order from lowest price range to highest. Sliders were initialized in white, with a gray handle at the half-way mark. We required participants to drag the handle in order to register their response -- from "Extremely unlikely" (0) to "Extremely Likely" (1). Once participants dragged the slider, the handle and slider changed color to blue. They submitted all of their responses for a given object at once.
+
+## Results
+
+We normalize slider ratings within each participant and object category, since slider ratings likely reflect relative rather than absolute probabilities (@franke2016does).
+
+We chose our prices ranges so that we would get very low endorsements for the final bins, which we do in fact see in participant responses (See Figure 3).
+
+fit to lognormal
+
+```{r, fig.width=10, fig.height=2, fig.cap="Experiment 2 results. Error bars are 95% confidence intervals."}
+ breaks_fun <- function(x) {
+  if (max(x) < 300) {
+    c(0, 100, 200)
+  } else if (max(x) < 400) {
+    c(0, 100, 200, 300)
+  } else {
+    c(0, 1000, 2000)
+  }
 }
-agg = agg %>% mutate(phrasing = factor(phrasing)) %>%
-  mutate(logdollars = log(dollar_amount))
+df12 %>%
+  ggplot(aes(x=lower, y=normed_response)) +
+  stat_summary(geom="ribbon", fun.data="mean_cl_boot", alpha=0.5) +
+  stat_summary(geom="line", fun.y="mean", alpha=1) +
+  facet_wrap(~item, scales="free", ncol=5) +
+  xlab("Price value") +
+  ylab("Normalized rating") +
+  # theme(axis.text.x = element_text(angle = -30, hjust = 0))
+  scale_x_continuous(breaks = breaks_fun, limits = c(0, NA))
+```
+
+```{r priors pairwise cors}
+pairwise_correlation_matrix_priors = df12 %>%
+  mutate(qid = paste(item, lower)) %>%
+  select(workerid, qid, normed_response) %>%
+  spread(qid, normed_response) %>%
+  select(-workerid) %>%
+  t() %>%
+  cor() %>%
+  .[upper.tri(., diag=F)]
+pairwise_correlation_ci_priors = pairwise_correlation_matrix_priors %>%
+  quantile(probs = c(0.025, 0.975)) %>%
+  round(3) %>%
+  unname()
+pairwise_correlation_mean_priors = mean(pairwise_correlation_matrix_priors)
+```
+
+
+```{r priors split half}
+all_workers = df12$workerid %>% unique()
+split_half_cor_priors = function(x) {
+  half = sample(
+    all_workers,
+    size = length(all_workers)/2,
+    replace = F
+  )
+  df12 %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
+    group_by(half, lower, item) %>%
+    summarise(normed_response = mean(normed_response)) %>%
+    spread(half, normed_response) %>%
+    with(., cor(A, B))
+}
+n_resamples = 1000
+resamples = sapply(1:n_resamples, split_half_cor_priors)
+split_half_conf = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation = mean(resamples) %>% round(3)
+```
+
+Participants tended to be in agreement. The split half correlation of mean normalized ratings for each price range was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]).
+
+```{r}
+#50K lag 10 worked before...
+m12 = read.csv("../models/results/final_expts_results-S1-sigmax10_1000_burn500_lag10_chain2_inductive_version_s1_inductive_bins_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv") %>%
+  filter(type == "price_prior")
+m12 %>% ggplot(aes(x=val)) +
+  geom_histogram(bins=30) +
+  facet_wrap(param ~ category, scales="free")
 ```
 
 ```{r}
-plot_study_1 = function() {
-  opacity = 0.5
-  agg %>%
-    filter(id != "11") %>%
-    mutate(condition = factor(as.numeric(id))) %>%
-    ggplot(., aes(x=dollar_amount, y=response, colour=condition,
-                  shape=condition,
-                       group=condition)) +
-    # geom_line(alpha=opacity) +
-    geom_point(alpha=opacity) +
-    geom_line(alpha=opacity) +
-    geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
-    facet_grid(qtype~object, scale="free_x") +
-    scale_y_continuous(breaks=1:9, limits = c(1,9))+
-    scale_colour_grey() +
-    # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    theme_few()
-  ggsave("../analysis/img/pilots_curves.pdf", width=10, height=4)
-  ggsave("../analysis/img/pilots_curves_grey.png", width=10, height=4)
-}
-plot_study_1()
+# last_expt_bins_fit =  read.csv(
+#   #"../models/results/results-prior-50000_burn25000_lag10_chain1.csv",
+#   # "../models/results/results-S1-50_burn25_lag1_chain1_bins_all_listener1normed_rating_ignore_last_bin.csv",
+#   # "../models/results/results-prior-50000_burn25000_lag10_chain1_normed_rating_ignore_last_bin.csv", # 77minutes
+#   # "../models/results/results-prior-10000_burn5000_lag20_chain2_normed_rating_ignore_last_bin.csv", # 6 minutes
+#   "../models/results/results-prior-50000_burn25000_lag10_chain1_normed_rating_ignore_last_bin.csv",
+#   # "../models/results/results-S1-5000_burn2500_lag10_chain--all_sorites_concrete_inductive_bins_allbins_allsorites_listener0_normed_rating_ignore_last_bin.csv",#80 mins
+#   
+#   col.names = c("result_type", "variable",
+#                 "IGNORE", "object",
+#                 "value", "probability")) %>%
+#   select(-IGNORE) %>%
+#   filter(result_type == "price_prior") %>%
+#   group_by(result_type, variable, object) %>%
+#   mutate(sample = 1:length(value)) %>%
+#   ungroup() %>%
+#   filter(result_type=="price_prior") %>%
+#   spread(variable, value) %>%
+#   group_by(object) %>%
+#   mutate(sigma = mean(sigma)) %>%
+#   group_by(object, sigma) %>%
+#   do(quantile_errorbars(.$mu)) %>%
+#   ungroup() %>%
+#   gather("region", "mu", c(y, ymin, ymax)) %>%
+#   group_by(object, region) %>%
+#   do(draw_curves(.$mu, .$sigma, char(.$object)))
 ```
 
-Figure \ref{fig:pilots}.
 
-\begin{figure}[htb]
-\includegraphics{../analysis/img/pilots_curves.pdf}
-\caption{Endorsement ratings from Study 1.\label{fig:pilots}}
-\end{figure}
-
-
-# Model \label{sec:model}
-
-# Study 2 - Prior elicitation \label{sec:prior_elicitation}
-
-# Study 3 - Replication & model evaluation \label{sec:replication}
-
-Figure \ref{fig:replication_cor}.
 
 ```{r}
-plot_study_3 = function() {
-study3$final_sorites_cor + theme_few() + aes(shape=object) + ylim(0,1) +xlim(0,1)+ scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive') fit to Studies 1 and 2") + ylab("Study 3 endorsements")
-ggsave("../analysis/img/replication_cor.pdf", width=8, height=3)
-ggsave("../analysis/img/replication_cor_grey.png", width=8, height=3)
-
-study3$final_sorites_cor + theme_few() + ylim(0,1) +xlim(0,1)+ xlab("Model S1('expensive') fit to Studies 1 and 2") + ylab("Study 3 endorsements")
-ggsave("../analysis/img/replication_cor.png", width=8, height=3)
-}
-plot_study_3()
+# %>%
+#   group_by(param, category) %>%
+#   mutate(sample = 1:length(param)) %>%
+#   ungroup() %>%
+#   spread(param, val) %>%
+#   mutate(posterior_predictive = mapply(function(m, s) {rlnorm(1, meanlog = m, sdlog = s)}, mu, sigma)) %>%
+#   ggplot(aes(x=posterior_predictive)) +
+#   geom_histogram() +
+#   facet_wrap(~category, scales="free")
 ```
 
 
-\begin{figure}[htb]
-\includegraphics{../analysis/img/replication_cor.pdf}
-\caption{Results of Study 3 plotted against model fit from Studies 1 and 2.\label{fig:replication_cor}}
-\end{figure}
+# Model
+
+```{r load_experiment_data_and_libraries, message=F, warning=F}
+# project_dir = "../"
+# source("../analysis/utils.R")
+# source("../analysis/reformatting_data.R")
+# source("../analysis/plot_model_results.R")
+# df = load_sorites()
+# prior_bins = load_priors()
+# give_a_number = load_give_a_number() %>% mutate(src = "data")
+# library('bnlearn')
+# source("~/Settings/startup.R")
+```
+
+```{r}
+# reproduce_old_plots_inductive_s1 = plot_sorites(
+#   "../models/results/results-S1-sigmax10_20000_burn10000_lag20_chain1_inductive_version_s1_inductive_concrete_inductive_bins_12_11_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+#   zscore = F,
+#   all_experiments = F,
+#   model_fit_label = "final prior & sorites fit",
+#   xyline=F
+# )
+```
+
+```{r}
+# # 30
+# n = df %>% filter(id=="11") %>% .$workerid %>% unique() %>% length()
+# df11 = read.csv("../data/sorites/data_exp11_2015_06_05_14.csv")
+# payment = char(df11$reward)[[1]]
+# rates = 0.7 / df11$Answer.time_in_minutes * 60
+# # min(rates)
+# # max(rates)
+# # mean(rates)
+# mean_time = df11$Answer.time_in_minutes %>% mean() %>% round()
+# n_questions = df %>% filter(id=="11") %>% filter(workerid == "1") %>% length()
+# df %>% group_by(qtype, object, dollar_amount) %>%
+#   summarise(n = length(response)) %>% summary()
+# char(df11[[1,"Answer.responses"]]) %>% fromJSON() %>%
+#   length()
+```
 
 
 
+```{r}
+# RUN_AGG = F
+# ## computing confidence intervals takes a long time.
+# ## so just cache the results of this most of the time
+# if (RUN_AGG) {
+#   agg = df %>%
+#   group_by(id, qtype, phrasing, object, dollar_amount) %>%
+#   mutate(response = ifelse(min(response)==0, response+1, response)) %>%
+#   summarise(low = ci.low(response),
+#             high = ci.high(response),
+#             response = mean(response)) %>%
+#     ungroup
+# write.csv(agg, cache_dir("agg_cache.csv"), row.names = F)
+# }  else {
+# agg = read.csv(cache_dir("agg_cache.csv"))
+# }
+# agg = agg %>% mutate(phrasing = factor(phrasing)) %>%
+#   mutate(logdollars = log(dollar_amount))
+# # df %>% filter(qtype=="inductive", id=="11") %>% .$response %>% max()
+```
 
+```{r, fig.width=10, fig.height=5}
+# plot_study_1 = function() {
+#   opacity = 0.5
+#   p = agg %>%
+#     filter(id == "11") %>%
+#     mutate(response = response + 1,
+#            low = low + 1,
+#            high = high + 1) %>%
+#     mutate(condition = factor(as.numeric(id))) %>%
+#     ggplot(., aes(x=dollar_amount, y=response)) +
+#     # geom_line(alpha=opacity) +
+#     geom_point(alpha=opacity) +
+#     geom_line(alpha=opacity) +
+#     geom_errorbar(aes(ymin=low, ymax=high), width=0, alpha=opacity) +
+#     facet_grid(qtype~object, scale="free_x") +
+#     scale_y_continuous(breaks=1:9, limits = c(1,9))+
+#     scale_colour_grey() +
+#     # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#     theme_few() +
+#     xlab("Dollar Amount") +
+#     ylab("Endorsement")
+#   return(p)
+# }
+# plot_study_1() %>% print()
+```
 
+```{r cor_plots, fig.width=8, fig.height=3}
+# reproduce_old_plots_inductive_s1$final_sorites_cor + xlim(0,1)
+# ggsave("../analysis/img/fit_final_final_cor.png", width=8, height=3)
+```
+
+```{r}
+# Figure \ref{fig:pilots}.
+# 
+# \begin{figure}[htb]
+# \includegraphics{../analysis/img/pilots_curves.pdf}
+# \caption{Endorsement ratings from Study 1.\label{fig:pilots}}
+# \end{figure}
+# 
+# 
+# # Model \label{sec:model}
+# 
+# # Study 2 - Prior elicitation \label{sec:prior_elicitation}
+# 
+# # Study 3 - Replication & model evaluation \label{sec:replication}
+# 
+# Figure \ref{fig:replication_cor}.
+```
+
+```{r}
+# plot_study_3 = function() {
+# study3$final_sorites_cor + theme_few() + aes(shape=object) + ylim(0,1) +xlim(0,1)+ scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive') fit to Studies 1 and 2") + ylab("Study 3 endorsements")
+# ggsave("../analysis/img/replication_cor.pdf", width=8, height=3)
+# ggsave("../analysis/img/replication_cor_grey.png", width=8, height=3)
+# 
+# study3$final_sorites_cor + theme_few() + ylim(0,1) +xlim(0,1)+ xlab("Model S1('expensive') fit to Studies 1 and 2") + ylab("Study 3 endorsements")
+# ggsave("../analysis/img/replication_cor.png", width=8, height=3)
+# }
+# plot_study_3()
+```
+
+```{r}
+# \begin{figure}[htb]
+# \includegraphics{../analysis/img/replication_cor.pdf}
+# \caption{Results of Study 3 plotted against model fit from Studies 1 and 2.\label{fig:replication_cor}}
+# \end{figure}
+```
 
 ```{r, fig.width=8, fig.height=3}
 # print(reproduce_old_plots_inductive_s1$final_sorites_cor + theme_few() + aes(shape=object) + scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive')") + ylab("Participant endorsement ratings"))
@@ -194,72 +559,74 @@ plot_study_3()
 
 # References
 
-\appendix
-
-# Model implementation
-
-## Bayesian data analysis
-
-Figure \ref{fig:graphical_model}.
-
-\begin{figure}[htb]
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-  
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-  
-  \node[latent, right=of sigmax] (sigbin) {$\sigma_{bin}$};
-
-  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
-  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
-  
-  \node[latent, right=of sigbin] (alpha) {$\alpha$};
-  \node[above=of alpha] (alphamax) {$\alpha^{max}$};
-  \node[right=of alphamax] (costmax) {$c_{max}$};
-  \node[latent, below=of costmax] (cost) {$c$};
-
-  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S(C_{iv})$};
-  \node[latent, right=of s2concrete] (s2inductive) {$S(I_{i\varepsilon})$};
-  
-  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
-  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
-  
-  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
-  
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {pbin}
-  \edge {pbin, sigbin} {dbin}
-  \edge {pbin} {s2inductive, s2concrete}
-  \edge {s2inductive} {sI}
-  \edge {s2concrete} {sC}
-  \edge {alpha} {s2concrete, s2inductive}
-  \edge {alphamax} {alpha}
-  \edge {cost} {s2concrete, s2inductive}
-  \edge {costmax} {cost}
-  \edge {sigbinmax} {sigbin}
-  
-  \plate {bin} {
-    (pbin) (dbin)
-  } {$b\in{Bins_i}$};
-  \plate {epsilon} {
-    (s2inductive) (sI)
-  } {$\varepsilon \in Epsilons$};
-  \plate {value} {
-    (s2concrete) (sC)
-  } {$v \in Values$};
-  \plate {item} {
-    (mu) (sig)
-    %(giveanum)
-    (bin.south east)
-    (epsilon.south east)
-    (value.south east)
-    (s2inductive) (s2concrete)
-  } {$i\in{Objects}$};
-}
-\caption{Graphical model for endorsement data.\label{fig:graphical_model}}
-\end{figure}
-
-## Discretization scheme
+```{r}
+# \appendix
+# 
+# # Model implementation
+# 
+# ## Bayesian data analysis
+# 
+# Figure \ref{fig:graphical_model}.
+# 
+# \begin{figure}[htb]
+# \tikz{
+#   \node[latent,] (mu) {$\mu_i$};
+#   \node[latent, right=of mu] (sig) {$\sigma_i$};
+#   
+#   \node[above=of mu] (mumax) {$\mu^{max}$};
+#   \node[above=of sig] (sigmax) {$\sigma^{max}$};
+#   
+#   \node[latent, right=of sigmax] (sigbin) {$\sigma_{bin}$};
+# 
+#   \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
+#   \node[obs, below=of pbin] (dbin) {$d_{ib}$};
+#   
+#   \node[latent, right=of sigbin] (alpha) {$\alpha$};
+#   \node[above=of alpha] (alphamax) {$\alpha^{max}$};
+#   \node[right=of alphamax] (costmax) {$c_{max}$};
+#   \node[latent, below=of costmax] (cost) {$c$};
+# 
+#   \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S(C_{iv})$};
+#   \node[latent, right=of s2concrete] (s2inductive) {$S(I_{i\varepsilon})$};
+#   
+#   \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
+#   \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
+#   
+#   \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
+#   
+#   \edge {mumax} {mu}
+#   \edge {sigmax} {sig}
+#   \edge {mu, sig} {pbin}
+#   \edge {pbin, sigbin} {dbin}
+#   \edge {pbin} {s2inductive, s2concrete}
+#   \edge {s2inductive} {sI}
+#   \edge {s2concrete} {sC}
+#   \edge {alpha} {s2concrete, s2inductive}
+#   \edge {alphamax} {alpha}
+#   \edge {cost} {s2concrete, s2inductive}
+#   \edge {costmax} {cost}
+#   \edge {sigbinmax} {sigbin}
+#   
+#   \plate {bin} {
+#     (pbin) (dbin)
+#   } {$b\in{Bins_i}$};
+#   \plate {epsilon} {
+#     (s2inductive) (sI)
+#   } {$\varepsilon \in Epsilons$};
+#   \plate {value} {
+#     (s2concrete) (sC)
+#   } {$v \in Values$};
+#   \plate {item} {
+#     (mu) (sig)
+#     %(giveanum)
+#     (bin.south east)
+#     (epsilon.south east)
+#     (value.south east)
+#     (s2inductive) (s2concrete)
+#   } {$i\in{Objects}$};
+# }
+# \caption{Graphical model for endorsement data.\label{fig:graphical_model}}
+# \end{figure}
+# 
+# ## Discretization scheme
+```
