@@ -35,7 +35,7 @@ var fit_inductive = utils.get_flag("--fit_inductive");
 var fit_bins = utils.get_flag("--fit_bins");
 
 var fit_this_expt = function(expt_id) {
-  return expt_id != "11";
+  return true;//return expt_id != "11";
 };
 
 var listener_level = 0;
@@ -158,22 +158,22 @@ var meaning = function(utt,state, theta) {
 var model = function(){
 
   // Prior parameters
-  // var ALPHA1MAX = 10; // maximum rationality for speaker1
-  // var ALPHA2MAX = 5; // maximum rationality for speaker2
-  // var COSTMAX = 5; // maximum cost of the expensive utterance
+  var ALPHA1MAX = 10; // maximum rationality for speaker1
+  var ALPHA2MAX = 5; // maximum rationality for speaker2
+  var COSTMAX = 5; // maximum cost of the expensive utterance
   var MUMAX = 10; // maximum mu for lognormal price distributions
   var SIGMAX = 10; // maximum sigma for lognormal price distributions
-  var SIGBINMAX = 0.5;//0.5;//3; // for interpreting likert scale responses
+  var SIGBINMAX = 0.5;//0.5;//0.5;//3; // for interpreting likert scale responses
 
 
   // Infer global params across all participants and all objects.
   // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
-  // var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
-  // query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
-  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.1});//0.1}); // 0.005 prob too small 10% is like prob good
+  var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
+  query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
+  var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.005});//0.1}); // 0.005 prob too small 10% is like prob good
   query.add(["global_param", "sigbin", "NA", "NA"], sigbin);
-  // var cost = uniformDrift({a: 0, b: COSTMAX, width: 0.5});
-  // query.add(["global_param", "cost", "NA", "NA"], cost);
+  var cost = uniformDrift({a: 0, b: COSTMAX, width: 0.5});
+  query.add(["global_param", "cost", "NA", "NA"], cost);
   // standard deviation for bins responses
 
   // Iterate over all items in the sorites experiments.
@@ -182,7 +182,7 @@ var model = function(){
     // Parameters for lognormal price distributions, different parameters for
     // each object.
     var item_params = {
-      mu: uniformDrift({a: 0, b: MUMAX, width: 1}),
+      mu: uniformDrift({a: 0, b: MUMAX, width: 0.5}),
       sigma: uniformDrift({a: 0, b: SIGMAX, width: 0.5})
     };
 
@@ -215,183 +215,199 @@ var model = function(){
             //   LogitNormal({mu: logit(prob), sigma: sigbin, a: 0-eps, b: 1+eps}),
             //   rating
             // );
+            // The link function for the slider rating data uses a logit
+            // transformation to project observed slider ratings si jk and latent probabilities Pi jk, which are bound to lie between 0 and 1,
+            // to the reals. The likelihood of logit-transformed observation
+            // si jk is given by a Gaussian with standard deviation σ around
+            // the logit-transformed predictor Pi jk. On top of that, there is a
+            // parameter κ, the steepness of the logit transform of Pi jk, that
+            // allows response likelihoods to capture end-point affinity for
+            // κ > 1 (values of Pi jk close to 0 or 1 are likely mapped to 0 or
+            // 1) or end-point aversion for κ < 0 (values of Pi jk are likely to
+            // be realized as more median), with a prior that expects κ = 1.
+            // logit(si jk) ∼ Norm(logit(Pi jk,κ),σ)
+            // σ ∼ Gamma(0.0001,0.0001) κ ∼ Gamma(5,5)
           }
         }
       );
     }
 
-    // foreach(experiment_ids, function(expt_id) {
+    foreach(experiment_ids, function(expt_id) {
 
-    //   // // State prior is lognormal, params inferred for each object.
-    //   // var statePrior = Infer({model: function() {
-    //   //   sample(DiscretizedLognormal(item_params, bins[item][expt_id]));
-    //   // }});
-    //   // var statePrior = DiscretizedLognormal(item_params, bins[item][expt_id]);
-    //   var statePrior = DiscretizedLognormal(item_params, bins[item]["all"]);
+      // // State prior is lognormal, params inferred for each object.
+      // var statePrior = Infer({model: function() {
+      //   sample(DiscretizedLognormal(item_params, bins[item][expt_id]));
+      // }});
+      // var statePrior = DiscretizedLognormal(item_params, bins[item][expt_id]);
+      var statePrior = DiscretizedLognormal(item_params, bins[item]["all"]);
 
-    //   // Theta prob is computed at the outer level based on the bin widths.
-    //   // var thetaPrior = thetaPriors[item][expt_id];
-    //   var thetaPrior = thetaPriors[item]["all"];
+      // Theta prob is computed at the outer level based on the bin widths.
+      // var thetaPrior = thetaPriors[item][expt_id];
+      var thetaPrior = thetaPriors[item]["all"];
 
-    // 	/// RSA model
-    // 	var make_listener0_with_theta = function(erp) {
-    //     return function(utterance, theta) {
-    //   	  Infer({model: function(){
-    //   	    var state = sample(statePrior);
-    //         // theta might be lifted
-    //         //  var theta = theta ? theta : sample(thetaPrior);
-    //           var theta = utils.isNumber(theta) ? theta : sample(thetaPrior);
-    //   	    var m = meaning(utterance, state, theta);
-    //   	    condition(m);
-    //   	    return {state: state, theta: theta};
-    //     }})};
-    //   };
-    //   var listener0_with_theta = cache(make_listener0_with_theta(statePrior), 10000);
+    	/// RSA model
+    	var make_listener0_with_theta = function(erp) {
+        return function(utterance, theta) {
+      	  Infer({model: function(){
+      	    var state = sample(statePrior);
+            // theta might be lifted
+            //  var theta = theta ? theta : sample(thetaPrior);
+              var theta = utils.isNumber(theta) ? theta : sample(thetaPrior);
+      	    var m = meaning(utterance, state, theta);
+      	    condition(m);
+      	    return {state: state, theta: theta};
+        }})};
+      };
+      var listener0_with_theta = cache(make_listener0_with_theta(statePrior), 10000);
 
-    //   var make_listener0 = function(erp, joint_version) {
-    //     return function(utterance, theta) {
-    //       Infer({model: function() {
-    //         var rs = sample(joint_version(utterance, theta));
-    //         var state = rs.state;
-    //         return state;
-    //     }})
-    //     };
-    //   };
-    //   var listener0 = cache(
-    //     make_listener0(statePrior, listener0_with_theta),
-    //     10000
-    //   );
+      var make_listener0 = function(erp, joint_version) {
+        return function(utterance, theta) {
+          Infer({model: function() {
+            var rs = sample(joint_version(utterance, theta));
+            var state = rs.state;
+            return state;
+        }})
+        };
+      };
+      var listener0 = cache(
+        make_listener0(statePrior, listener0_with_theta),
+        10000
+      );
 
-    //   var make_speaker = function(listener_fn) {
-    //     return function(state, theta) {
-    //       Infer({model: function(){
-    //         var utterance = sample(utterancePrior(cost));
-    //         var L0 = listener_fn(utterance, theta);
-    //         factor(speakerOptimality * L0.score(state))
-    //         return utterance == "expensive" ? 1 : 0
-    //       }})
-    //     };
-    //   };
+      var make_speaker = function(listener_fn) {
+        return function(state, theta) {
+          Infer({model: function(){
+            var utterance = sample(utterancePrior(cost));
+            var L0 = listener_fn(utterance, theta);
+            factor(speakerOptimality * L0.score(state))
+            return utterance == "expensive" ? 1 : 0
+          }})
+        };
+      };
 
-    //   var speaker1 = make_speaker(listener0);
+      var speaker1 = make_speaker(listener0);
 
-    //   var d_expt_obj = _.filter(d_sorites,
-    //     {"object": item, "id": expt_id, "qtype": "concrete"});
-    //   var dollar_amounts = levels(d_expt_obj, "dollar_amount");
-    //   foreach(dollar_amounts, function(dollar_amount) {
-    //     // var mid = bins[item][expt_id]["dollar_amount_lookups"][dollar_amount];
-    //     var mid = bins[item]["all"]["dollar_amount_lookups"][dollar_amount];
-    //     // TODO this should be the corresponding bin mid to this dollar_amount
-    //     var endorsement = speaker1(mid);
-    //     var endorsement_prob = Math.exp(endorsement.score(1));
-    //     var likert_dist = Binomial({p: endorsement_prob, n: 9});
-    //     // Iterate through responses.
+      var d_expt_obj = _.filter(d_sorites,
+        {"object": item, "id": expt_id, "qtype": "concrete"});
+      var dollar_amounts = levels(d_expt_obj, "dollar_amount");
+      foreach(dollar_amounts, function(dollar_amount) {
+        // var mid = bins[item][expt_id]["dollar_amount_lookups"][dollar_amount];
+        var mid = bins[item]["all"]["dollar_amount_lookups"][dollar_amount];
+        // TODO this should be the corresponding bin mid to this dollar_amount
+        var endorsement = speaker1(mid);
+        var endorsement_prob = Math.exp(endorsement.score(1));
+        var likert_dist = Binomial({p: endorsement_prob, n: 9});
+        // Iterate through responses.
 
-    //     if (fit_concrete && fit_this_expt(expt_id)) {
-    //       mapData(
-    //         {data: _.filter(d_expt_obj, {"dollar_amount": dollar_amount})},
-    //         function(d){
-    //           observe(likert_dist, (utils.float(d.response)))
-    //         }
-    //       );
-    //     }
+        if (fit_concrete && fit_this_expt(expt_id)) {
+          // map(function() {
+            mapData(
+              {data: _.filter(d_expt_obj, {"dollar_amount": dollar_amount})},
+              function(d){
+                observe(likert_dist, (utils.float(d.response)))
+              }
+            );
+          // }, [1,2,3,4,5,6,7]);
+        }
 
-    //     query.add(["S1", dollar_amount, expt_id, item], endorsement_prob);
-    //   });
+        query.add(["S1", dollar_amount, expt_id, item], endorsement_prob);
+      });
 
-    //   var listener1 = cache(function(utterance) {
-    //     Infer({model: function(){
-    //       var state = sample(statePrior);
-    //       var theta = sample(thetaPrior);
-    //       var S1 = speaker1(state, theta);
-    //       factor(utterance=="expensive" ? S1.score(1) : S1.score(0));
-    //       return {"state": state, "theta": theta}
-    //   }})}, 10000);
+      var listener1 = cache(function(utterance) {
+        Infer({model: function(){
+          var state = sample(statePrior);
+          var theta = sample(thetaPrior);
+          var S1 = speaker1(state, theta);
+          factor(utterance=="expensive" ? S1.score(1) : S1.score(0));
+          return {"state": state, "theta": theta}
+      }})}, 10000);
 
-    //   // Expected probabiity that x-eps > theta given the L0 posterior on x and theta.
-    //   var joint_inductive = function(epsilon, listener_level) {
-    //     var listener_function = listener_level==0?listener0_with_theta:listener1;
-    //     // listener_function("expensive");
-    //     var listener_joint_distribution = listener_function("expensive");
-    //     return expectation(listener_joint_distribution, function(interpretation_pair) {
-    //       var x = interpretation_pair.state;
-    //       // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
-    //       var theta_mid = interpretation_pair.theta;
-    //       // var theta_bin = bins[item][expt_id]["theta_lookups"][theta_mid];
-    //       var theta_bin = bins[item]["all"]["theta_lookups"][theta_mid];
-    //       var theta_lower = theta_bin.lower;
-    //       var theta_upper = theta_bin.upper;
-    //       var theta_prob = theta_upper-theta_lower;
-    //       var new_price = x-epsilon;
-    //       if (new_price < theta_lower) {
-    //         return 0;
-    //       } if (new_price > theta_upper) {
-    //         return 1;
-    //       } else {
-    //         var inductive_prob = new_price - theta_lower;
-    //         return inductive_prob/theta_prob;
-    //       }
-    //     });
-    //   };
+      // Expected probabiity that x-eps > theta given the L0 posterior on x and theta.
+      var joint_inductive = function(epsilon, listener_level) {
+        var listener_function = listener_level==0?listener0_with_theta:listener1;
+        // listener_function("expensive");
+        var listener_joint_distribution = listener_function("expensive");
+        return expectation(listener_joint_distribution, function(interpretation_pair) {
+          var x = interpretation_pair.state;
+          // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
+          var theta_mid = interpretation_pair.theta;
+          // var theta_bin = bins[item][expt_id]["theta_lookups"][theta_mid];
+          var theta_bin = bins[item]["all"]["theta_lookups"][theta_mid];
+          var theta_lower = theta_bin.lower;
+          var theta_upper = theta_bin.upper;
+          var theta_prob = theta_upper-theta_lower;
+          var new_price = x-epsilon;
+          if (new_price < theta_lower) {
+            return 0;
+          } if (new_price > theta_upper) {
+            return 1;
+          } else {
+            var inductive_prob = new_price - theta_lower;
+            return inductive_prob/theta_prob;
+          }
+        });
+      };
 
-    //   // Expected probabiity that x-eps > theta given the L0 posterior on x and theta.
-    //   var s1_inductive = function(epsilon, listener_level) {
-    //     var listener_function = listener_level==0?listener0_with_theta:listener1;
-    //     // listener_function("expensive");
-    //     var listener_joint_distribution = listener_function("expensive");
-    //     var inductive_speaker_optimality = 1;
-    //     return expectation(listener_joint_distribution, function(interpretation_pair) {
-    //       var x = interpretation_pair.state;
-    //       // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
-    //       var theta_mid = interpretation_pair.theta;
-    //       // var theta_bin = bins[item][expt_id]["theta_lookups"][theta_mid];
-    //       var theta_bin = bins[item]["all"]["theta_lookups"][theta_mid];
-    //       var theta_lower = theta_bin.lower;
-    //       var theta_upper = theta_bin.upper;
-    //       var theta_prob = theta_upper-theta_lower;
-    //       var new_price = x-epsilon;
-    //       if (new_price < theta_lower) {
-    //         return 0;
-    //       } if (new_price > theta_upper) {
-    //         return 1 / (1 + Math.pow((1-utils.lognormalCDF(theta_mid+epsilon, item_params)), inductive_speaker_optimality));
-    //       } else {
-    //         var nonzero_region = (new_price - theta_lower)/theta_prob;
-    //         return nonzero_region * 1 / (1 + Math.pow((1-utils.lognormalCDF(theta_mid+epsilon, item_params)), inductive_speaker_optimality));
-    //       }
-    //     });
-    //   };
+      // Expected probabiity that x-eps > theta given the L0 posterior on x and theta.
+      var s1_inductive = function(epsilon, listener_level) {
+        var listener_function = listener_level==0?listener0_with_theta:listener1;
+        // listener_function("expensive");
+        var listener_joint_distribution = listener_function("expensive");
+        var inductive_speaker_optimality = 1;
+        return expectation(listener_joint_distribution, function(interpretation_pair) {
+          var x = interpretation_pair.state;
+          // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
+          var theta_mid = interpretation_pair.theta;
+          // var theta_bin = bins[item][expt_id]["theta_lookups"][theta_mid];
+          var theta_bin = bins[item]["all"]["theta_lookups"][theta_mid];
+          var theta_lower = theta_bin.lower;
+          var theta_upper = theta_bin.upper;
+          var theta_prob = theta_upper-theta_lower;
+          var new_price = x-epsilon;
+          if (new_price < theta_lower) {
+            return 0;
+          } if (new_price > theta_upper) {
+            return 1 / (1 + Math.pow((1-utils.lognormalCDF(theta_mid+epsilon, item_params)), inductive_speaker_optimality));
+          } else {
+            var nonzero_region = (new_price - theta_lower)/theta_prob;
+            return nonzero_region * 1 / (1 + Math.pow((1-utils.lognormalCDF(theta_mid+epsilon, item_params)), inductive_speaker_optimality));
+          }
+        });
+      };
 
-    //   var inductive = function(epsilon, listener_level) {
-    //     if (inductive_version == "inspect_joint") {
-    //       return joint_inductive(epsilon, listener_level);
-    //     } else if (inductive_version == "s1_inductive") {
-    //       return s1_inductive(epsilon, listener_level);
-    //       display("error a203984asf");
-    //     }
-    //   };
+      var inductive = function(epsilon, listener_level) {
+        if (inductive_version == "inspect_joint") {
+          return joint_inductive(epsilon, listener_level);
+        } else if (inductive_version == "s1_inductive") {
+          return s1_inductive(epsilon, listener_level);
+          display("error a203984asf");
+        }
+      };
 
-    //   var ind_expt_obj = _.filter(d_sorites,
-    //     {"object": item, "id": expt_id, "qtype": "inductive"});
-    //   var epsilons = levels(ind_expt_obj, "dollar_amount");
-    //   foreach(epsilons, function(dollar_amount) {
-    //     var epsilon = utils.float(dollar_amount);
-    //     var inductive_endorsement = inductive(epsilon, listener_level);
-    //     var ind_likert_dist = Binomial({p: remove_endpoints(inductive_endorsement), n: 9});
+      var ind_expt_obj = _.filter(d_sorites,
+        {"object": item, "id": expt_id, "qtype": "inductive"});
+      var epsilons = levels(ind_expt_obj, "dollar_amount");
+      foreach(epsilons, function(dollar_amount) {
+        var epsilon = utils.float(dollar_amount);
+        var inductive_endorsement = inductive(epsilon, listener_level);
+        var ind_likert_dist = Binomial({p: remove_endpoints(inductive_endorsement), n: 9});
 
-    //     if (fit_inductive && fit_this_expt(expt_id)) {
-    //       mapData(
-    //         {data: _.filter(ind_expt_obj, {"dollar_amount": dollar_amount})},
-    //         function(d){
-    //           observe(ind_likert_dist, (utils.float(d.response)))
-    //         }
-    //       );
-    //     }
+        if (fit_inductive && fit_this_expt(expt_id)) {
+          // map(function() {
+            mapData(
+              {data: _.filter(ind_expt_obj, {"dollar_amount": dollar_amount})},
+              function(d){
+                observe(ind_likert_dist, (utils.float(d.response)))
+              }
+            );
+          // }, [1,2,3,4,5,6,7])
+        }
 
-    //     query.add(["Inductive", epsilon, expt_id, item], inductive_endorsement);
+        query.add(["Inductive", epsilon, expt_id, item], inductive_endorsement);
 
-    //   });
+      });
 
-    // })
+    })
 
     query.add(["price_prior", "mu", "NA", item], item_params.mu);
     query.add(["price_prior", "sigma", "NA", item], item_params.sigma);
