@@ -124,6 +124,11 @@ df11 %>%
   ylab("Endorsement Rating")
 ```
 
+```{r sorites cor cluster}
+# # shows two outliers
+# (1 - pairwise_correlation_matrix_sorites) %>% dist() %>% hclust() %>% plot()
+```
+
 ```{r sorites pairwise cors}
 pairwise_correlation_matrix_sorites = df11 %>%
   mutate(qid = paste(qtype, object, dollar_amount)) %>%
@@ -131,21 +136,7 @@ pairwise_correlation_matrix_sorites = df11 %>%
   spread(qid, response) %>%
   select(-workerid) %>%
   t() %>%
-  cor()
-pairwise_cors_sorites = pairwise_correlation_matrix_sorites %>%
-  .[upper.tri(., diag=F)]
-pairwise_correlation_range_sorites = pairwise_cors_sorites %>%
-  quantile(probs = c(0, 1)) %>%
-  round(3) %>%
-  unname()
-pairwise_correlation_mean_sorites = mean(pairwise_cors_sorites)
-```
-
-```{r sorites cor cluster}
-(1 - pairwise_correlation_matrix_sorites) %>% dist() %>% hclust() %>% plot()
-```
-
-```{r sorites pairwise cors}
+  cor(method="spearman")
 different_workers = c(10, 15)
 get_pairwise_cors_sorites = function(df) {
   pairwise_correlation_matrix_sorites = df %>%
@@ -154,32 +145,34 @@ get_pairwise_cors_sorites = function(df) {
     spread(qid, response) %>%
     select(-workerid) %>%
     t() %>%
-    cor()
+    cor(method="spearman")
   pairwise_cors_sorites = pairwise_correlation_matrix_sorites %>%
     .[upper.tri(., diag=F)]
   pairwise_correlation_range_sorites = pairwise_cors_sorites %>%
     quantile(probs = c(0, 1)) %>%
     round(3) %>%
     unname()
-  pairwise_correlation_mean_sorites = mean(pairwise_cors_sorites)
+  pairwise_correlation_mean_sorites = mean(pairwise_cors_sorites) %>% round(3)
   return(list(mean = pairwise_correlation_mean_sorites, range = pairwise_correlation_range_sorites))
 }
-df11 %>% filter(workerid %in% different_workers) %>%
-  mutate(workerid = factor(workerid)) %>%
-  ggplot(aes(x=dollar_amount, y=response, colour=object, shape=workerid, alpha=trial_number)) +
-  # geom_line() +
-  geom_point() +
-  # geom_text_repel() +
-  facet_wrap(qtype~object, ncol=5, scales="free_x") +
-  # facet_grid(workerid~qtype) +
-  scale_y_continuous(breaks=1:9, limits=c(0.9, 9.1)) +
-  xlab("Dollar Amount") +
-  ylab("Endorsement Rating")
-get_pairwise_cors_sorites(df11 %>% filter(!(workerid %in% different_workers)))
+pairwise_sorites_majority = get_pairwise_cors_sorites(df11 %>% filter(!(workerid %in% different_workers)))
+df_minority = df11 %>% filter(workerid %in% different_workers)
+minority_cor = df_minority %>%
+  get_pairwise_cors_sorites()
+mag_vs_min_cors = pairwise_correlation_matrix_sorites[different_workers,-different_workers] %>% .[upper.tri(., diag=F)]
+maj_vs_min = list(mean = mean(mag_vs_min_cors) %>% round(3), range = mag_vs_min_cors %>%
+    quantile(probs = c(0, 1)) %>%
+    round(3) %>%
+    unname())
+pairwise_sorites_majority_inductive = df11 %>%
+  # filter(!(workerid %in% different_workers)) %>%
+  filter(qtype == "inductive") %>%
+  get_pairwise_cors_sorites()
+pairwise_sorites_majority_concrete = df11 %>%
+  # filter(!(workerid %in% different_workers)) %>%
+  filter(qtype == "concrete") %>%
+  get_pairwise_cors_sorites()
 ```
-
-Participants tended to be in agreement, though response patterns varied. The pairwise correlations between participants' responses were on average `r pairwise_correlation_mean_sorites` (range: [`r pairwise_correlation_range_sorites[1]`, `r pairwise_correlation_range_sorites[2]`]).
-
 
 ```{r sorites split half}
 all_workers = df11$workerid %>% unique()
@@ -201,7 +194,7 @@ split_half_conf = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% 
 split_half_correlation = mean(resamples) %>% round(3)
 ```
 
-<!-- Participants tended to be in agreement. The split half correlation of mean responses to each question was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]). -->
+Participants tended to be in agreement about their responses. 26 of the 28 participants had only positive pairwise correlations with one another (average Spearman correlation: `r pairwise_sorites_majority$mean`, range: [`r pairwise_sorites_majority$range[1]`, `r pairwise_sorites_majority$range[2]`]). The remaining 2 participants showed no clear pattern in their responses and were uncorrelated with one another (Spearman correlation `r minority_cor$mean`) and usually uncorrelated with the other 26 participants (average Spearman correlation: `r maj_vs_min$mean`, range: [`r maj_vs_min$range[1]`, `r maj_vs_min$range[2]`]). The split half correlation of mean responses to each question was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]).
 
 Results of Experiment 1 are shown in Figure 1. We qualitatively capture the three characteristic effects of vagueness:
 
@@ -348,12 +341,12 @@ split_half_correlation = mean(resamples) %>% round(3)
 Participants tended to be in agreement. The split half correlation of mean normalized ratings for each price range was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]).
 
 ```{r}
-#50K lag 10 worked before...
-m12 = read.csv("../models/results/final_expts_results-S1-sigmax10_1000_burn500_lag10_chain2_inductive_version_s1_inductive_bins_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv") %>%
-  filter(type == "price_prior")
-m12 %>% ggplot(aes(x=val)) +
-  geom_histogram(bins=30) +
-  facet_wrap(param ~ category, scales="free")
+# #50K lag 10 worked before...
+# m12 = read.csv("../models/results/final_expts_results-S1-sigmax10_1000_burn500_lag10_chain2_inductive_version_s1_inductive_bins_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv") %>%
+#   filter(type == "price_prior")
+# m12 %>% ggplot(aes(x=val)) +
+#   geom_histogram(bins=30) +
+#   facet_wrap(param ~ category, scales="free")
 ```
 
 ```{r}
