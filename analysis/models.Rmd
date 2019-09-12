@@ -86,6 +86,13 @@ fit_to_all_sorites_no_bins = plot_sorites(
 )
 ```
 
+```{r}
+reproduce_old_plots_inductive_s1$final_sorites_cor
+reproduce_old_plots_inductive_s1_fit_cost$final_sorites_cor
+fit_to_all_sorites_and_bins_inductive_s1$final_sorites_cor
+```
+
+
 ```{r, fig.width=10, fig.height=4}
 print(fit_to_all_sorites_and_bins_inductive_s1$final_sorites_cor + theme_few() + aes(shape=object) + scale_colour_grey(start=0.2, end=0.8) + xlab("Model S1('expensive')") + ylab("Normalized endorsement rating"))
 print(fit_to_all_sorites_and_bins_inductive_s1$all_sorites_cor)
@@ -389,5 +396,62 @@ fit_to_all_bins_no_sorites$params
 ```{r, fig.height=20, fig.width=10}
 fit_to_all_sorites_no_bins$params
 ```
+
+
+## Compare to regression?
+
+```{r}
+RUN_AGG = F
+## computing confidence intervals takes a long time.
+## so just cache the results of this most of the time
+if (RUN_AGG) {
+  agg = df %>%
+  group_by(id, qtype, phrasing, object, dollar_amount) %>%
+  summarise(low = ci.low(response),
+            high = ci.high(response),
+            response = mean(response)) %>%
+    ungroup
+write.csv(agg, cache_dir("agg_cache.csv"), row.names = F)
+}  else {
+agg = read.csv(cache_dir("agg_cache.csv"))
+}
+agg = agg %>% mutate(phrasing = factor(phrasing)) %>%
+  mutate(logdollars = log(dollar_amount))
+```
+
+```{r}
+s1_ind = agg %>% filter(qtype=="inductive", id != "11")
+s1_conc = agg %>% filter(qtype=="concrete", id != "11")
+ind_lrm = s1_ind %>%
+  lm(response ~ logdollars*object, data=.)
+conc_lrm = s1_conc %>%
+  lm(response ~ logdollars*object, data=.)
+ind_lrm %>% anova()
+conc_lrm %>% anova()
+s3_ind = agg %>% filter(qtype=="inductive", id == "11")
+s3_conc = agg %>% filter(qtype=="concrete", id == "11")
+erin_ggplot(NULL, aes(x=predict(ind_lrm, s3_ind), y=s3_ind$response,
+                 ymin=s3_ind$low, ymax=s3_ind$high,
+                 colour=s3_ind$object)) +
+  geom_point() +
+  geom_errorbar() +
+  scale_y_continuous(breaks = 1:9, limits = c(1,9)) +
+  scale_x_continuous(breaks = 1:9, limits = c(1,9)) +
+  # geom_abline(intercept = 0, slope = 1) +
+  annotate(geom="text", x=4, y=8, label=round(cor(predict(ind_lrm, s3_ind), s3_ind$response)^2, 3))
+ggsave("../analysis/img/ind_lrm_s3.png", width=5, height=3)
+erin_ggplot(NULL, aes(x=predict(conc_lrm, s3_conc), y=s3_conc$response,
+                 ymin=s3_conc$low, ymax=s3_conc$high,
+                 colour=s3_conc$object)) +
+  geom_point() +
+  geom_errorbar() +
+  scale_y_continuous(breaks = 1:9, limits = c(1,9)) +
+  scale_x_continuous(breaks = 1:9, limits = c(1,9)) +
+  # geom_abline(intercept = 0, slope = 1) +
+  annotate(geom="text", x=4, y=8, label=round(cor(predict(conc_lrm, s3_conc), s3_conc$response)^2, 3))
+ggsave("../analysis/img/conc_lrm_s3.png", width=5, height=3)
+```
+
+
 
 

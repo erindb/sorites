@@ -323,7 +323,7 @@ plot_bins = function(expt_label="07c") {
 }
 
 
-plot_concrete = function(model_results_file, zscore=F, raw_model_output=raw_model_output) {
+plot_concrete = function(model_results_file, zscore=F, raw_model_output=raw_model_output, xyline=T) {
 
   if (is.data.frame(raw_model_output)) {
     names(raw_model_output) = c("result_type", "dollar_amount",
@@ -399,8 +399,12 @@ plot_concrete = function(model_results_file, zscore=F, raw_model_output=raw_mode
     aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
         y=data.y, ymin=data.ymin, ymax=data.ymax) +
     ylab("Data") +
-    xlab("Model") +
-    geom_abline(slope = 1, intercept = 0, alpha=0.2) +
+    xlab("Model")
+  if (xyline) {
+    plot_correlation = plot_correlation  +
+      geom_abline(slope = 1, intercept = 0, alpha=0.2)
+  }
+  plot_correlation = plot_correlation +
     geom_pointrange() +
     geom_errorbarh()
 
@@ -413,7 +417,7 @@ plot_concrete = function(model_results_file, zscore=F, raw_model_output=raw_mode
 }
 
 
-plot_inductive = function(model_results_file, zscore=F, raw_model_output=NA) {
+plot_inductive = function(model_results_file, zscore=F, raw_model_output=NA, xyline=T) {
   if (zscore) {
     inductive = df %>%
       mutate(response = num(response)) %>%
@@ -487,8 +491,13 @@ plot_inductive = function(model_results_file, zscore=F, raw_model_output=NA) {
     aes(x=model.y, xmin=model.ymin, xmax=model.ymax,
         y=data.y, ymin=data.ymin, ymax=data.ymax) +
     ylab("Data") +
-    xlab("Model") +
-    geom_abline(slope = 1, intercept = 0, alpha=0.2) +
+    xlab("Model")
+
+  if (xyline) {
+    plot_correlation = plot_correlation  +
+      geom_abline(slope = 1, intercept = 0, alpha=0.2)
+  }
+  plot_correlation = plot_correlation +
     geom_pointrange() +
     geom_errorbarh()
 
@@ -498,7 +507,7 @@ plot_inductive = function(model_results_file, zscore=F, raw_model_output=NA) {
               df=l0_comparison))
 }
 
-plot_sorites_cor = function(concrete_results, inductive_results, all_experiments, zscored=F) {
+plot_sorites_cor = function(concrete_results, inductive_results, all_experiments, zscored=F, xyline=T) {
   sorites_results_wide = concrete_results$df %>%
     mutate(qtype="concrete") %>%
     rbind(inductive_results$df %>% mutate(qtype="inductive")) %>%
@@ -543,7 +552,7 @@ plot_sorites_cor = function(concrete_results, inductive_results, all_experiments
     alpha = 1
   }
 
-  if (!zscored) {
+  if (!zscored && xyline) {
     p = p + geom_abline(intercept=0, slope = 1, alpha=0.5)
   }
 
@@ -578,15 +587,15 @@ plot_sorites_curves = function(sorites_results) {
     scale_colour_solarized()
 }
 
-plot_sorites = function(model_results_file, zscore, all_experiments, model_fit_label) {
+plot_sorites = function(model_results_file, zscore, all_experiments, model_fit_label, xyline=xyline) {
   raw_model_output = read.csv(
     model_results_file,
     col.names = c("result_type", "specifics",
                   "expt_id", "object",
                   "value", "probability"))
   priors_results = plot_priors(model_results_file, raw_model_output=raw_model_output)
-  concrete_results = plot_concrete(model_results_file, zscore=zscore, raw_model_output=raw_model_output)
-  inductive_results = plot_inductive(model_results_file, zscore=zscore, raw_model_output=raw_model_output)
+  concrete_results = plot_concrete(model_results_file, zscore=zscore, raw_model_output=raw_model_output, xyline=xyline)
+  inductive_results = plot_inductive(model_results_file, zscore=zscore, raw_model_output=raw_model_output, xyline=xyline)
   sorites_results = concrete_results$df %>%
     mutate(qtype="concrete") %>%
     rbind(inductive_results$df %>% mutate(qtype="inductive"))
@@ -598,8 +607,8 @@ plot_sorites = function(model_results_file, zscore, all_experiments, model_fit_l
   final_sorites_curves = plot_sorites_curves(sorites_results)
   final_prior_ecdf = priors_results$final_prior_ecdf
   last_expt_bins_comparison = priors_results$last_expt_bins_comparison
-  final_sorites_cor =plot_sorites_cor(concrete_results, inductive_results, all_experiments, zscored=zscore)
-  all_sorites_cor = plot_sorites_cor(concrete_results, inductive_results, T, zscored=zscore)
+  final_sorites_cor =plot_sorites_cor(concrete_results, inductive_results, all_experiments, zscored=zscore, xyline=xyline)
+  all_sorites_cor = plot_sorites_cor(concrete_results, inductive_results, T, zscored=zscore, xyline=xyline)
   # all_sorites_curves = plot_sorites_curves(sorites_results)
 
   price_params = raw_model_output %>%

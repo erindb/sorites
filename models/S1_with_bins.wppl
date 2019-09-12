@@ -48,9 +48,9 @@ display(fit_giveanumber ? "fitting to giveanumber" : "");
 display(fit_concrete ? "fitting to concrete" : "");
 display(fit_inductive ? "fitting to inductive" : "");
 display(fit_bins ? "fitting to bins" : "");
-display(all_sorites_at_once ? "model all_sorites_at_once" : "returning results from specific sorties expt");
-display(all_bins_at_once ? "model all_bins_at_once" : "returning results from specific prior expt");
-display(all_bins_at_once ? "model fit_cost_param" : "fitting cost parameter");
+display(all_sorites_at_once ? "model all_sorites_at_once" : "fitting results from specific sorties expt");
+display(all_bins_at_once ? "model all_bins_at_once" : "fitting results from specific prior expt");
+ddisplay(all_bins_at_once ? "fit_cost_param" : "fitting cost parameter");
 display(final_sorites_held_out ? "final_sorites_held_out" : "");
 display("inductive version: " + inductive_version);
 
