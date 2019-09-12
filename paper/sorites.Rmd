@@ -16,7 +16,7 @@ bibliography: sorites.bib
 
 ```{r global_options, include=FALSE}
 rm(list = ls())
-knitr::opts_chunk$set(echo = F, warning = F, cache = T, message = F,
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
                       sanitiz = F, fig.width = 5, fig.height = 3)
 ```
 
@@ -26,6 +26,8 @@ source("../analysis/startup.R")
 library(ggrepel)
 set.seed(123)
 ```
+
+{{SKETCH INTRO}}
 
 # Experiment 1: Sorites Statements
 
@@ -240,13 +242,15 @@ The experiment consisted of 5 question pages, on for each object category. Each 
 
 There were 5 object categories (coffee maker, laptop, headphones, watch, and sweater). The price ranges for each object category were chosen based on pilot experiments. We wanted sufficient detail about the tails of the distributions, so we chose maximum values for each object category such that the average endorsement of the highest bin was very low. We also wanted sufficient granularity to address the sorites inductive premise, even for very small price values. We therefore chose the width of the bins so that, for every concrete price value \$$x$ and for every inductive price value \$$\varepsilon$ in our sorites premises experiment, we could confidently estimate the probability of an item \$$\epsilon$ less expensive than \$$x$. Our choise of maximum price and bin widths are shown in Table 3. The resulting distributions are fairly smooth, allowing us to interpolate within the bins as needed. Our level of resolution also allowed us to capture detail in especially dense parts of the distributions (usually the smaller ranges).
 
-|object category | max price | step-size|
-|  -|  -|  -|
-|watch        |  3000    |  50|
-|laptop       |  2500    |  50|
-|coffee maker |   270    |   4|
-|sweater      |   240    |   6|
-|headphones   |   330    |   3|
+```{r priors price tables}
+priors_table = data.frame(
+  c("watch", "laptop", "coffee maker", "sweater", "headphones"),
+  c(3000, 2500, 270, 240, 330),
+  c(50, 50, 4, 6, 3))
+names(priors_table) = c("object category", "max price", "step size")
+priors_table %>%
+  kable(caption="Price values for Experiment 2.", align="rrr")
+```
 
 ## Methods
 
@@ -329,7 +333,11 @@ run_resamples = function(item_name) {
 
 Participants tended to be in agreement. The split half correlation of mean normalized ratings for each price range and object category was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]) and split half correlations were similarly high within each object category.
 
-To set up our model for the next section, we use a Bayesian model with participants' true price distributions and a linking function to normalized slider ratings (@franke2016does)^[Unlike Franke et al. (2016), we use a Gaussian distribution for the slider ratings]. We assume price distributions are approximately log-normal, and we infer the parameters of the distributions using MCMC.
+Prices were well-fit by a log-normal distribution. 
+
+<!-- We fit prices for each object category to a log-normal distribution. -->
+
+<!-- To set up our model for the next section, we use a Bayesian model with participants' true price distributions and a linking function to normalized slider ratings (@franke2016does)^[Unlike Franke et al. (2016), we use a Gaussian distribution for the slider ratings]. We assume price distributions are approximately log-normal, and we infer the parameters of the distributions using MCMC (see Appendix A for details). -->
 
 <!-- Figure \ref{fig:graphical_model}. -->
 
@@ -414,7 +422,7 @@ dfm12 = reformatted_df12 %>%
   mutate(x = (UB + LB)/2)
 ```
 
-```{r plot priors fit, fig.width=10, fig.height=2, fig.cap="Log-normal fit for Experiment 2."}
+```{r plot priors fit, fig.width=10, fig.height=2, fig.cap="Log-normal fit for Experiment 2. Error bars are 95% confidence intervals."}
 breaks_fun <- function(x) {
   if (max(x) < 300) {
     c(0, 100, 200)
@@ -424,28 +432,28 @@ breaks_fun <- function(x) {
     c(0, 1000, 2000)
   }
 }
-dfm12 %>%
-  group_by(object, src) %>%
-  mutate(ytotal = sum(y),
-         nx = length(x)) %>%
-  ungroup() %>%
-  # group_by(object, src) %>%
-  # summarise(m = mean(nx), mx = max(nx), mn = min(nx))
-  gather("region", "value", c(y, ymin, ymax)) %>%
-  mutate(value = value / ytotal) %>%
-  spread(region, value) %>%
-  mutate(src = factor(src, levels=c("Prior Elicitation", "Model"))) %>%
-  ggplot(aes(x = x, y = y, ymin = ymin, ymax = ymax, colour = src, fill = src,
-                  linetype = src)) +
-  geom_ribbon(alpha=0.5, colour=NA) +
-  geom_line(alpha=1) +
-  facet_wrap(~object, ncol=5, scales="free") +
-  scale_y_continuous(breaks=c()) +
-  scale_x_continuous(breaks=breaks_fun) +
-  ylab("Density") +
-  xlab("Price Value") +
-  scale_fill_manual(values = c("darkgray", "black")) +
-  scale_colour_manual(values = c("darkgray", "black"))
+# dfm12 %>%
+#   group_by(object, src) %>%
+#   mutate(ytotal = sum(y),
+#          nx = length(x)) %>%
+#   ungroup() %>%
+#   # group_by(object, src) %>%
+#   # summarise(m = mean(nx), mx = max(nx), mn = min(nx))
+#   gather("region", "value", c(y, ymin, ymax)) %>%
+#   mutate(value = value / ytotal) %>%
+#   spread(region, value) %>%
+#   mutate(src = factor(src, levels=c("Prior Elicitation", "Model"))) %>%
+#   ggplot(aes(x = x, y = y, ymin = ymin, ymax = ymax, colour = src, fill = src,
+#                   linetype = src)) +
+#   geom_ribbon(alpha=0.5, colour=NA) +
+#   geom_line(alpha=1) +
+#   facet_wrap(~object, ncol=5, scales="free") +
+#   scale_y_continuous(breaks=c()) +
+#   scale_x_continuous(breaks=breaks_fun) +
+#   ylab("Density") +
+#   xlab("Price Value") +
+#   scale_fill_manual(values = c("darkgray", "black")) +
+#   scale_colour_manual(values = c("darkgray", "black"))
 ```
 
 ```{r cdf cor priors}
@@ -516,40 +524,46 @@ $$L_0(x,\theta|\mbox{X is expensive})$$
 
 2.) Participants imagine a listener who knows the threshold $\theta$ but not the price $x$ and consider what price distribution the listener would infer with vs. without a statement that a less expensive item would be "still expensive" ($x-\varepsilon > \theta$)
 
-$$L_0(x | \mbox{still expensive}, \theta) =
-\frac{Pr(x)\delta_{x - \varepsilon > \theta}}
-     {\int_\theta Pr(x)\delta_{x - \varepsilon > \theta} d\theta} =
-\begin{cases}
-  \frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)} &
-      x - \varepsilon > \theta \\
-  0 & \mbox{otherwise}
-\end{cases}$$
+$$\begin{aligned}L_0(x | \mbox{still expensive}, \theta) &=
+\frac{Pr(x)\delta_{x - \varepsilon > \theta}}{\int_\theta Pr(x)\delta_{x - \varepsilon > \theta} d\theta} \\ &=
+\left\{\begin{array}{ll}\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)} & \mbox{if } \ x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{array}\right\}\end{aligned}$$
 
 $$L_0(x | \mbox{silent}, \theta) = Pr(x)$$
 
 3.) Participants decide whether to tell this listener that a less expensive item would be "still expensive" ($x-\varepsilon > \theta$) or to stay silent.
 
-If the utterances are equally costly, the speaker endorsements are:
+If the cost of the "still expensive" utternace is $-\frac{1}{\lambda}\log(C_X)$ and the cost of the staying silent is $-\frac{1}{\lambda}\log(C_S)$, the speaker endorsements are:
 
-$$
-S_1(u|x, \theta) = \frac{\exp(\lambda \left( \ln(L_0(x|u, \theta)) - c(u)\right))}{\sum_{u'} \exp(\lambda\left( \ln(L_0(x|u', \theta))-c(u') \right))} = \frac{\left( L_0(x|u, \theta)\right)^\lambda}{\sum_{u'} \left(L_0(x|u', \theta)\right)^\lambda}$$
+$$\begin{aligned}S_1(u|x, \theta) = \frac{\exp(\lambda \left( \ln(L_0(x|u, \theta)) - c(u)\right))}{\sum_{u'} \exp(\lambda\left( \ln(L_0(x|u', \theta))-c(u') \right))} = \frac{ C_u \left( L_0(x|u, \theta)\right)^\lambda}{\sum_{u'} C_{u'} \left(L_0(x|u', \theta)\right)^\lambda}\end{aligned}$$
 
 So for the "still expensive" utterance:
 
-$$S_1(\mbox{still expensive}|x, \theta) =
-\frac{\left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda}
-{\left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda + \left(L_0(x|\mbox{silent}, \theta)\right)^\lambda} = \begin{cases}
-\frac{\left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda}
-{\left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda + \left(Pr(x)\right)^\lambda} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases} = \begin{cases}\frac{1}{1 + \left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}$$
+$$\begin{aligned}S_1(\mbox{still expensive}|x, \theta) &=
+\frac{C_X \left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda}
+{C_X \left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda + C_S \left(L_0(x|\mbox{silent}, \theta)\right)^\lambda} \\
+&= 
+\left\{\begin{array}{ll}
+\frac{C_X \left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda}
+{C_X \left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda + C_S \left(Pr(x)\right)^\lambda} & \mbox{if } \ x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{array}\right\} \\
+&= 
+\left\{\begin{array}{ll}
+\frac{C_X}{C_X + C_S\left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & \mbox{if } \ x - \varepsilon > \theta \\ 0 & \mbox{otherwise}
+\end{array}\right\}\end{aligned}$$
 
-4. Finally, we average over participant's initial guess of $x$ and $\theta$ to get the expected endorsement.
+4.) Finally, we average over participant's initial guess of $x$ and $\theta$ to get the expected endorsement.
 
-$$S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive})
-\left.\begin{cases}\frac{1}{1 + \left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{cases}\right\}dxd\theta$$
+$$\begin{aligned}S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive})
+\left\{\begin{array}{ll}
+  \frac{C_X}{C_X + C_S\left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & \mbox{if } \ x - \varepsilon > \theta \\
+  0  & \text{otherwise.}
+\end{array}\right\}
+dxd\theta\end{aligned}$$
 
-Since the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$, this is very similar to simply oberving the joint distribution $L_0(x, \theta | \mbox{X is expensive})$ and taking the expectation of $x-\varepsilon > \theta$. But the smaller $\theta$ is, the less informative the "still expensive" utterance would be, and so the less likely it is that a speaker would actually endorse it over staying silent.
+If the costs are equal, then the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$. In this case, the expected endorsement is very similar to simply oberving the joint distribution $L_0(x, \theta | \mbox{X is expensive})$ and taking the expectation of $x-\varepsilon > \theta$. But the smaller $\theta$ is, the less informative the "still expensive" utterance would be, and so the less likely it is that a speaker would actually endorse it over staying silent.
 
 ## Analysis
+
+say what we're fitting and what priors we're using
 
 {{WHAT PARAMETERS ARE WE FITTING TO WHAT DATA?}}
 
@@ -618,16 +632,15 @@ Since the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ 
 ```{r load full model fit}
 #50K lag 10 worked before...
 mfit = read.csv(
-  "../models/results/final_expts_results-S1-sigmax10_20000_burn10000_lag10_chain11_inductive_version_s1_inductive_concrete_inductive_bins_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
-  # "../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain11_inductive_version_s1_inductive_concrete_inductive_bins_no_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+  "../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain11_inductive_version_s1_inductive_concrete_inductive_bins_no_cost_param_listener0_normed_rating_ignore_last_bin.csv",
   col.names = c("result_type", "variable",
                 "IGNORE", "object",
                 "value", "probability"))
-mfit %>%
-  filter(result_type %in% c("global_param", "price_prior")) %>%
-  ggplot(aes(x=value)) +
-  geom_histogram(bins=30) +
-  facet_wrap(variable ~ object, scales="free")
+# mfit %>%
+#   filter(result_type %in% c("global_param", "price_prior")) %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram(bins=30) +
+#   facet_wrap(variable ~ object, scales="free")
 ```
 
 ```{r reformat full model fit (priors), fig.width=10, fig.height=3}
@@ -659,7 +672,7 @@ dfmfit12 = reformatted_df12 %>%
   mutate(x = (UB + LB)/2)
 ```
 
-```{r plot full model fit (priors), fig.width=10, fig.height=2, fig.cap="Log-normal fit for Experiment 2."}
+```{r plot full model fit (priors), fig.width=10, fig.height=2, fig.cap="Posterior price distributions fit to Experiments 1 and 2. Error bars are 95% confidence intervals."}
 breaks_fun <- function(x) {
   if (max(x) < 300) {
     c(0, 100, 200)
@@ -776,7 +789,7 @@ dfmfit %>% select(-c(ymax, ymin)) %>%
   with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=3}
 dfmfit %>%
   gather("region", "value", c(y, ymin, ymax)) %>%
   mutate(variable = paste(src, region, sep=".")) %>%
@@ -790,88 +803,30 @@ dfmfit %>%
   geom_errorbarh() +
   geom_pointrange() +
   scale_colour_grey() +
-  facet_wrap(~qtype) +
+  facet_wrap(~qtype, scales="free") +
+  # scale_y_continuous(breaks=1:9) +
+  # xlim(0,1) +
   ylab("Sorites Endorsements") +
-  xlab("Model Fit") +
-  scale_y_continuous(breaks=1:9) +
-  xlim(0,1)
+  xlab("Model Fit")
 ```
 
 
 # Discussion
 
+{{SKETCH DISCUSSION}}
+
 # Conclusion
+
+{{SKETCH CONCLUSION}}
 
 # References
 
-```{r}
-# \appendix
-# 
-# # Model implementation
-# 
-# ## Bayesian data analysis
-# 
-# Figure \ref{fig:graphical_model}.
-# 
-# \begin{figure}[htb]
-# \tikz{
-#   \node[latent,] (mu) {$\mu_i$};
-#   \node[latent, right=of mu] (sig) {$\sigma_i$};
-#   
-#   \node[above=of mu] (mumax) {$\mu^{max}$};
-#   \node[above=of sig] (sigmax) {$\sigma^{max}$};
-#   
-#   \node[latent, right=of sigmax] (sigbin) {$\sigma_{bin}$};
-# 
-#   \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
-#   \node[obs, below=of pbin] (dbin) {$d_{ib}$};
-#   
-#   \node[latent, right=of sigbin] (alpha) {$\alpha$};
-#   \node[above=of alpha] (alphamax) {$\alpha^{max}$};
-#   \node[right=of alphamax] (costmax) {$c_{max}$};
-#   \node[latent, below=of costmax] (cost) {$c$};
-# 
-#   \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S(C_{iv})$};
-#   \node[latent, right=of s2concrete] (s2inductive) {$S(I_{i\varepsilon})$};
-#   
-#   \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
-#   \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
-#   
-#   \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
-#   
-#   \edge {mumax} {mu}
-#   \edge {sigmax} {sig}
-#   \edge {mu, sig} {pbin}
-#   \edge {pbin, sigbin} {dbin}
-#   \edge {pbin} {s2inductive, s2concrete}
-#   \edge {s2inductive} {sI}
-#   \edge {s2concrete} {sC}
-#   \edge {alpha} {s2concrete, s2inductive}
-#   \edge {alphamax} {alpha}
-#   \edge {cost} {s2concrete, s2inductive}
-#   \edge {costmax} {cost}
-#   \edge {sigbinmax} {sigbin}
-#   
-#   \plate {bin} {
-#     (pbin) (dbin)
-#   } {$b\in{Bins_i}$};
-#   \plate {epsilon} {
-#     (s2inductive) (sI)
-#   } {$\varepsilon \in Epsilons$};
-#   \plate {value} {
-#     (s2concrete) (sC)
-#   } {$v \in Values$};
-#   \plate {item} {
-#     (mu) (sig)
-#     %(giveanum)
-#     (bin.south east)
-#     (epsilon.south east)
-#     (value.south east)
-#     (s2inductive) (s2concrete)
-#   } {$i\in{Objects}$};
-# }
-# \caption{Graphical model for endorsement data.\label{fig:graphical_model}}
-# \end{figure}
-# 
-# ## Discretization scheme
-```
+\appendix
+
+\section{Inference details}
+
+{{WRITE THIS}}
+
+\section{Discretization for inference}
+
+{{WRITE THIS}}
