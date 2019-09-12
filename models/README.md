@@ -7,20 +7,13 @@
 
 ### Usage
 
-e.g. `time webppl S1.wppl --require utils 1`
+e.g. `time webppl final_expts_model.wppl --require utils 1`
 
-### Versions
+Options:
 
-Abstract models to fit are:
-
-* prior distributions on prices only
-* RSA S1
-* RSA L0
-
-Data to fit these models to are:
-
-* Justine's give_a_number data
-* concrete presmise responses
-* inductive premise responses
-
-We present different combinations of models and data used to fit the models.
+* `--fit_bins`: if this flag is present, we will run mapData over binned histogram priors data
+* `--fit_concrete`: if this flag is present, we will run mapData over sorites responses for the concrete premise
+* `--fit_inductive`: if this flag is present, we will run mapData over sorites responses for the inductive premise
+* `--iterations 10`: number of iterations for MCMC
+* `--lag 1`: lag for MCMC
+* `--inductive_version s1_inductive`: version of inductive premise model (writeup is for `s1_inductive`)
