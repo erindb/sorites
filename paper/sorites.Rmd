@@ -2,8 +2,6 @@
 title: "Sorites"
 author: ""
 header-includes:
-   - \usepackage{tikz}
-   - \usetikzlibrary{bayesnet}
    - \usepackage{float}
 output:
   pdf_document:
@@ -339,41 +337,6 @@ Prices were well-fit by a log-normal distribution.
 
 <!-- To set up our model for the next section, we use a Bayesian model with participants' true price distributions and a linking function to normalized slider ratings (@franke2016does)^[Unlike Franke et al. (2016), we use a Gaussian distribution for the slider ratings]. We assume price distributions are approximately log-normal, and we infer the parameters of the distributions using MCMC (see Appendix A for details). -->
 
-<!-- Figure \ref{fig:graphical_model}. -->
-
-\begin{figure}[htb]
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-
-  \node[latent, right=of sig] (sigbin) {$\sigma_{bin}$};
-
-  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
-  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
-
-  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
-
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {pbin}
-  \edge {pbin, sigbin} {dbin}
-  \edge {sigbinmax} {sigbin}
-
-  \plate {bin} {
-    (pbin) (dbin)
-  } {$b\in{Bins_i}$};
-  \plate {item} {
-    (mu) (sig)
-    (bin.south east)
-  } {$i\in{Objects}$};
-}
-\caption{Graphical model for Experiment 2 data.\label{fig:graphical_model}}
-\end{figure}
-
-
 ```{r load priors fit}
 #50K lag 10 worked before...
 m12 = read.csv("../models/results/final_expts_results-S1-sigmax10_20000_burn10000_lag10_chain1_inductive_version_s1_inductive_bins_fit_cost_param_listener0_normed_rating_ignore_last_bin.csv",
@@ -566,66 +529,6 @@ If the costs are equal, then the $S_1(\mbox{still expensive}|x, \theta)$ value i
 say what we're fitting and what priors we're using
 
 {{WHAT PARAMETERS ARE WE FITTING TO WHAT DATA?}}
-
-\begin{figure}[htb]
-\tikz{
-  \node[latent,] (mu) {$\mu_i$};
-  \node[latent, right=of mu] (sig) {$\sigma_i$};
-
-  \node[above=of mu] (mumax) {$\mu^{max}$};
-  \node[above=of sig] (sigmax) {$\sigma^{max}$};
-
-  \node[latent, right=of sigmax] (sigbin) {$\sigma_{bin}$};
-
-  \node[det, below=of mu, below=of sig] (pbin) {$P_{ib}$};
-  \node[obs, below=of pbin] (dbin) {$d_{ib}$};
-
-  \node[latent, right=of sigbin] (alpha) {$\alpha$};
-  \node[above=of alpha] (alphamax) {$\alpha^{max}$};
-  \node[right=of alphamax] (costmax) {$c_{max}$};
-  \node[latent, below=of costmax] (cost) {$c$};
-
-  \node[latent, below=of pbin, xshift=2cm] (s2concrete) {$S(C_{iv})$};
-  \node[latent, right=of s2concrete] (s2inductive) {$S(I_{i\varepsilon})$};
-
-  \node[obs, below=of s2inductive] (sI) {$s^{I}_{i\varepsilon}$};
-  \node[obs, below=of s2concrete] (sC) {$s^{C}_{iv}$};
-
-  \node[above=of sigbin] (sigbinmax) {$\sigma_{bin}^{max}$};
-
-  \edge {mumax} {mu}
-  \edge {sigmax} {sig}
-  \edge {mu, sig} {pbin}
-  \edge {pbin, sigbin} {dbin}
-  \edge {pbin} {s2inductive, s2concrete}
-  \edge {s2inductive} {sI}
-  \edge {s2concrete} {sC}
-  \edge {alpha} {s2concrete, s2inductive}
-  \edge {alphamax} {alpha}
-  \edge {cost} {s2concrete, s2inductive}
-  \edge {costmax} {cost}
-  \edge {sigbinmax} {sigbin}
-
-  \plate {bin} {
-    (pbin) (dbin)
-  } {$b\in{Bins_i}$};
-  \plate {epsilon} {
-    (s2inductive) (sI)
-  } {$\varepsilon \in Epsilons$};
-  \plate {value} {
-    (s2concrete) (sC)
-  } {$v \in Values$};
-  \plate {item} {
-    (mu) (sig)
-    %(giveanum)
-    (bin.south east)
-    (epsilon.south east)
-    (value.south east)
-    (s2inductive) (s2concrete)
-  } {$i\in{Objects}$};
-}
-\caption{Graphical model for all endorsement data.\label{fig:graphical_model_full}}
-\end{figure}
 
 ## Results
 
