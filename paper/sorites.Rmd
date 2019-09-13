@@ -77,7 +77,6 @@ df11 %>% select(workerid, qtype, dollar_amount, object, response) %>%
 ## Participants
 
 We recruited `r n_participants_total` participants with US IP addresses over Amazon's Mechanical Turk.
-{{WHY THAT NUMBER?}}
 `r n_excluded` participants were exluded from analysis for not being native English speakers, leaving `r n_participants` participants for analysis.
 The experiment took about `r mean_time` minutes and participants were paid `r reward`.
 
@@ -123,7 +122,7 @@ Each participant then saw all 5 object categories with all 5 price values for ea
   }
 }
 df11 %>%
-  ggplot(aes(x=dollar_amount, y=response)) +
+  ggplot(aes(x=dollar_amount, y=response, colour=qtype, shape=qtype, linetype=qtype)) +
   # geom_point(alpha=0.1) +
   # geom_line(alpha=0.05, aes(group=workerid)) +
   stat_summary(geom="pointrange", fun.data="mean_cl_boot", alpha=0.7) +
@@ -131,7 +130,8 @@ df11 %>%
   scale_y_continuous(breaks=1:9, limits=c(0.9, 9.1)) +
   scale_x_continuous(breaks=breaks_fun) +
   xlab("Dollar Amount") +
-  ylab("Endorsement Rating")
+  ylab("Endorsement Rating") +
+  scale_colour_manual(values = c("darkgray", "black"))
 ```
 
 Results of Experiment 1 are shown in Figure 1. We see a range of endorsements from very low (e.g. "A coffee maker that costs \$24.00 is expensive" or "A laptop that costs \$1850.00 less than an expensive laptop is expensive.") to very high (e.g. "A watch that costs \$2000.00 is expensive" or "A sweater that costs \$171.00 less than an expensive sweater is expensive."). We also see a gradual increase in endorsements for the concrete premises (the item is expensive) as the price of the item increases, and a gradual decrease in endorsements for the inductive premise (the less expensive item is expensive) as the _change_ in price between the expensive and less expensive items increases.
@@ -228,8 +228,6 @@ df12$reward = NULL
 ## Participants
 
 We recruited `r n_participants_total` participants with US IP addresses over Amazon's Mechanical Turk.
-{{WHY THAT NUMBER?}}
-<!-- `r n_excluded` participant was exluded from analysis for not being a native English speaker, leaving `r n_participants` participants for analysis. -->
 The experiment took about `r mean_time` minutes and participants were paid `r reward`.
 
 ## Materials
@@ -274,8 +272,8 @@ We normalize slider ratings within each participant and object category, since s
 }
 df12 %>%
   ggplot(aes(x=mid, y=normed_response)) +
-  stat_summary(geom="ribbon", fun.data="mean_cl_boot", alpha=0.5) +
-  stat_summary(geom="line", fun.y="mean", alpha=1) +
+  stat_summary(geom="ribbon", fun.data="mean_cl_boot", alpha=0.5, fill="darkgrey") +
+  stat_summary(geom="line", fun.y="mean", alpha=1, colour="darkgrey") +
   facet_wrap(~item, scales="free", ncol=5) +
   xlab("Price value") +
   ylab("Normalized rating") +
@@ -283,7 +281,7 @@ df12 %>%
   scale_x_continuous(breaks = breaks_fun, limits = c(0, NA))
 ```
 
-Resuts of Experiment 2 are shown in Figure 3. As stated earlier, we chose our prices ranges so that we would get very low endorsements for the final bins and relatively smooth curves to the distributions, which we do in fact see in participant responses.
+Resuts of Experiment 2 are shown in Figure 3. As stated earlier, we chose our price ranges so that we would get very low endorsements for the higher-price bins and relatively smooth curves to the distributions, which we do in fact see in participant responses.
 
 ```{r priors split half}
 all_workers = df12$workerid %>% unique()
@@ -330,12 +328,6 @@ run_resamples = function(item_name) {
 ```
 
 Participants tended to be in agreement. The split half correlation of mean normalized ratings for each price range and object category was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]) and split half correlations were similarly high within each object category.
-
-Prices were well-fit by a log-normal distribution. 
-
-<!-- We fit prices for each object category to a log-normal distribution. -->
-
-<!-- To set up our model for the next section, we use a Bayesian model with participants' true price distributions and a linking function to normalized slider ratings (@franke2016does)^[Unlike Franke et al. (2016), we use a Gaussian distribution for the slider ratings]. We assume price distributions are approximately log-normal, and we infer the parameters of the distributions using MCMC (see Appendix A for details). -->
 
 ```{r load priors fit}
 #50K lag 10 worked before...
@@ -386,15 +378,15 @@ dfm12 = reformatted_df12 %>%
 ```
 
 ```{r plot priors fit, fig.width=10, fig.height=2, fig.cap="Log-normal fit for Experiment 2. Error bars are 95% confidence intervals."}
-breaks_fun <- function(x) {
-  if (max(x) < 300) {
-    c(0, 100, 200)
-  } else if (max(x) < 400) {
-    c(0, 100, 200, 300)
-  } else {
-    c(0, 1000, 2000)
-  }
-}
+# breaks_fun <- function(x) {
+#   if (max(x) < 300) {
+#     c(0, 100, 200)
+#   } else if (max(x) < 400) {
+#     c(0, 100, 200, 300)
+#   } else {
+#     c(0, 1000, 2000)
+#   }
+# }
 # dfm12 %>%
 #   group_by(object, src) %>%
 #   mutate(ytotal = sum(y),
@@ -433,8 +425,11 @@ cdf12 = dfm12 %>%
 priors_fit_cor = cdf12 %>%
   filter(region=="y") %>%
   spread(src, value) %>%
-  with(cor(`Model`, `Prior Elicitation`)^2)
+  with(cor(`Model`, `Prior Elicitation`)^2) %>%
+  round(3)
 ```
+
+Normalized slider ratings are very well-fit by log-normal distributions (see Appendix A for inference details). The empirical CDF is highly correlated with its best-fit log-normal CDF ($R^2 = `r priors_fit_cor`$).
 
 ```{r cdf plots priors, fig.width=15, fig.height=3}
 # cdf12 %>%
@@ -451,16 +446,11 @@ priors_fit_cor = cdf12 %>%
 #   xlab("Price")
 ```
 
-
-
-
-The responses are very well-fit by log-normal distributions (see Figure 4). The posterior CDF is highly correlated with the empirical CDF ($r = `r priors_fit_cor`$, see Figure 5).
-
 # Model
 
 ## Concrete Premise
 
-For the concrete premise, we used {{DAN'S MODEL}} of scalar adjectives. This is a Rational Speech Act model, which makes use of pragmatic principles {{GRICE}} to resolve vague language in context {{RSA}}. In this model, the literal semantics of a scalar adjective is relative to some unspecified threshold.
+For the concrete premise, we used an existing quantitative model of scalar adjectives (@Lassiter2013). This is a Rational Speech Act model, which makes use of pragmatic principles {{GRICE}} to resolve vague language in context {{RSA}}. In this model, the literal semantics of a scalar adjective is relative to some unspecified threshold.
 
 $$[[\mbox{X is expensive}]]_\theta = \mbox{price}(X) > \theta$$
 
@@ -476,12 +466,12 @@ $$U_S(u; x) = \log\left(\int_\theta L_0(x, \theta|u)d\theta\right) - \mbox{cost}
 
 ## Inductive Premise
 
-For the inductive premise, we build off of {{DAN'S MODEL}}.
+For the inductive premise, we build off of @Lassiter2013's model of scalar adjectives.
 In order to model participants' ratings of the utterance "An X that costs $\varepsilon$ less than an expensive $X$ is expensive," we need to understand what information they are tyring to convey, and what interlocuter they are imagining.
 
 Our model is as follows.
 
-1.) Participants imagine that they know of an object X that is expensive, inferring a price $x$ and threshold $\theta$ that would be described as "expensive" under {{DAN'S MODEL}}.
+1.) Participants imagine that they know of an object X that is expensive, inferring a price $x$ and threshold $\theta$ that would be described as "expensive" under @Lassiter2013's model.
 
 $$L_0(x,\theta|\mbox{X is expensive})$$
 
@@ -526,9 +516,7 @@ If the costs are equal, then the $S_1(\mbox{still expensive}|x, \theta)$ value i
 
 ## Analysis
 
-say what we're fitting and what priors we're using
-
-{{WHAT PARAMETERS ARE WE FITTING TO WHAT DATA?}}
+We model the prior distribution over prices as log-normal, with each object category $o$ having its own mean $\mu_o$ and standard deviation $\sigma_o$. We model slider responses for each bin in Experiment 2 as Gaussian, centered at the probability of that bin with variance $\sigma_{\mbox{bin}}$.^[This is a deviation from @franke2016does's analysis of binned histogram data.] We put uninformative priors over the price distribution parameters $\mu_o \sim \mbox{Uniform}(0, 10), \sigma_o \sim \mbox{Uniform}(0, 10)$, the response parameter $\sigma_{\mbox{bin}} \sim \mbox{Uniform}(0, 0.5)$, and the speaker model parameter $\lambda \sim \mbox{Uniform}(0, 10)$. We assume both utterances (endorsement of the premise or silence) have equal cost.
 
 ## Results
 
@@ -603,7 +591,7 @@ dfmfit12 %>%
   facet_wrap(~object, ncol=5, scales="free") +
   scale_y_continuous(breaks=c()) +
   scale_x_continuous(breaks=breaks_fun) +
-  ylab("Density") +
+  ylab("") +
   xlab("Price Value") +
   scale_fill_manual(values = c("darkgray", "black")) +
   scale_colour_manual(values = c("darkgray", "black"))
@@ -623,8 +611,11 @@ cdf12_full = dfmfit12 %>%
 priors_fit_cor_full_model = cdf12_full %>%
   filter(region=="y") %>%
   spread(src, value) %>%
-  with(cor(`Model`, `Prior Elicitation`)^2)
+  with(cor(`Model`, `Prior Elicitation`)^2) %>%
+  round(3)
 ```
+
+The posterior price distributions inferred by fitting to both Experiments 1 and 2 (shown in Figure 4) are very close to the normalized ratings from Experiment 1 ($R^2 = `r priors_fit_cor_full_model`$).
 
 ```{r reformat full model fit (sorites)}
 dfmfit = mfit %>% filter(result_type %in% c("S1", "Inductive")) %>%
@@ -648,7 +639,7 @@ dfmfit = mfit %>% filter(result_type %in% c("S1", "Inductive")) %>%
   spread(region, value)
 ```
 
-```{r sorites fit figure, fig.width=10, fig.height=5, fig.cap="Results of Experiment 1. Error bars are 95% confidence intervals."}
+```{r sorites fit figure, fig.width=10, fig.height=4, fig.cap="Results of Experiment 1. Error bars are 95% confidence intervals."}
  breaks_fun <- function(y) {
   if (max(y) < 2) {
     seq(0, 1, 0.2)
@@ -682,11 +673,11 @@ dfmfit %>%
 ```
 
 ```{r}
-dfmfit %>% select(-c(ymax, ymin)) %>%
+concrete_cor = dfmfit %>% select(-c(ymax, ymin)) %>%
   spread(src, y) %>%
   filter(qtype=="concrete") %>%
   with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
-dfmfit %>% select(-c(ymax, ymin)) %>%
+inductive_cor = dfmfit %>% select(-c(ymax, ymin)) %>%
   spread(src, y) %>%
   filter(qtype=="inductive") %>%
   with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
@@ -713,6 +704,9 @@ dfmfit %>%
   xlab("Model Fit")
 ```
 
+The posterior endorsement levels (expected probability of choosing the utterance) for Experiment 2 as well as participants actual responses are shown in Figures 5 and 6. The correlation between participants' mean responses and the model's mean endorsement is very high ($R^2=`r inductive_cor`$ for the inductive premise and $R^2=`r concrete_cor`$ for the concrete premise). For the "watches" object category, we find that the model's endorsements of the concrete premise "A watch that costs \$[PRICE VALUE] is expensive," are noticeably lower than participants'.
+
+{{SUMMARIZE TAKE-AWAYS}}
 
 # Discussion
 
@@ -727,9 +721,5 @@ dfmfit %>%
 \appendix
 
 \section{Inference details}
-
-{{WRITE THIS}}
-
-\section{Discretization for inference}
 
 {{WRITE THIS}}
