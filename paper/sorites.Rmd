@@ -23,6 +23,7 @@ library(knitr)
 source("../analysis/startup.R")
 library(ggrepel)
 set.seed(123)
+library(corrplot)
 ```
 
 {{SKETCH INTRO}}
@@ -134,39 +135,63 @@ df11 %>%
   scale_colour_manual(values = c("darkgray", "black"))
 ```
 
-Results of Experiment 1 are shown in Figure 1. We see a range of endorsements from very low (e.g. "A coffee maker that costs \$24.00 is expensive" or "A laptop that costs \$1850.00 less than an expensive laptop is expensive.") to very high (e.g. "A watch that costs \$2000.00 is expensive" or "A sweater that costs \$171.00 less than an expensive sweater is expensive."). We also see a gradual increase in endorsements for the concrete premises (the item is expensive) as the price of the item increases, and a gradual decrease in endorsements for the inductive premise (the less expensive item is expensive) as the _change_ in price between the expensive and less expensive items increases.
-
-```{r sorites split half}
-all_workers = df11$workerid %>% unique()
-split_half_cor = function(df) {
-  return(function(x) {
-    half = sample(
-      all_workers,
-      size = length(all_workers)/2,
-      replace = F
-    )
-    df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
-      group_by(half, qtype, object, dollar_amount) %>%
-      summarise(response = mean(response)) %>%
-      spread(half, response) %>%
-      with(., cor(A, B))
-  })
-}
-n_resamples = 1000
-resamples = sapply(1:n_resamples, split_half_cor(df11))
-split_half_conf = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-split_half_correlation = mean(resamples) %>% round(3)
-
-resamples = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="concrete")))
-split_half_conf_concrete = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-split_half_correlation_concrete = mean(resamples) %>% round(3)
-
-resamples = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="inductive")))
-split_half_conf_inductive = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-split_half_correlation_inductive = mean(resamples) %>% round(3)
+```{r per item plots}
+# df11 %>%
+#   ggplot(aes(x=response)) +
+#   facet_wrap(dollar_amount ~ qtype) +
+#   geom_histogram(binwidth=1)
 ```
 
-Participants tended to be in agreement about these endorsements The split half correlation of mean responses to inductive questions was `r split_half_correlation_inductive` (bootstrapped 95% confidence interval: [`r split_half_conf_inductive[1]`, `r split_half_conf_inductive[2]`]) and the split half correlation for concrete responses was `r split_half_correlation_concrete` (bootstrapped 95% confidence interval: [`r split_half_conf_concrete[1]`, `r split_half_conf_concrete[2]`]).
+```{r per P plots}
+# df11 %>%
+#   ggplot(aes(x=response)) +
+#   facet_wrap(~workerid) +
+#   geom_histogram(binwidth=1)
+```
+
+Results of Experiment 1 are shown in Figure 1. We see a range of endorsements from very low (e.g. "A coffee maker that costs \$24.00 is expensive" or "A laptop that costs \$1850.00 less than an expensive laptop is expensive.") to very high (e.g. "A watch that costs \$2000.00 is expensive" or "A sweater that costs \$171.00 less than an expensive sweater is expensive."). We also see a gradual increase in endorsements for the concrete premises (the item is expensive) as the price of the item increases, and a gradual decrease in endorsements for the inductive premise (the less expensive item is expensive) as the _change_ in price between the expensive and less expensive items increases.
+
+```{r cors between Ps}
+get_cors = function(df) {
+  sorites_cors = df %>% select(workerid, response, qtype, object, dollar_amount) %>%
+    spread(workerid, response) %>%
+    select(-c(qtype, object, dollar_amount)) %>%
+    cor()
+  # sorites_cors %>%
+  #   corrplot()
+  sorites_cors_ci = sorites_cors %>% .[upper.tri(.,diag = F)] %>% mean_cl_boot()
+  return(sorites_cors_ci)
+}
+sorites_cors_ci = get_cors(df11) %>% round(3)
+sorites_cors_inductive = get_cors(df11 %>% filter(qtype=="inductive")) %>% round(3)
+sorites_cors_concrete = get_cors(df11 %>% filter(qtype=="concrete")) %>% round(3)
+
+report_mean_ci = function(x) {
+  paste("mean: ", x$y %>% round(3), ", CI: [", x$ymin %>% round(3), ", ", x$ymax %>% round(3), "]", sep="")
+}
+```
+
+```{r cors by obj}
+# df11 %>% group_by(object) %>%
+#   do(get_cors(.)) %>%
+#   ungroup()
+# df11 %>% group_by(object) %>%
+#   do(get_cors(.)) %>%
+#   ungroup() %>%
+#   ggplot(aes(x=object, y=y, ymin=ymin, ymax=ymax)) +
+#   geom_pointrange()
+# df11 %>% group_by(object, qtype) %>%
+#   do(get_cors(.)) %>%
+#   ungroup() %>%
+#   ggplot(aes(x=object, y=y, ymin=ymin, ymax=ymax)) +
+#   facet_grid(~qtype) +
+#   geom_pointrange()
+```
+
+Participants tended to be in agreement about these endorsements. The average correlation between participants's responses was `r sorites_cors_ci$y %>% round(3)` (CI: [`r sorites_cors_ci$ymin %>% round(3)`, `r sorites_cors_ci$ymax %>% round(3)`]). 
+Aggreement tended to be higher for the concrete premise (`r report_mean_ci(sorites_cors_concrete)`) than for the inductive premise (`r report_mean_ci(sorites_cors_inductive)`).
+
+## Discussion
 
 In this first experiment, we qualitatively capture the three characteristic effects of vagueness:
 
@@ -183,13 +208,14 @@ This suggests rich quantitative patterns to explain.
 Judgements to our sorites premises depended on the object categories. So, in order to model participants' endorsements, it was useful to have as input a measure of people's prior expectations about the prices of these object categories. In experiment 2, we elicit price distributions using a binned histogram approach (@franke2016does).
 
 ```{r priors data}
-df12 = read.csv("../data/priors/data_exp12_2015_04_08.csv", stringsAsFactors = F) %>%
-  select(workerid, reward, starts_with("Answer"))
-n_participants_total = nrow(df12)
+df12 = read.csv("../data/priors/data_exp12_2015_04_08.csv", stringsAsFactors = F)
 reward = df12$reward[[1]]
+df12 = df12 %>%
+  select(workerid, starts_with("Answer"))
+n_participants_total = nrow(df12)
 mean_time = (num(df12$Answer.duration) %>% mean() / 60000) %>% round()
 df12 = df12 %>%
-  select(-c(reward, Answer.duration, Answer.age, Answer.comments, Answer.cond)) %>%
+  select(-c(Answer.duration, Answer.age, Answer.comments, Answer.cond)) %>%
   gather("trial", "data", -c(Answer.language, workerid))
 df12 = df12 %>%
   ##actually, there's no need to leave out non-native speakers for this task
@@ -222,7 +248,6 @@ reformatted_df12 = df12 %>%
   select(workerid, object, bin, UB, LB, rating, normed_rating)
 reformatted_df12 %>%
   write.csv("../data/priors/final_priors.csv", row.names = F)
-df12$reward = NULL
 ```
 
 ## Participants
@@ -283,51 +308,23 @@ df12 %>%
 
 Resuts of Experiment 2 are shown in Figure 3. As stated earlier, we chose our price ranges so that we would get very low endorsements for the higher-price bins and relatively smooth curves to the distributions, which we do in fact see in participant responses.
 
-```{r priors split half}
-all_workers = df12$workerid %>% unique()
-split_half_cor_priors = function(df) {
-  return(function(x) {
-    half = sample(
-      all_workers,
-      size = length(all_workers)/2,
-      replace = F
-    )
-    df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
-      group_by(half, lower, item) %>%
-      summarise(normed_response = mean(normed_response)) %>%
-      spread(half, normed_response) %>%
-      with(., cor(A, B))
-  })
+```{r}
+get_priors_cors = function(df) {
+  df %>%
+  select(item, mid, workerid, response) %>%
+  spread(workerid, response) %>%
+  select(-c(item, mid)) %>%
+  cor() %>%
+  .[upper.tri(.,diag = F)] %>%
+  mean_cl_boot()
 }
-n_resamples = 1000
-resamples = sapply(1:n_resamples, split_half_cor_priors(df12))
-split_half_conf = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-split_half_correlation = mean(resamples) %>% round(3)
-
-run_resamples = function(item_name) {
-  resamples = sapply(1:n_resamples, split_half_cor_priors(df12 %>% filter(item==item_name)))
-  split_half_conf_watches = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-  split_half_correlation_watches = mean(resamples) %>% round(3)
-  return(list(ci=split_half_conf_watches, mean=split_half_correlation_watches))
-}
-# item_priors_cors = list(
-#   w = run_resamples("watch"),
-#   h = run_resamples("headphones"),
-#   c = run_resamples("coffee maker"),
-#   l = run_resamples("laptop"),
-#   s = run_resamples("sweater"))
-# item_priors_cors %>% as.data.frame() %>%
-#   gather("stuff", "value") %>%
-#   separate(stuff, c("object", "variable")) %>%
-#   mutate(variable = paste(variable, rep(c(1,2), 10), sep=".")) %>%
-#   spread(variable, value) %>%
-#   select(-mean.2) %>%
-#   ggplot(aes(x=object, ymin=ci.1, ymax=ci.2, y=mean.1)) +
-#   geom_pointrange() +
-#   ylim(0, 1)
+priors_cors = get_priors_cors(df12)
+# df12 %>% group_by(item) %>%
+#   do(get_priors_cors(.)) %>%
+#   ungroup()
 ```
 
-Participants tended to be in agreement. The split half correlation of mean normalized ratings for each price range and object category was `r split_half_correlation` (bootstrapped 95% confidence interval: [`r split_half_conf[1]`, `r split_half_conf[2]`]) and split half correlations were similarly high within each object category.
+Participants tended to be in agreement. The average correlation between participants' responses was `r priors_cors$y` (CI: [`r priors_cors$ymin`, `r priors_cors$ymax`]), and correlations were similarly high within each object category.
 
 ```{r load priors fit}
 #50K lag 10 worked before...
@@ -448,6 +445,8 @@ Normalized slider ratings are very well-fit by log-normal distributions (see App
 
 # Model
 
+
+
 ## Concrete Premise
 
 For the concrete premise, we used an existing quantitative model of scalar adjectives (@Lassiter2013). This is a Rational Speech Act model, which makes use of pragmatic principles {{GRICE}} to resolve vague language in context {{RSA}}. In this model, the literal semantics of a scalar adjective is relative to some unspecified threshold.
@@ -512,11 +511,14 @@ $$\begin{aligned}S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbo
 \end{array}\right\}
 dxd\theta\end{aligned}$$
 
-If the costs are equal, then the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$. In this case, the expected endorsement is very similar to simply oberving the joint distribution $L_0(x, \theta | \mbox{X is expensive})$ and taking the expectation of $x-\varepsilon > \theta$. But the smaller $\theta$ is, the less informative the "still expensive" utterance would be, and so the less likely it is that a speaker would actually endorse it over staying silent.
+If the costs of the two utterances are equal, then the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$. In this case, the expected endorsement is very similar to simply oberving the joint distribution $L_0(x, \theta | \mbox{X is expensive})$ and taking the expectation of $x-\varepsilon > \theta$. But the smaller $\theta$ is, the less informative the "still expensive" utterance would be, and so the less likely it is that a speaker would actually endorse it over staying silent.
+<!-- As the cost of the "still expensive" utterance goes up relative to staying silent, the speaker is even less likely to endorse the utterance for small values of $\theta$. -->
 
 ## Analysis
 
-We model the prior distribution over prices as log-normal, with each object category $o$ having its own mean $\mu_o$ and standard deviation $\sigma_o$. We model slider responses for each bin in Experiment 2 as Gaussian, centered at the probability of that bin with variance $\sigma_{\mbox{bin}}$.^[This is a deviation from @franke2016does's analysis of binned histogram data.] We put uninformative priors over the price distribution parameters $\mu_o \sim \mbox{Uniform}(0, 10), \sigma_o \sim \mbox{Uniform}(0, 10)$, the response parameter $\sigma_{\mbox{bin}} \sim \mbox{Uniform}(0, 0.5)$, and the speaker model parameter $\lambda \sim \mbox{Uniform}(0, 10)$. We assume both utterances (endorsement of the premise or silence) have equal cost.
+We jointly model the prior elicitation data from Experiment 2 and the endorsement data from Experiment 1. We use Bayesian methods to infer the most likely values of the latent parameters (object category distribution parameters and speaker optimality). Averaging over the posterior distribution of latent parameters, we show how much variance in the endorsement data we can explain by the pragmatic model.
+
+We model the prior distribution over prices as log-normal, with each object category $o$ having its own mean $\mu_o$ and standard deviation $\sigma_o$. We model slider responses for each bin in Experiment 2 as Gaussian, centered at the probability of that bin with variance $\sigma_{\mbox{bin}}$.^[This is a deviation from @franke2016does's analysis of binned histogram data which used a logit transform in the linking function from probability to slider ratings.] We put uninformative priors over the price distribution parameters $\mu_o \sim \mbox{Uniform}(0, 10), \sigma_o \sim \mbox{Uniform}(0, 10)$, the response parameter $\sigma_{\mbox{bin}} \sim \mbox{Uniform}(0, 0.5)$, and the speaker model parameter $\lambda \sim \mbox{Uniform}(0, 10)$. We assume both utterances (endorsement of the premise or silence) have equal cost.
 
 ## Results
 
@@ -533,6 +535,26 @@ mfit = read.csv(
 #   geom_histogram(bins=30) +
 #   facet_wrap(variable ~ object, scales="free")
 ```
+
+```{r}
+# mfit %>%
+#   filter(variable == "speakerOptimality") %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram()
+map_alpha = data.frame(x = seq(0, 1, 0.01)) %>%
+  mutate(y = (mfit %>%
+                filter(variable == "speakerOptimality") %>%
+                select(value, probability) %>%
+                mutate(freq = probability*1000) %>%
+                rowwise() %>%
+                do(fill_in_samples(.)) %>%
+                ungroup() %>%
+                .$x %>%
+                ecdf())(x)) %>%
+  filter(abs(y-0.5)<0.01) %>%
+  .$x[[1]]
+```
+
 
 ```{r reformat full model fit (priors), fig.width=10, fig.height=3}
 mfit_params = mfit %>%
@@ -615,7 +637,36 @@ priors_fit_cor_full_model = cdf12_full %>%
   round(3)
 ```
 
-The posterior price distributions inferred by fitting to both Experiments 1 and 2 (shown in Figure 4) are very close to the normalized ratings from Experiment 1 ($R^2 = `r priors_fit_cor_full_model`$).
+
+
+```{r priors split half}
+all_workers = df12$workerid %>% unique()
+split_half_cor_priors = function(df) {
+  return(function(x) {
+    half = sample(
+      all_workers,
+      size = length(all_workers)/2,
+      replace = F
+    )
+    df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
+      mutate(x = lower) %>%
+      group_by(half, x, item) %>%
+      summarise(value = mean(normed_response)) %>%
+      ungroup() %>%
+      group_by(half, item) %>%
+      do(sum_lower(.)) %>%
+      ungroup() %>%
+      spread(half, value) %>%
+      with(., cor(A, B)^2)
+  })
+}
+n_resamples = 1000
+resamples = sapply(1:n_resamples, split_half_cor_priors(df12))
+split_half_conf_priors = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation_priors = mean(resamples) %>% round(3)
+```
+
+The posterior price distributions inferred by fitting to both Experiments 1 and 2 (shown in Figure 4) are very close to the normalized ratings from Experiment 1 (comparing empirical vs. model CDF, $R^2 = `r priors_fit_cor_full_model`$).
 
 ```{r reformat full model fit (sorites)}
 dfmfit = mfit %>% filter(result_type %in% c("S1", "Inductive")) %>%
@@ -672,7 +723,7 @@ dfmfit %>%
   scale_colour_manual(values = c("darkgray", "black"))
 ```
 
-```{r}
+```{r sorites fit cors}
 concrete_cor = dfmfit %>% select(-c(ymax, ymin)) %>%
   spread(src, y) %>%
   filter(qtype=="concrete") %>%
@@ -683,7 +734,7 @@ inductive_cor = dfmfit %>% select(-c(ymax, ymin)) %>%
   with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
 ```
 
-```{r, fig.width=8, fig.height=3}
+```{r sorites cors figure, fig.width=8, fig.height=3}
 dfmfit %>%
   gather("region", "value", c(y, ymin, ymax)) %>%
   mutate(variable = paste(src, region, sep=".")) %>%
@@ -704,7 +755,43 @@ dfmfit %>%
   xlab("Model Fit")
 ```
 
-The posterior endorsement levels (expected probability of choosing the utterance) for Experiment 2 as well as participants actual responses are shown in Figures 5 and 6. The correlation between participants' mean responses and the model's mean endorsement is very high ($R^2=`r inductive_cor`$ for the inductive premise and $R^2=`r concrete_cor`$ for the concrete premise). For the "watches" object category, we find that the model's endorsements of the concrete premise "A watch that costs \$[PRICE VALUE] is expensive," are noticeably lower than participants'.
+```{r sorites split half}
+all_workers = df11$workerid %>% unique()
+split_half_cor = function(df) {
+  return(function(x) {
+    half = sample(
+      all_workers,
+      size = length(all_workers)/2,
+      replace = F
+    )
+    df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
+      group_by(half, qtype, object, dollar_amount) %>%
+      summarise(response = mean(response)) %>%
+      spread(half, response) %>%
+      with(., cor(A, B)) %>%
+      .^2
+  })
+}
+n_resamples = 1000
+resamples = sapply(1:n_resamples, split_half_cor(df11))
+split_half_conf = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation = mean(resamples) %>% round(3)
+
+resamples = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="concrete")))
+split_half_conf_concrete = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation_concrete = mean(resamples) %>% round(3)
+
+resamples = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="inductive")))
+split_half_conf_inductive = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation_inductive = mean(resamples) %>% round(3)
+
+concrete_cor
+split_half_conf_concrete
+inductive_cor
+split_half_conf_inductive
+```
+
+The posterior endorsement levels (expected probability of choosing the utterance) for Experiment 2 as well as participants actual responses are shown in Figures 5 and 6. The correlation between participants' mean responses and the model's mean endorsement is very high ($R^2=`r inductive_cor`$ for the inductive premise and $R^2=`r concrete_cor`$ for the concrete premise). These values are close to the split-half correlation (for inductive, mean: `r split_half_correlation_inductive`, CI: [`r split_half_conf_inductive[1]`, `r split_half_conf_inductive[2]`]; for concrete, mean: `r split_half_correlation_concrete`, CI: [`r split_half_conf_concrete[1]`, `r split_half_conf_concrete[2]`]), which represents a ceiling on explainability. For the "watches" object category, we find that participants' endorsements of the concrete premise "A watch that costs \$[PRICE VALUE] is expensive," are noticeably higher than the model's.  {{WHY THO?}}
 
 {{SUMMARIZE TAKE-AWAYS}}
 
@@ -723,3 +810,101 @@ The posterior endorsement levels (expected probability of choosing the utterance
 \section{Inference details}
 
 {{WRITE THIS}}
+
+# ETC
+
+```{r load model fit to priors only}
+m12fit = read.csv("../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain1_inductive_version_s1_inductive_bins_no_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+  col.names = c("result_type", "variable",
+                "IGNORE", "object",
+                "value", "probability"))
+```
+
+```{r reformat full model fit (sorites, but fit only to priors)}
+dfm12fit = m12fit %>% filter(result_type %in% c("S1", "Inductive")) %>%
+  group_by(result_type, object, variable) %>%
+  do(quantile_errorbars(.$value)) %>%
+  ungroup() %>%
+  gather("region", "value", c(y, ymin, ymax)) %>%
+  mutate(qtype = ifelse(result_type=="Inductive", "inductive", "concrete")) %>%
+  rename(dollar_amount = variable) %>%
+  mutate(dollar_amount = num(dollar_amount)) %>%
+  mutate(src = "Model") %>%
+  select(qtype, object, dollar_amount, region, value, src) %>%
+  rbind(
+    df11 %>% group_by(qtype, object, dollar_amount) %>%
+      do(mean_cl_boot(.$response)) %>%
+      ungroup() %>%
+      mutate(src = "Sorites Experiment") %>%
+      gather("region", "value", c(y, ymin, ymax)) %>%
+      mutate(dollar_amount = num(dollar_amount)) %>%
+      select(qtype, object, dollar_amount, region, value, src)) %>%
+  spread(region, value)
+```
+
+```{r fit only to priors, sorites fit figure, fig.width=10, fig.height=4, fig.cap="Results of Experiment 1. Error bars are 95% confidence intervals."}
+ breaks_fun <- function(y) {
+  if (max(y) < 2) {
+    seq(0, 1, 0.2)
+  } else {
+    1:9
+  }
+ }
+limits_fun <- function(y) {
+  if (max(y) < 2) {
+    c(0.9, 9.1)
+  } else {
+    c(0, 1.05)
+  }
+}
+dfm12fit %>%
+  # gather("region", "value", c(y, ymin, ymax)) %>%
+  # mutate(value = ifelse(src=="Model", num(value)*8+1, num(value))) %>%
+  # spread(region, value) %>%
+  mutate(src = factor(src, levels=c("Sorites Experiment", "Model"))) %>%
+  ggplot(aes(x=dollar_amount, y=y, ymax=ymax, ymin=ymin, colour=qtype, fill=qtype, linetype=qtype, shape=qtype)) +
+  geom_errorbar() +
+  geom_point() +
+  facet_grid(src~object, scales="free") +
+  # scale_y_continuous(breaks=1:9, limits=c(0.9, 9.1)) +
+  # scale_x_continuous(breaks=breaks_fun) +
+  scale_y_continuous(breaks=breaks_fun) +#, limits=limits_fun) +
+  xlab("Dollar Amount") +
+  ylab("Endorsement Rating") +
+  scale_fill_manual(values = c("darkgray", "black")) +
+  scale_colour_manual(values = c("darkgray", "black"))
+```
+
+```{r sorites fit cors}
+concrete_cor12 = dfm12fit %>% select(-c(ymax, ymin)) %>%
+  spread(src, y) %>%
+  filter(qtype=="concrete") %>%
+  with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
+inductive_cor12 = dfm12fit %>% select(-c(ymax, ymin)) %>%
+  spread(src, y) %>%
+  filter(qtype=="inductive") %>%
+  with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
+concrete_cor12
+inductive_cor12
+```
+
+```{r sorites cors figure, fig.width=8, fig.height=3}
+dfm12fit %>%
+  gather("region", "value", c(y, ymin, ymax)) %>%
+  mutate(variable = paste(src, region, sep=".")) %>%
+  select(-c(src, region)) %>%
+  spread(variable, value) %>%
+  ggplot(aes(x=Model.y, xmin=Model.ymin, xmax=Model.ymax,
+             y=`Sorites Experiment.y`,
+             ymin=`Sorites Experiment.ymin`,
+             ymax=`Sorites Experiment.ymax`,
+             colour=object, shape=object)) +
+  geom_errorbarh() +
+  geom_pointrange() +
+  scale_colour_grey() +
+  facet_wrap(~qtype, scales="free") +
+  # scale_y_continuous(breaks=1:9) +
+  # xlim(0,1) +
+  ylab("Sorites Endorsements") +
+  xlab("Model Fit")
+```
