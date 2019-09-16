@@ -26,7 +26,9 @@ var inductive_version = (
   "s1_inductive"
 );
 
-var fit_cost_param = true;//utils.get_flag("--fit_cost_param");
+var fit_cost = utils.get_flag("--fit_cost");
+
+var fit_alpha = utils.get_flag("--fit_alpha");
 
 var fit_concrete = utils.get_flag("--fit_concrete");
 
@@ -55,27 +57,6 @@ var d_bins = dataFrame(
   utils.readCSV("../data/priors/final_priors.csv").data
 );
 
-
-// // 2 minutes for L0, fitting all bins and all sorites data
-// var totalIterations = 50, lag =  1;
-
-// // 13 minutes for L0, fitting all bins and all sorites data
-// var totalIterations = 500, lag =  1;
-
-// // 85 minutes for L0, fitting all bins and all sorites data
-// // 10 minutes for L0, fitting bins (12), concrete (11), and inductive (11)
-// // 10 minutes for L0, fitting bins (12) only
-// var totalIterations = 5000, lag =  10;
-
-// __ minutes for L0, fitting all bins and all sorites data
-// 20 minutes for L0, fitting bins (12) only
-// var totalIterations = 10000, lag = 20;
-
-// var totalIterations = 50000, lag =  10;
-
-// var totalIterations = 500000, lag =  10;
-// var totalIterations = 500000, lag =  200;
-
 var samples = totalIterations/lag, burn = totalIterations / 2;
 
 var outfile = (
@@ -89,7 +70,8 @@ var outfile = (
   (fit_concrete ? "_concrete" : "") +
   (fit_inductive ? "_inductive" : "") +
   (fit_bins ? "_bins" : "") +
-  (fit_cost_param ? "_fit_cost_param" : "_no_cost_param") +
+  (fit_cost ? "_fit_cost_param" : "_no_cost_param") +
+  (fit_alpha ? "_fit_alpha_param" : "_map_alpha") +
   ("_listener" + listener_level) +
   "_" + rating_type + 
   (ignore_last_bin ? "_ignore_last_bin" : "") +
@@ -168,11 +150,11 @@ var model = function(){
 
   // Infer global params across all participants and all objects.
   // alpha1: uniformDrift({a: 0, b: ALPHA1MAX, width: 1}),
-  var speakerOptimality = uniformDrift({a: 0, b: ALPHA1MAX, width: 1});
+  var speakerOptimality = fit_alpha ? uniformDrift({a: 0, b: ALPHA1MAX, width: 1}) : 1;
   query.add(["global_param", "speakerOptimality", "NA", "NA"], speakerOptimality);
   var sigbin = uniformDrift({a: 0, b: SIGBINMAX, width: 0.005});//0.1}); // 0.005 prob too small 10% is like prob good
   query.add(["global_param", "sigbin", "NA", "NA"], sigbin);
-  var cost = uniformDrift({a: 0, b: COSTMAX, width: 0.5});
+  var cost = fit_cost ? uniformDrift({a: 0, b: COSTMAX, width: 0.5}) : 1;
   query.add(["global_param", "cost", "NA", "NA"], cost);
   // standard deviation for bins responses
 
@@ -353,7 +335,7 @@ var model = function(){
         var listener_function = listener_level==0?listener0_with_theta:listener1;
         // listener_function("expensive");
         var listener_joint_distribution = listener_function("expensive");
-        var inductive_speaker_optimality = 1;
+        var inductive_speaker_optimality = 0.8;
         return expectation(listener_joint_distribution, function(interpretation_pair) {
           var x = interpretation_pair.state;
           // given the bin for theta and a particular x, what's the probability that x-epsilon>theta?
