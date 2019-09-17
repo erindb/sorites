@@ -14,7 +14,7 @@ bibliography: sorites.bib
 
 ```{r global_options, include=FALSE}
 rm(list = ls())
-knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
+knitr::opts_chunk$set(echo = F, warning = F, cache = T, message = F,
                       sanitiz = F, fig.width = 5, fig.height = 3)
 ```
 
@@ -205,7 +205,7 @@ This suggests rich quantitative patterns to explain.
 
 # Experiment 2: Prior Distributions
 
-Judgements to our sorites premises depended on the object categories. So, in order to model participants' endorsements, it was useful to have as input a measure of people's prior expectations about the prices of these object categories. In experiment 2, we elicit price distributions using a binned histogram approach (@franke2016does).
+Judgements to our sorites premises depended on the object categories. So, in order to model participants' endorsements, it was useful to have as input a measure of people's prior expectations about the prices of these object categories. In experiment 2, we elicit price distributions using a binned histogram approach (@franke_what_2016).
 
 ```{r priors data}
 df12 = read.csv("../data/priors/data_exp12_2015_04_08.csv", stringsAsFactors = F)
@@ -283,7 +283,7 @@ Sliders corresponding to each price range were arranged in order from lowest pri
 
 ## Results
 
-We normalize slider ratings within each participant and object category, since slider ratings likely reflect relative rather than absolute probabilities (@franke2016does).
+We normalize slider ratings within each participant and object category, since slider ratings likely reflect relative rather than absolute probabilities (@franke_what_2016).
 
 ```{r priors figure, fig.width=10, fig.height=2, fig.cap="Experiment 2 results. Error bars are 95% confidence intervals."}
  breaks_fun <- function(x) {
@@ -445,11 +445,7 @@ Normalized slider ratings are very well-fit by log-normal distributions (see App
 
 # Model
 
-
-
-## Concrete Premise
-
-For the concrete premise, we used an existing quantitative model of scalar adjectives (@Lassiter2013). This is a Rational Speech Act model, which makes use of pragmatic principles {{GRICE}} to resolve vague language in context {{RSA}}. In this model, the literal semantics of a scalar adjective is relative to some unspecified threshold.
+We base our model of the sorites premise endorsements on @lassiter_adjectival_2015, which uses a scalar adjective model (@lassiter_context_2013) to get a graded endorsement value for sorites. This model of scalar adjectives is a Rational Speech Act model (Frank and Goodman, 2012, Goodman and Stuhlmüller, 2013), which makes use of pragmatic principles {{GRICE}} to resolve vague language in context. In this model, the literal semantics of a scalar adjective is relative to some unspecified threshold.
 
 $$[[\mbox{X is expensive}]]_\theta = \mbox{price}(X) > \theta$$
 
@@ -461,57 +457,70 @@ Given a particular price value, the speaker chooses whether to endorse (utteranc
 
 $$U_S(u; x) = \log\left(\int_\theta L_0(x, \theta|u)d\theta\right) - \mbox{cost}(u)$$
 
-{{MAYBE TALK ABOUT SOME PROPERTIES OF THIS MODEL}}
+The main task in Experiment 1 was to choose how much to endorse a statement. We model this task as a speaker's choice between two alternative utterances: producing the given utterance to a naive listener, or staying silent (@degen_lost_2014, @franke_typical_2014).
 
-## Inductive Premise
+## Concrete premise
 
-For the inductive premise, we build off of @Lassiter2013's model of scalar adjectives.
-In order to model participants' ratings of the utterance "An X that costs $\varepsilon$ less than an expensive $X$ is expensive," we need to understand what information they are tyring to convey, and what interlocuter they are imagining.
+The concrete premise in our experiment ("An [OBJECT] that costs \$[PRICE VALUE] is expensive") contains a relative clause. However, we model the endorsement task as choosing between uttering the main clause "The [OBJECT] is expensive," or staying silent, given that the content of the relative clause ("The [OBJECT] costs \$[PRICE VALUE]") is true. Hence, the concrete premise is exactly the scalar adjective utterance of @lassiter_context_2013's model.
 
-Our model is as follows.
+{{SHOW COR BETWEEN BOTH PHRASINGS?}}
 
-1.) Participants imagine that they know of an object X that is expensive, inferring a price $x$ and threshold $\theta$ that would be described as "expensive" under @Lassiter2013's model.
+## Inductive premise
 
-$$L_0(x,\theta|\mbox{X is expensive})$$
+The meaning of the inductive premise is less straightforward. When someone states that "A watch that costs \$3 less than an expensive watch is expensive," what information is assumed to be in common ground, and what information is the speaker trying to communicate? Since the price of the "expensive watch" is unknown to participants, how would they know whether or not to say that a less expensive watch is "still expensive"?
 
-2.) Participants imagine a listener who knows the threshold $\theta$ but not the price $x$ and consider what price distribution the listener would infer with vs. without a statement that a less expensive item would be "still expensive" ($x-\varepsilon > \theta$)
+Rather than model the sorites inductive premise as a speaker endorsement task, @lassiter_adjectival_2015 look at the _listener_'s joint posterior distribution over the price of the object $x$ and the threshold $\theta$ given the utterance "an expensive [OBJECT]" and directly compute the marginal probability that $x - \varepsilon > \theta$ is true.
 
-$$\begin{aligned}L_0(x | \mbox{still expensive}, \theta) &=
-\frac{Pr(x)\delta_{x - \varepsilon > \theta}}{\int_\theta Pr(x)\delta_{x - \varepsilon > \theta} d\theta} \\ &=
-\left\{\begin{array}{ll}\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)} & \mbox{if } \ x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{array}\right\}\end{aligned}$$
+We extend @lassiter_adjectival_2015's approach slightly and compute instead a speaker's probability of communicating that a less expensive item is "still expensive" given a listener's joint posterior over $x$ and $\theta$. That is, we assume participants take the following statements as given:
 
-$$L_0(x | \mbox{silent}, \theta) = Pr(x)$$
+* An [OBJECT] is expensive.
+* Another [OBJECT] costs \$[PRICE VALUE] less.
 
-3.) Participants decide whether to tell this listener that a less expensive item would be "still expensive" ($x-\varepsilon > \theta$) or to stay silent.
+Similar to @lassiter_adjectival_2015, we use a listener model to simultaneously compute the threshold $\theta$ and the price $x_1$ of the "expensive" object (and consequently the price $x_2$ of the "less expensive" object).
+
+$$\begin{aligned}&L_0(x_1,\theta|X_1\mbox{ is expensive}) \\
+&x_2 = x_1 - \varepsilon\end{aligned}$$
+
+However, in our model of the inductive premise, the listener then becomes a speaker. The speaker has the goal to communicate the less expensive price $x_2$ to a naive listener (who knows the threshold but not the price), and must choose whether to make the following statement or stay silent:
+
+* [THE LESS EXPENSIVE OBJECT] is expensive.
+
+We therefore model this naive listener's inferred price distribution with vs. without the statement that the less expensive item would be "still expensive":
+
+$$\begin{aligned}L_0(x_2 | X_2 \mbox{ is expensive}, \theta) &=
+\frac{Pr(x_2)\delta_{x_2 > \theta}}{\int_\theta Pr(x)\delta_{x > \theta} d\theta} \\ &=
+\left\{\begin{array}{ll}\frac{Pr(x_2)}{1 - {CDF}(\theta)} & \mbox{if } \ x_2 > \theta \\ 0 & \mbox{otherwise}\end{array}\right\}\end{aligned}$$
+
+$$L_0(x_2 | \mbox{silent}, \theta) = Pr(x_2)$$
 
 If the cost of the "still expensive" utternace is $-\frac{1}{\lambda}\log(C_X)$ and the cost of the staying silent is $-\frac{1}{\lambda}\log(C_S)$, the speaker endorsements are:
 
-$$\begin{aligned}S_1(u|x, \theta) = \frac{\exp(\lambda \left( \ln(L_0(x|u, \theta)) - c(u)\right))}{\sum_{u'} \exp(\lambda\left( \ln(L_0(x|u', \theta))-c(u') \right))} = \frac{ C_u \left( L_0(x|u, \theta)\right)^\lambda}{\sum_{u'} C_{u'} \left(L_0(x|u', \theta)\right)^\lambda}\end{aligned}$$
+$$\begin{aligned}S_1(u|x_2, \theta) = \frac{\exp(\lambda \left( \ln(L_0(x_2|u, \theta)) - c(u)\right))}{\sum_{u'} \exp(\lambda\left( \ln(L_0(x_2|u', \theta))-c(u') \right))} = \frac{ C_u \left( L_0(x_2|u, \theta)\right)^\lambda}{\sum_{u'} C_{u'} \left(L_0(x_2|u', \theta)\right)^\lambda}\end{aligned}$$
 
 So for the "still expensive" utterance:
 
-$$\begin{aligned}S_1(\mbox{still expensive}|x, \theta) &=
-\frac{C_X \left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda}
-{C_X \left(L_0(x|\mbox{still expensive}, \theta)\right)^\lambda + C_S \left(L_0(x|\mbox{silent}, \theta)\right)^\lambda} \\
+$$\begin{aligned}S_1(X_2 \mbox{ is expensive}|x_2, \theta) &=
+\frac{C_X \left(L_0(x_2|X_2 \mbox{ is expensive}, \theta)\right)^\lambda}
+{C_X \left(L_0(x_2|X_2\mbox{ is expensive}, \theta)\right)^\lambda + C_S \left(L_0(x_2|\mbox{silent}, \theta)\right)^\lambda} \\
 &= 
 \left\{\begin{array}{ll}
-\frac{C_X \left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda}
-{C_X \left(\frac{Pr(x)}{1 - {CDF}(\theta + \varepsilon)}\right)^\lambda + C_S \left(Pr(x)\right)^\lambda} & \mbox{if } \ x - \varepsilon > \theta \\ 0 & \mbox{otherwise}\end{array}\right\} \\
+\frac{C_X \left(\frac{Pr(x_2)}{1 - {CDF}(\theta)}\right)^\lambda}
+{C_X \left(\frac{Pr(x_2)}{1 - {CDF}(\theta)}\right)^\lambda + C_S \left(Pr(x_2)\right)^\lambda} & \mbox{if } \ x_2  > \theta \\ 0 & \mbox{otherwise}\end{array}\right\} \\
 &= 
 \left\{\begin{array}{ll}
-\frac{C_X}{C_X + C_S\left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & \mbox{if } \ x - \varepsilon > \theta \\ 0 & \mbox{otherwise}
+\frac{C_X}{C_X + C_S\left(1 - {CDF}(\theta)\right)^\lambda} & \mbox{if } \ x_2 > \theta \\ 0 & \mbox{otherwise}
 \end{array}\right\}\end{aligned}$$
 
-4.) Finally, we average over participant's initial guess of $x$ and $\theta$ to get the expected endorsement.
+Finally, we average over participant's initial guess of $x_1$ and $\theta$ to get the expected endorsement.
 
-$$\begin{aligned}S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x,\theta|\mbox{x is expensive})
+$$\begin{aligned}S_1(\mbox{still expensive}) = \int_{x,\theta} L_1(x_1,\theta|\mbox{x is expensive})
 \left\{\begin{array}{ll}
-  \frac{C_X}{C_X + C_S\left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & \mbox{if } \ x - \varepsilon > \theta \\
+  \frac{C_X}{C_X + C_S\left(1 - {CDF}(\theta + \varepsilon)\right)^\lambda} & \mbox{if } \ x_1 - \varepsilon > \theta \\
   0  & \text{otherwise.}
 \end{array}\right\}
 dxd\theta\end{aligned}$$
 
-If the costs of the two utterances are equal, then the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x-\varepsilon > \theta$. In this case, the expected endorsement is very similar to simply oberving the joint distribution $L_0(x, \theta | \mbox{X is expensive})$ and taking the expectation of $x-\varepsilon > \theta$. But the smaller $\theta$ is, the less informative the "still expensive" utterance would be, and so the less likely it is that a speaker would actually endorse it over staying silent.
+If the costs of the two utterances are equal, then the $S_1(\mbox{still expensive}|x, \theta)$ value is always between $1/2$ and $1$ whenever $x_1 -\varepsilon > \theta$. In this case, the expected endorsement is very similar to simply oberving the joint distribution $L_0(x_1, \theta | X_1 \mbox{ is expensive})$ and taking the expectation of $x_1-\varepsilon > \theta$. But the smaller $\theta$ is, the less informative the "still expensive" utterance would be, and so the less likely it is that a speaker would actually endorse it over staying silent.
 <!-- As the cost of the "still expensive" utterance goes up relative to staying silent, the speaker is even less likely to endorse the utterance for small values of $\theta$. -->
 
 ## Analysis
@@ -522,13 +531,26 @@ We model the prior distribution over prices as log-normal, with each object cate
 
 ## Results
 
-```{r load full model fit}
-#50K lag 10 worked before...
-mfit = read.csv(
-  "../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain11_inductive_version_s1_inductive_concrete_inductive_bins_no_cost_param_listener0_normed_rating_ignore_last_bin.csv",
-  col.names = c("result_type", "variable",
-                "IGNORE", "object",
-                "value", "probability"))
+```{r fn to fill in samples}
+fill_in_samples = function(df) {
+  df %>%
+    merge(data.frame(value = rep(df$value[[1]], df$freq[[1]])))
+}
+```
+
+```{r load full model fit bda}
+# mfit = read.csv(
+#   "../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain11_inductive_version_s1_inductive_concrete_inductive_bins_no_cost_param_listener0_normed_rating_ignore_last_bin.csv",
+#   col.names = c("result_type", "variable",
+#                 "IGNORE", "object",
+#                 "value", "probability"))
+# mfit = mfit %>%
+#   mutate(freq = probability*1000) %>%
+#   rowwise() %>%
+#   do(fill_in_samples(.)) %>%
+#   ungroup()
+# write.csv(mfit, file = "mfit_bda.csv", row.names = F)
+mfitbda = read.csv("mfit_bda.csv")
 # mfit %>%
 #   filter(result_type %in% c("global_param", "price_prior")) %>%
 #   ggplot(aes(x=value)) +
@@ -536,25 +558,44 @@ mfit = read.csv(
 #   facet_wrap(variable ~ object, scales="free")
 ```
 
-```{r}
+```{r calculate map alpha}
 # mfit %>%
 #   filter(variable == "speakerOptimality") %>%
 #   ggplot(aes(x=value)) +
 #   geom_histogram()
+#   
+#   
 map_alpha = data.frame(x = seq(0, 1, 0.01)) %>%
-  mutate(y = (mfit %>%
+  mutate(y = (mfitbda %>%
                 filter(variable == "speakerOptimality") %>%
-                select(value, probability) %>%
-                mutate(freq = probability*1000) %>%
-                rowwise() %>%
-                do(fill_in_samples(.)) %>%
-                ungroup() %>%
-                .$x %>%
+                .$value %>%
                 ecdf())(x)) %>%
   filter(abs(y-0.5)<0.01) %>%
   .$x[[1]]
+mean_alpha = mfitbda %>%
+  filter(variable == "speakerOptimality") %>%
+  .$value %>% mean()
 ```
 
+```{r load full model fit map alpha}
+# mfit = read.csv(
+#   "../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain1_inductive_version_s1_inductive_bins_no_cost_param_map_alpha_listener0_normed_rating_ignore_last_bin.csv",
+#   col.names = c("result_type", "variable",
+#                 "IGNORE", "object",
+#                 "value", "probability"))
+# mfit = mfit %>%
+#   mutate(freq = probability*1000) %>%
+#   rowwise() %>%
+#   do(fill_in_samples(.)) %>%
+#   ungroup()
+# write.csv(mfit, file = "mfit.csv", row.names = F)
+mfit = read.csv("mfit.csv")
+# mfit %>%
+#   filter(result_type %in% c("global_param", "price_prior")) %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram(bins=30) +
+#   facet_wrap(variable ~ object, scales="free")
+```
 
 ```{r reformat full model fit (priors), fig.width=10, fig.height=3}
 mfit_params = mfit %>%
@@ -785,126 +826,26 @@ resamples = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="inducti
 split_half_conf_inductive = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
 split_half_correlation_inductive = mean(resamples) %>% round(3)
 
-concrete_cor
-split_half_conf_concrete
-inductive_cor
-split_half_conf_inductive
+# concrete_cor
+# split_half_conf_concrete
+# inductive_cor
+# split_half_conf_inductive
 ```
 
 The posterior endorsement levels (expected probability of choosing the utterance) for Experiment 2 as well as participants actual responses are shown in Figures 5 and 6. The correlation between participants' mean responses and the model's mean endorsement is very high ($R^2=`r inductive_cor`$ for the inductive premise and $R^2=`r concrete_cor`$ for the concrete premise). These values are close to the split-half correlation (for inductive, mean: `r split_half_correlation_inductive`, CI: [`r split_half_conf_inductive[1]`, `r split_half_conf_inductive[2]`]; for concrete, mean: `r split_half_correlation_concrete`, CI: [`r split_half_conf_concrete[1]`, `r split_half_conf_concrete[2]`]), which represents a ceiling on explainability. For the "watches" object category, we find that participants' endorsements of the concrete premise "A watch that costs \$[PRICE VALUE] is expensive," are noticeably higher than the model's.  {{WHY THO?}}
 
+## Discussion
+
 {{SUMMARIZE TAKE-AWAYS}}
 
-# Discussion
+# General Discussion
 
 {{SKETCH DISCUSSION}}
-
-# Conclusion
-
-{{SKETCH CONCLUSION}}
 
 # References
 
 \appendix
 
-\section{Inference details}
+# Inference details
 
 {{WRITE THIS}}
-
-# ETC
-
-```{r load model fit to priors only}
-m12fit = read.csv("../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain1_inductive_version_s1_inductive_bins_no_cost_param_listener0_normed_rating_ignore_last_bin.csv",
-  col.names = c("result_type", "variable",
-                "IGNORE", "object",
-                "value", "probability"))
-```
-
-```{r reformat full model fit (sorites, but fit only to priors)}
-dfm12fit = m12fit %>% filter(result_type %in% c("S1", "Inductive")) %>%
-  group_by(result_type, object, variable) %>%
-  do(quantile_errorbars(.$value)) %>%
-  ungroup() %>%
-  gather("region", "value", c(y, ymin, ymax)) %>%
-  mutate(qtype = ifelse(result_type=="Inductive", "inductive", "concrete")) %>%
-  rename(dollar_amount = variable) %>%
-  mutate(dollar_amount = num(dollar_amount)) %>%
-  mutate(src = "Model") %>%
-  select(qtype, object, dollar_amount, region, value, src) %>%
-  rbind(
-    df11 %>% group_by(qtype, object, dollar_amount) %>%
-      do(mean_cl_boot(.$response)) %>%
-      ungroup() %>%
-      mutate(src = "Sorites Experiment") %>%
-      gather("region", "value", c(y, ymin, ymax)) %>%
-      mutate(dollar_amount = num(dollar_amount)) %>%
-      select(qtype, object, dollar_amount, region, value, src)) %>%
-  spread(region, value)
-```
-
-```{r fit only to priors, sorites fit figure, fig.width=10, fig.height=4, fig.cap="Results of Experiment 1. Error bars are 95% confidence intervals."}
- breaks_fun <- function(y) {
-  if (max(y) < 2) {
-    seq(0, 1, 0.2)
-  } else {
-    1:9
-  }
- }
-limits_fun <- function(y) {
-  if (max(y) < 2) {
-    c(0.9, 9.1)
-  } else {
-    c(0, 1.05)
-  }
-}
-dfm12fit %>%
-  # gather("region", "value", c(y, ymin, ymax)) %>%
-  # mutate(value = ifelse(src=="Model", num(value)*8+1, num(value))) %>%
-  # spread(region, value) %>%
-  mutate(src = factor(src, levels=c("Sorites Experiment", "Model"))) %>%
-  ggplot(aes(x=dollar_amount, y=y, ymax=ymax, ymin=ymin, colour=qtype, fill=qtype, linetype=qtype, shape=qtype)) +
-  geom_errorbar() +
-  geom_point() +
-  facet_grid(src~object, scales="free") +
-  # scale_y_continuous(breaks=1:9, limits=c(0.9, 9.1)) +
-  # scale_x_continuous(breaks=breaks_fun) +
-  scale_y_continuous(breaks=breaks_fun) +#, limits=limits_fun) +
-  xlab("Dollar Amount") +
-  ylab("Endorsement Rating") +
-  scale_fill_manual(values = c("darkgray", "black")) +
-  scale_colour_manual(values = c("darkgray", "black"))
-```
-
-```{r sorites fit cors}
-concrete_cor12 = dfm12fit %>% select(-c(ymax, ymin)) %>%
-  spread(src, y) %>%
-  filter(qtype=="concrete") %>%
-  with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
-inductive_cor12 = dfm12fit %>% select(-c(ymax, ymin)) %>%
-  spread(src, y) %>%
-  filter(qtype=="inductive") %>%
-  with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
-concrete_cor12
-inductive_cor12
-```
-
-```{r sorites cors figure, fig.width=8, fig.height=3}
-dfm12fit %>%
-  gather("region", "value", c(y, ymin, ymax)) %>%
-  mutate(variable = paste(src, region, sep=".")) %>%
-  select(-c(src, region)) %>%
-  spread(variable, value) %>%
-  ggplot(aes(x=Model.y, xmin=Model.ymin, xmax=Model.ymax,
-             y=`Sorites Experiment.y`,
-             ymin=`Sorites Experiment.ymin`,
-             ymax=`Sorites Experiment.ymax`,
-             colour=object, shape=object)) +
-  geom_errorbarh() +
-  geom_pointrange() +
-  scale_colour_grey() +
-  facet_wrap(~qtype, scales="free") +
-  # scale_y_continuous(breaks=1:9) +
-  # xlim(0,1) +
-  ylab("Sorites Endorsements") +
-  xlab("Model Fit")
-```
