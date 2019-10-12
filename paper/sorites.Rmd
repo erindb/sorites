@@ -10,13 +10,22 @@ output:
 bibliography: sorites.bib
 ---
 
-# Introduction
-
 ```{r global_options, include=FALSE}
 rm(list = ls())
-knitr::opts_chunk$set(echo = F, warning = F, cache = T, message = F,
+knitr::opts_chunk$set(echo = F, warning = F, cache = F, message = F,
                       sanitiz = F, fig.width = 5, fig.height = 3)
 ```
+
+```{r}
+# this is due friday
+# 4 hours of work
+# bullet point of architecture.
+# one sentence for each bullet point.
+# and a couple sub bullet points for each paragraphs.
+# 4-5 paragraphs for introductions
+```
+
+# Introduction
 
 ```{r libraries}
 library(knitr)
@@ -26,7 +35,76 @@ set.seed(123)
 library(corrplot)
 ```
 
-{{SKETCH INTRO}}
+* sorites paradox exists
+    * sorites paradox is ...
+    * it's confusing with a binary, logical semantics
+
+* dan's adjective model shows the qualitative behavior
+    * model the premises as speech acts, which depend on context, rather than logical statements that are universally true or false
+    * we get a _probability_ of endorsement, which gives us graded endorsements
+    * depending on the prior distribution over values, we might get different endorsements for the same value (e.g. different objects have difference price distributions, so inductive for coffee maker as some dollar amount epsilong will get different endorsement than the same statement about laptops)
+
+* do humans actually show the behavior predicted by this model?
+    * we collect endorsements for sorites-style utterancs for different prices for a range of everyday objects
+    * we also elicit prior distributions over prices for each of thos object categories.
+    * finally, we translate the sorites premises into speech acts where a speaker has a goal of communicating some information to the listener
+
+* the endorsement expt shows the qualitative pattern of the sorites paradox, and also we can quantitatively predict the endorsements given the separate experiment eliciting the price distributions.
+    
+    
+```{r}
+# one property of vagueness is sorites.
+# statements which are true on their own, but when taken together logically imply something false.
+# because nothing is all true in all contexts but we average across contexts to get an estimate of the value.
+# and if it's true in enough situations then we consider it basically true
+# but there's still a few situations where that's not he case and as we increase the distance between the hypothetical items in the inductive premise we see less and less endorsement
+# it's a paradox because if language were more binary true-false, if this was always true, then it would be a contradiction.
+# dan wrote a lot about sorites and how that relates to vagueness
+# intensifiers, sorites, and causal verbs
+# intensifiers show how form can influence interpretations
+# sorites shows how 
+# sorites paradox intensifiers causal verbs
+# dan talked a lot about this and we show empirically that this matches up with how people actually respond to the sorites premises
+# in particular we chose a set of premises where the paradox holds but then we also show other situations where ... endorsement for these premises goes down as the specificity of the claim goes up.
+# intensifiers, the more specific the claim, the more complex the form of the language
+# sorites, the more specific the claim, the less endorsement. and this is a gradual drop off
+# and so we can see that the sorites paradox happens at the specific point where endorsements are strong, so both claims... but we can continuously vary this parameter and get different responses
+# but what about task demands
+# yeah, that could be the reason we're getting the graded judgements. however the shape of the graded udgements is predicted by the price priors data so it's actually not... i thnk we're actually modeling the phenomenon because we're able to take one kind of information, feed it through this model with basically no parameters adn get out the data from this other experiment
+# so we have this common model of the world that includes the prices of the objects and the way that people communicate with each other and we're asking different questions about that model
+# and that's a good property of a model that you can ask different questions and get the answer
+# so there's this specificity of the claim thing
+# and the less specific the claim is, the easier it is to endorse
+# so in particular the inductive premise has this specificity of the claim
+# it would be nice to visualize across the different parameter values how much information is being conveyed, like what's the informativity of the utterances...
+# sorites paradox exists
+# here's some informationa bout it
+# heree's somet hing people ahve siad about it thanks dan
+# dan figured it out that basically this is a particular region -- like if there's two parameters, this price and this price, the the sorites premise gets endorsed in a particular way that creates a property in this reason so they lokok like theyre 100% certain but you can see as you vary the parm that these are continuous graded cjudgements so averaging over the contexts 
+#  but then in this particular reason there's paradox I think) And he's in like has logical cement what we do which parametrizes language we use the vagueness and language in order to communicate
+#   and as a result we're incorporating context Sedan has does not always parameterize the premises and you can see that at some perimeter sayings you get strong endorsement and at other settings you dont and this gradually drops off and this is a prediction of a model of sorites premises as speech acts, rather than an utterance with a truth value in and of itself, we think of it as a speech act, and since it's a speech act, we can take some context and derive some endorsement. and in this case it matches up with what people are doing. to get the context, we run this experiment. to get the endorsements we run this experiment, and then we take the context and predict the endrosement and voila the endorsements are predicted by the contexts with this model, quantitatively
+#   so that's what people are doing
+#   and you could do a linear regression on the log price, but then you'd have a random thingy for each object and each kind of question but you don't ahve to do that.
+# that has a lot of parameters and this one really doesn't. there's also not a clear way to translate, there's not an explanation of how you get from the context to this information
+# maybe it's derivable, but at that point you're saying the price distributions predict the endorsements
+# sorites exists
+# it was confusing
+# but think of these logical statements as speech acts and it becomes less confusing
+# and you can see how the variation of prices in the real world (the context we're supposing these speech acts occur within) -- those price distributions, the sorites endorsements fall out of the price distributions. we can derive the qualitative behavior of sorites paradox from these assumptions
+# ok that's cool but does that actually match up with what people are doing?
+# well we asked people both what the prices of objects were to elicit the context and what theirendorsements for sorites premise wer and we show that we can basically derive one from the other with no parameters and that's pretty cool.
+# we show all of the qualitative behavior that dan predicted and we also show that this model explains the data
+# in order to do that, we have to figure out what the speech act for these premises should be, but we did that
+# the qualitative behavior of how they respod to premises and price distributions is kinda meh because task demands but taken together, it's pretty cool.
+# the mapping between them is cool.
+# there's task demands within each study, but there's no task demands across studies. there's no task demand reason why eliciting prices from one experiment should quantitatively predict the endorsements in the other experiment.
+# so that's comforting.
+# i should run different chains of the model to get errorbars.
+# in the discussion, task demands. they're weird, but we're fine because there's no task demands across the two experiments, that's a between Ss design. that's cool
+# task demands...
+# then there's the parameters. you can predict these data with a linear regression but it would have a lot of parameters and you wouldn't be able to go from one thingamajig to the other i think
+# 
+```
 
 # Experiment 1: Sorites Statements
 
@@ -205,7 +283,7 @@ This suggests rich quantitative patterns to explain.
 
 # Experiment 2: Prior Distributions
 
-Judgements to our sorites premises depended on the object categories. So, in order to model participants' endorsements, it was useful to have as input a measure of people's prior expectations about the prices of these object categories. In experiment 2, we elicit price distributions using a binned histogram approach (@franke_what_2016).
+Judgements to our sorites premises depended on the object categories. So, in order to model participants' endorsements, it was useful to have as input a measure of people's prior expectations about the prices of these object categories. In experiment 2, we elicit price distributions using a binned histogram approach [@franke_what_2016].
 
 ```{r priors data}
 df12 = read.csv("../data/priors/data_exp12_2015_04_08.csv", stringsAsFactors = F)
@@ -283,7 +361,7 @@ Sliders corresponding to each price range were arranged in order from lowest pri
 
 ## Results
 
-We normalize slider ratings within each participant and object category, since slider ratings likely reflect relative rather than absolute probabilities (@franke_what_2016).
+We normalize slider ratings within each participant and object category, since slider ratings likely reflect relative rather than absolute probabilities [@franke_what_2016].
 
 ```{r priors figure, fig.width=10, fig.height=2, fig.cap="Experiment 2 results. Error bars are 95% confidence intervals."}
  breaks_fun <- function(x) {
@@ -445,7 +523,9 @@ Normalized slider ratings are very well-fit by log-normal distributions (see App
 
 # Model
 
-We base our model of the sorites premise endorsements on @lassiter_adjectival_2015, which uses a scalar adjective model (@lassiter_context_2013) to get a graded endorsement value for sorites. This model of scalar adjectives is a Rational Speech Act model (Frank and Goodman, 2012, Goodman and Stuhlmüller, 2013), which makes use of pragmatic principles {{GRICE}} to resolve vague language in context. In this model, the literal semantics of a scalar adjective is relative to some unspecified threshold.
+## Background
+
+We base our model of the sorites premise endorsements on @lassiter_adjectival_2015, which uses a scalar adjective model [@lassiter_context_2013] to get a graded endorsement value for sorites. This model of scalar adjectives is a Rational Speech Act model [@frank_predicting_2012;@goodman_knowledge_2013], which makes use of pragmatic principles [@clark_using_1996;@grice_logic_1975;@levinson_interactional_1995] to resolve vague language in context. In this model, the literal semantics of a scalar adjective is relative to some unspecified threshold.
 
 $$[[\mbox{X is expensive}]]_\theta = \mbox{price}(X) > \theta$$
 
@@ -457,7 +537,7 @@ Given a particular price value, the speaker chooses whether to endorse (utteranc
 
 $$U_S(u; x) = \log\left(\int_\theta L_0(x, \theta|u)d\theta\right) - \mbox{cost}(u)$$
 
-The main task in Experiment 1 was to choose how much to endorse a statement. We model this task as a speaker's choice between two alternative utterances: producing the given utterance to a naive listener, or staying silent (@degen_lost_2014, @franke_typical_2014).
+The main task in Experiment 1 was to choose how much to endorse a statement. We model this task as a speaker's choice between two alternative utterances: producing the given utterance to a naive listener, or staying silent [@degen_lost_2014;@franke_typical_2014].
 
 ## Concrete premise
 
@@ -525,9 +605,11 @@ If the costs of the two utterances are equal, then the $S_1(\mbox{still expensiv
 
 ## Analysis
 
-We jointly model the prior elicitation data from Experiment 2 and the endorsement data from Experiment 1. We use Bayesian methods to infer the most likely values of the latent parameters (object category distribution parameters and speaker optimality). Averaging over the posterior distribution of latent parameters, we show how much variance in the endorsement data we can explain by the pragmatic model.
+Given the prior distributions over prices for object categories (elicited in Experiment 2), to model responses in Experiment 1, we need only 2 parameters: speaker optimality $\lambda$ and the cost of the utterances. For simplicity, we assume that both utterances have equal cost in this task (similar to giving a simple "yes" or "no" response), leaving the single parameter for speaker optimality. We use Bayesian methods to jointly model Experiments 1 and 2, simultaneously inferring latent parameters of the object price distributions and speaker optimality. Averaging over the posterior distribution of latent parameters, we show how much variance in the endorsement data we can explain by the pragmatic model.
 
-We model the prior distribution over prices as log-normal, with each object category $o$ having its own mean $\mu_o$ and standard deviation $\sigma_o$. We model slider responses for each bin in Experiment 2 as Gaussian, centered at the probability of that bin with variance $\sigma_{\mbox{bin}}$.^[This is a deviation from @franke2016does's analysis of binned histogram data which used a logit transform in the linking function from probability to slider ratings.] We put uninformative priors over the price distribution parameters $\mu_o \sim \mbox{Uniform}(0, 10), \sigma_o \sim \mbox{Uniform}(0, 10)$, the response parameter $\sigma_{\mbox{bin}} \sim \mbox{Uniform}(0, 0.5)$, and the speaker model parameter $\lambda \sim \mbox{Uniform}(0, 10)$. We assume both utterances (endorsement of the premise or silence) have equal cost.
+We model the prior distribution over prices as log-normal, with each object category $o$ having its own mean $\mu_o$ and standard deviation $\sigma_o$. We model slider responses for each bin in Experiment 2 as Gaussian, centered at the probability of that bin with standard deviation $\sigma_{\mbox{bin}}$.^[This is a deviation from @franke_what_2016's analysis of binned histogram data which used a logit transform in the linking function from probability to slider ratings.] We put uninformative priors over the price distribution parameters $\mu_o \sim \mbox{Uniform}(0, 10), \sigma_o \sim \mbox{Uniform}(0, 10)$, the response parameter $\sigma_{\mbox{bin}} \sim \mbox{Uniform}(0, 0.5)$, and the speaker model parameter $\lambda \sim \mbox{Uniform}(0, 10)$.
+
+Details of how we carried out this Bayesian inference are described in Appendix A.
 
 ## Results
 
@@ -558,47 +640,8 @@ mfitbda = read.csv("mfit_bda.csv")
 #   facet_wrap(variable ~ object, scales="free")
 ```
 
-```{r calculate map alpha}
-# mfit %>%
-#   filter(variable == "speakerOptimality") %>%
-#   ggplot(aes(x=value)) +
-#   geom_histogram()
-#   
-#   
-map_alpha = data.frame(x = seq(0, 1, 0.01)) %>%
-  mutate(y = (mfitbda %>%
-                filter(variable == "speakerOptimality") %>%
-                .$value %>%
-                ecdf())(x)) %>%
-  filter(abs(y-0.5)<0.01) %>%
-  .$x[[1]]
-mean_alpha = mfitbda %>%
-  filter(variable == "speakerOptimality") %>%
-  .$value %>% mean()
-```
-
-```{r load full model fit map alpha}
-# mfit = read.csv(
-#   "../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain1_inductive_version_s1_inductive_bins_no_cost_param_map_alpha_listener0_normed_rating_ignore_last_bin.csv",
-#   col.names = c("result_type", "variable",
-#                 "IGNORE", "object",
-#                 "value", "probability"))
-# mfit = mfit %>%
-#   mutate(freq = probability*1000) %>%
-#   rowwise() %>%
-#   do(fill_in_samples(.)) %>%
-#   ungroup()
-# write.csv(mfit, file = "mfit.csv", row.names = F)
-mfit = read.csv("mfit.csv")
-# mfit %>%
-#   filter(result_type %in% c("global_param", "price_prior")) %>%
-#   ggplot(aes(x=value)) +
-#   geom_histogram(bins=30) +
-#   facet_wrap(variable ~ object, scales="free")
-```
-
 ```{r reformat full model fit (priors), fig.width=10, fig.height=3}
-mfit_params = mfit %>%
+mfit_params = mfitbda %>%
   select(-IGNORE) %>%
   filter(result_type == "price_prior") %>%
   group_by(result_type, variable, object) %>%
@@ -678,31 +721,31 @@ priors_fit_cor_full_model = cdf12_full %>%
   round(3)
 ```
 
-
-
 ```{r priors split half}
-all_workers = df12$workerid %>% unique()
-split_half_cor_priors = function(df) {
-  return(function(x) {
-    half = sample(
-      all_workers,
-      size = length(all_workers)/2,
-      replace = F
-    )
-    df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
-      mutate(x = lower) %>%
-      group_by(half, x, item) %>%
-      summarise(value = mean(normed_response)) %>%
-      ungroup() %>%
-      group_by(half, item) %>%
-      do(sum_lower(.)) %>%
-      ungroup() %>%
-      spread(half, value) %>%
-      with(., cor(A, B)^2)
-  })
-}
-n_resamples = 1000
-resamples = sapply(1:n_resamples, split_half_cor_priors(df12))
+# all_workers = df12$workerid %>% unique()
+# split_half_cor_priors = function(df) {
+#   return(function(x) {
+#     half = sample(
+#       all_workers,
+#       size = length(all_workers)/2,
+#       replace = F
+#     )
+#     df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
+#       mutate(x = lower) %>%
+#       group_by(half, x, item) %>%
+#       summarise(value = mean(normed_response)) %>%
+#       ungroup() %>%
+#       group_by(half, item) %>%
+#       do(sum_lower(.)) %>%
+#       ungroup() %>%
+#       spread(half, value) %>%
+#       with(., cor(A, B)^2)
+#   })
+# }
+# n_resamples = 1000
+# resamples = sapply(1:n_resamples, split_half_cor_priors(df12))
+# write.csv(resamples, "resamples.csv", row.names = F)
+resamples = read.csv("resamples.csv")$x
 split_half_conf_priors = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
 split_half_correlation_priors = mean(resamples) %>% round(3)
 ```
@@ -710,7 +753,7 @@ split_half_correlation_priors = mean(resamples) %>% round(3)
 The posterior price distributions inferred by fitting to both Experiments 1 and 2 (shown in Figure 4) are very close to the normalized ratings from Experiment 1 (comparing empirical vs. model CDF, $R^2 = `r priors_fit_cor_full_model`$).
 
 ```{r reformat full model fit (sorites)}
-dfmfit = mfit %>% filter(result_type %in% c("S1", "Inductive")) %>%
+dfmfit = mfitbda %>% filter(result_type %in% c("S1", "Inductive")) %>%
   group_by(result_type, object, variable) %>%
   do(quantile_errorbars(.$value)) %>%
   ungroup() %>%
@@ -797,34 +840,40 @@ dfmfit %>%
 ```
 
 ```{r sorites split half}
-all_workers = df11$workerid %>% unique()
-split_half_cor = function(df) {
-  return(function(x) {
-    half = sample(
-      all_workers,
-      size = length(all_workers)/2,
-      replace = F
-    )
-    df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
-      group_by(half, qtype, object, dollar_amount) %>%
-      summarise(response = mean(response)) %>%
-      spread(half, response) %>%
-      with(., cor(A, B)) %>%
-      .^2
-  })
-}
-n_resamples = 1000
-resamples = sapply(1:n_resamples, split_half_cor(df11))
-split_half_conf = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-split_half_correlation = mean(resamples) %>% round(3)
+# all_workers = df11$workerid %>% unique()
+# split_half_cor = function(df) {
+#   return(function(x) {
+#     half = sample(
+#       all_workers,
+#       size = length(all_workers)/2,
+#       replace = F
+#     )
+#     df %>% mutate(half = ifelse(workerid %in% half, "A", "B")) %>%
+#       group_by(half, qtype, object, dollar_amount) %>%
+#       summarise(response = mean(response)) %>%
+#       spread(half, response) %>%
+#       with(., cor(A, B)) %>%
+#       .^2
+#   })
+# }
+# n_resamples = 1000
+# resamples_all = sapply(1:n_resamples, split_half_cor(df11))
+# write.csv(resamples_all, "resamples_all.csv", row.names = F)
+# resamples_concrete = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="concrete")))
+# write.csv(resamples_concrete, "resamples_concrete.csv", row.names = F)
+# resamples_inductive = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="inductive")))
+# write.csv(resamples_inductive, "resamples_inductive.csv", row.names = F)
+resamples_all = read.csv("resamples_all.csv")$x
+resamples_concrete = read.csv("resamples_concrete.csv")$x
+resamples_inductive = read.csv("resamples_inductive.csv")$x
+split_half_conf = quantile(resamples_all, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation = mean(resamples_all) %>% round(3)
 
-resamples = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="concrete")))
-split_half_conf_concrete = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-split_half_correlation_concrete = mean(resamples) %>% round(3)
+split_half_conf_concrete = quantile(resamples_concrete, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation_concrete = mean(resamples_concrete) %>% round(3)
 
-resamples = sapply(1:n_resamples, split_half_cor(df11 %>% filter(qtype=="inductive")))
-split_half_conf_inductive = quantile(resamples, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
-split_half_correlation_inductive = mean(resamples) %>% round(3)
+split_half_conf_inductive = quantile(resamples_inductive, probs = c(0.025, 0.975)) %>% round(3) %>% unname()
+split_half_correlation_inductive = mean(resamples_inductive) %>% round(3)
 
 # concrete_cor
 # split_half_conf_concrete
@@ -832,15 +881,111 @@ split_half_correlation_inductive = mean(resamples) %>% round(3)
 # split_half_conf_inductive
 ```
 
-The posterior endorsement levels (expected probability of choosing the utterance) for Experiment 2 as well as participants actual responses are shown in Figures 5 and 6. The correlation between participants' mean responses and the model's mean endorsement is very high ($R^2=`r inductive_cor`$ for the inductive premise and $R^2=`r concrete_cor`$ for the concrete premise). These values are close to the split-half correlation (for inductive, mean: `r split_half_correlation_inductive`, CI: [`r split_half_conf_inductive[1]`, `r split_half_conf_inductive[2]`]; for concrete, mean: `r split_half_correlation_concrete`, CI: [`r split_half_conf_concrete[1]`, `r split_half_conf_concrete[2]`]), which represents a ceiling on explainability. For the "watches" object category, we find that participants' endorsements of the concrete premise "A watch that costs \$[PRICE VALUE] is expensive," are noticeably higher than the model's.  {{WHY THO?}}
+The posterior endorsement levels (expected probability of choosing the utterance) for Experiment 2 as well as participants actual responses are shown in Figures 5 and 6. The correlation between participants' mean responses and the model's mean endorsement is very high ($R^2=`r inductive_cor`$ for the inductive premise and $R^2=`r concrete_cor`$ for the concrete premise). These values are close to the split-half correlation (for inductive, mean: `r split_half_correlation_inductive`, CI: [`r split_half_conf_inductive[1]`, `r split_half_conf_inductive[2]`]; for concrete, mean: `r split_half_correlation_concrete`, CI: [`r split_half_conf_concrete[1]`, `r split_half_conf_concrete[2]`]), which represents a ceiling on explainability. For the "watches" object category, we find that participants' endorsements of the concrete premise "A watch that costs \$[PRICE VALUE] is expensive," are noticeably higher than the model's.
+
+```{r calculate map alpha}
+# mfit %>%
+#   filter(variable == "speakerOptimality") %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram()
+#   
+#   
+map_alpha = data.frame(x = seq(0, 1, 0.01)) %>%
+  mutate(y = (mfitbda %>%
+                filter(variable == "speakerOptimality") %>%
+                .$value %>%
+                ecdf())(x)) %>%
+  filter(abs(y-0.5)<0.01) %>%
+  .$x[[1]] %>% round(3)
+mean_alpha = mfitbda %>%
+  filter(variable == "speakerOptimality") %>%
+  .$value %>% mean() %>% round(3)
+```
+
+```{r load full model fit map alpha}
+# mfit = read.csv(
+#   "../models/results/final_expts_results-S1-sigmax10_10000_burn5000_lag10_chain1_inductive_version_s1_inductive_bins_no_cost_param_map_alpha_listener0_normed_rating_ignore_last_bin.csv",
+#   col.names = c("result_type", "variable",
+#                 "IGNORE", "object",
+#                 "value", "probability"))
+# mfit = mfit %>%
+#   mutate(freq = probability*1000) %>%
+#   rowwise() %>%
+#   do(fill_in_samples(.)) %>%
+#   ungroup()
+# write.csv(mfit, file = "mfit_alpha.csv", row.names = F)
+mfit_alpha = read.csv("mfit_alpha.csv")
+# mfit %>%
+#   filter(result_type %in% c("global_param", "price_prior")) %>%
+#   ggplot(aes(x=value)) +
+#   geom_histogram(bins=30) +
+#   facet_wrap(variable ~ object, scales="free")
+```
+
+```{r reformat full model fit alpha (sorites)}
+dfmfit_alpha = mfit_alpha %>% filter(result_type %in% c("S1", "Inductive")) %>%
+  group_by(result_type, object, variable) %>%
+  do(quantile_errorbars(.$value)) %>%
+  ungroup() %>%
+  gather("region", "value", c(y, ymin, ymax)) %>%
+  mutate(qtype = ifelse(result_type=="Inductive", "inductive", "concrete")) %>%
+  rename(dollar_amount = variable) %>%
+  mutate(dollar_amount = num(dollar_amount)) %>%
+  mutate(src = "Model") %>%
+  select(qtype, object, dollar_amount, region, value, src) %>%
+  rbind(
+    df11 %>% group_by(qtype, object, dollar_amount) %>%
+      do(mean_cl_boot(.$response)) %>%
+      ungroup() %>%
+      mutate(src = "Sorites Experiment") %>%
+      gather("region", "value", c(y, ymin, ymax)) %>%
+      mutate(dollar_amount = num(dollar_amount)) %>%
+      select(qtype, object, dollar_amount, region, value, src)) %>%
+  spread(region, value)
+```
+
+```{r sorites fit cors alpha}
+concrete_cor_alpha = dfmfit_alpha %>% select(-c(ymax, ymin)) %>%
+  spread(src, y) %>%
+  filter(qtype=="concrete") %>%
+  with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
+inductive_cor_alpha = dfmfit_alpha %>% select(-c(ymax, ymin)) %>%
+  spread(src, y) %>%
+  filter(qtype=="inductive") %>%
+  with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
+```
+
+There are 11 parameters necessary for modeling Experiment 2 (5 mean and 5 variance parameters for the object categories and one variance parameter for the slider responses) and only one parameter necessary for modeling Experiment 1. Since the fit for Experiment 1 is our primary interest, we want to check how much the Experiment 2 parameters are being used to fit Experiment 1's data. We therefore set the optimality parameter to the the maximum a posteriori estimate under the full Bayesian data analysis ($\lambda = `r map_alpha`$), and directly compute responses to Experiment 1, fitting the object distribution parameters to Experiment 2's data only. This gives similar correlations with the empirical responses in Experiment 1 ($R^2=`r inductive_cor_alpha`$ for inductive and $R^2 = `r concrete_cor_alpha`$ for concrete).
 
 ## Discussion
+
+{{WHY ARE WATCHES WEIRD?}}
+
+{{DISCUSS FREE PARAMS}}
 
 {{SUMMARIZE TAKE-AWAYS}}
 
 # General Discussion
 
-{{SKETCH DISCUSSION}}
+* point
+    * point
+    * point
+
+* point
+    * point
+    * point
+
+* point
+    * point
+    * point
+
+* point
+    * point
+    * point
+
+* point
+    * point
+    * point
 
 # References
 
@@ -848,4 +993,74 @@ The posterior endorsement levels (expected probability of choosing the utterance
 
 # Inference details
 
-{{WRITE THIS}}
+The code for our model and procedures and data from our experiments can be found at {{URL}}. We implemented our model in the probabilistic programming language WebPPL [@goodman_design_2014]. We used an incrementalized version of the Metropolis- Hastings algorithm [@ritchie_c3:_2016]. We discarded the first 5000 samples for burn in. After burn in, we kept every 10th sample. In total, we kept 10000 samples to represent the posterior distribution.
+
+We set uninformative priors over the hyperparameters for the price distribution parameters $\mu_o \sim \mbox{Uniform}(0, 10), \sigma_o \sim \mbox{Uniform}(0, 10)$, the response parameter $\sigma_{\mbox{bin}} \sim \mbox{Uniform}(0, 0.5)$, and the speaker model parameter $\lambda \sim \mbox{Uniform}(0, 10)$.
+
+### Discretization
+
+Since inference over the speaker model has a nested inference of the literal listener distribution, we used a simplification. For each continuous sample of the set of prior parameters $\mu_o$ and $\sigma_o$, we discretized the domain of these priors and computed exact probability distributions for the prior on prices.
+
+We chose a discretization that would have few bins, but would also closely resemble the behavior of the true distributions. Since the range of prices is so wide, and since some prices are very close together, it would be difficult to create a discretization that works for every dollar amount used across all experiments. Because of this, we implemented a separate discretization for each experiment.
+
+For discretizing the prior, we created a set of bins (not necessarily of equal width) such that each price in the experiment falls into a unique bin. We also want there to be bins below the lowest price’s bin and above the highest price’s bin. The probability of a price being sampled from each bin is computed from the CDF: `p_bin = pnorm(upper_boundary) - pnorm(lower_boundary)`.
+
+The distribution of the threshold $\theta$ was also discretized and represented relative to the prior bins. We assumed the true distribution of $\theta$ to be independent of $x$ and uniform, with maximum value at 10% higher than the largest dollar amount used for that item in the experiment. Since the bins of of different widths, the probability of $\theta$ falling between prices from adjacent bins varied, depending on the bins. We used a simple scaling based on the width of the bins. This is an approximation to the true joint distribution over prices $x$ and thresholds $\theta$.
+
+The discretization used for the full set of sorites experiments is shown in Figure 7. The height of the bars represent the probability that theta will fall between each pair of midpoints. The midpoints of the bins appear in black. Bins are shown divided by vertical lines. The representative theta values, which appear at the boundaries of the bins, are shown in grey.
+
+```{r discretization figure, fig.width=10, fig.height=2, fig.cap="Discretization and marginal distribution over the threshold variable $\theta$ for each object category."}
+
+expt_label="11"
+
+rename_list = function(lst, name, new_name) {
+  lst[[new_name]] = lst[[name]]
+  lst[[name]] = NULL
+  return(lst)
+}
+
+select_expt = function(lst, expt_label) {
+  # for each object
+  for (name in names(lst)) {
+    lst[[name]] = lst[[name]][[expt_label]]
+    lst[[name]][["dollar_amount_lookups"]] = NULL
+    lst[[name]][["theta_lookups"]] = NULL
+    lst[[name]][["width_lookups"]] = NULL
+    lst[[name]][["max_theta"]] = NULL
+    lst[[name]]$upper[[length(lst[[name]]$upper)]] = NA
+    lst[[name]]$upper = unlist(lst[[name]]$upper)
+  }
+  do.call(rbind, lapply(names(lst), function(name) {
+    lst[[name]] %>% as.data.frame() %>%
+      mutate(object = name) %>% return()
+  })) %>% return()
+}
+bins = RJSONIO::fromJSON("../models/results/bins.json") %>%
+  rename_list("coffee maker", "coffee_maker") %>%
+  select_expt(expt_label) %>%
+  gather("variable", "value", -object) %>%
+  group_by(object, variable) %>%
+  mutate(bin_number = 1:length(value)) %>%
+  spread(variable, value)
+theta_bins = bins %>%
+  select(object, mid, theta_prob) %>%
+  rename(upper_theta = mid) %>%
+  mutate(lower_theta = c(0, upper_theta[1:(length(upper_theta)-1)])) %>%
+  gather("var", "theta", c(upper_theta, lower_theta)) %>%
+  select(-var)
+p = bins %>%
+  ggplot() +
+  geom_point(aes(x=mid, y=0)) +
+  geom_point(aes(x=theta, y=theta_prob), alpha=0.2) +
+  geom_vline(aes(xintercept=lower), alpha=0.2) +
+  geom_ribbon(data=theta_bins, aes(x=theta, ymin=0, ymax=theta_prob), alpha=0.2) +
+  facet_wrap(~object, ncol = 5, scales="free")
+bins %>%
+  # filter(object == "laptop") %>%
+  ggplot() +
+  facet_wrap(~object, ncol = 5, scales="free") +
+  geom_point(aes(x=mid, y=0)) +
+  geom_point(aes(x=theta, y=theta_prob), alpha=0.2) +
+  geom_vline(aes(xintercept=lower), alpha=0.2) +
+  geom_ribbon(data=theta_bins, aes(x=theta, ymin=0, ymax=theta_prob), alpha=0.2)
+```
