@@ -37,6 +37,7 @@ library(corrplot)
 
 * sorites paradox exists
     * sorites paradox is ...
+    * These statements are clearly true on their own, but when taken together, they logically imply something false.
     * it's confusing with a binary, logical semantics
 
 * dan's adjective model shows the qualitative behavior
@@ -50,61 +51,6 @@ library(corrplot)
     * finally, we translate the sorites premises into speech acts where a speaker has a goal of communicating some information to the listener
 
 * the endorsement expt shows the qualitative pattern of the sorites paradox, and also we can quantitatively predict the endorsements given the separate experiment eliciting the price distributions.
-    
-    
-```{r}
-# one property of vagueness is sorites.
-# statements which are true on their own, but when taken together logically imply something false.
-# because nothing is all true in all contexts but we average across contexts to get an estimate of the value.
-# and if it's true in enough situations then we consider it basically true
-# but there's still a few situations where that's not he case and as we increase the distance between the hypothetical items in the inductive premise we see less and less endorsement
-# it's a paradox because if language were more binary true-false, if this was always true, then it would be a contradiction.
-# dan wrote a lot about sorites and how that relates to vagueness
-# intensifiers, sorites, and causal verbs
-# intensifiers show how form can influence interpretations
-# sorites shows how 
-# sorites paradox intensifiers causal verbs
-# dan talked a lot about this and we show empirically that this matches up with how people actually respond to the sorites premises
-# in particular we chose a set of premises where the paradox holds but then we also show other situations where ... endorsement for these premises goes down as the specificity of the claim goes up.
-# intensifiers, the more specific the claim, the more complex the form of the language
-# sorites, the more specific the claim, the less endorsement. and this is a gradual drop off
-# and so we can see that the sorites paradox happens at the specific point where endorsements are strong, so both claims... but we can continuously vary this parameter and get different responses
-# but what about task demands
-# yeah, that could be the reason we're getting the graded judgements. however the shape of the graded udgements is predicted by the price priors data so it's actually not... i thnk we're actually modeling the phenomenon because we're able to take one kind of information, feed it through this model with basically no parameters adn get out the data from this other experiment
-# so we have this common model of the world that includes the prices of the objects and the way that people communicate with each other and we're asking different questions about that model
-# and that's a good property of a model that you can ask different questions and get the answer
-# so there's this specificity of the claim thing
-# and the less specific the claim is, the easier it is to endorse
-# so in particular the inductive premise has this specificity of the claim
-# it would be nice to visualize across the different parameter values how much information is being conveyed, like what's the informativity of the utterances...
-# sorites paradox exists
-# here's some informationa bout it
-# heree's somet hing people ahve siad about it thanks dan
-# dan figured it out that basically this is a particular region -- like if there's two parameters, this price and this price, the the sorites premise gets endorsed in a particular way that creates a property in this reason so they lokok like theyre 100% certain but you can see as you vary the parm that these are continuous graded cjudgements so averaging over the contexts 
-#  but then in this particular reason there's paradox I think) And he's in like has logical cement what we do which parametrizes language we use the vagueness and language in order to communicate
-#   and as a result we're incorporating context Sedan has does not always parameterize the premises and you can see that at some perimeter sayings you get strong endorsement and at other settings you dont and this gradually drops off and this is a prediction of a model of sorites premises as speech acts, rather than an utterance with a truth value in and of itself, we think of it as a speech act, and since it's a speech act, we can take some context and derive some endorsement. and in this case it matches up with what people are doing. to get the context, we run this experiment. to get the endorsements we run this experiment, and then we take the context and predict the endrosement and voila the endorsements are predicted by the contexts with this model, quantitatively
-#   so that's what people are doing
-#   and you could do a linear regression on the log price, but then you'd have a random thingy for each object and each kind of question but you don't ahve to do that.
-# that has a lot of parameters and this one really doesn't. there's also not a clear way to translate, there's not an explanation of how you get from the context to this information
-# maybe it's derivable, but at that point you're saying the price distributions predict the endorsements
-# sorites exists
-# it was confusing
-# but think of these logical statements as speech acts and it becomes less confusing
-# and you can see how the variation of prices in the real world (the context we're supposing these speech acts occur within) -- those price distributions, the sorites endorsements fall out of the price distributions. we can derive the qualitative behavior of sorites paradox from these assumptions
-# ok that's cool but does that actually match up with what people are doing?
-# well we asked people both what the prices of objects were to elicit the context and what theirendorsements for sorites premise wer and we show that we can basically derive one from the other with no parameters and that's pretty cool.
-# we show all of the qualitative behavior that dan predicted and we also show that this model explains the data
-# in order to do that, we have to figure out what the speech act for these premises should be, but we did that
-# the qualitative behavior of how they respod to premises and price distributions is kinda meh because task demands but taken together, it's pretty cool.
-# the mapping between them is cool.
-# there's task demands within each study, but there's no task demands across studies. there's no task demand reason why eliciting prices from one experiment should quantitatively predict the endorsements in the other experiment.
-# so that's comforting.
-# i should run different chains of the model to get errorbars.
-# in the discussion, task demands. they're weird, but we're fine because there's no task demands across the two experiments, that's a between Ss design. that's cool
-# task demands...
-# then there's the parameters. you can predict these data with a linear regression but it would have a lot of parameters and you wouldn't be able to go from one thingamajig to the other i think
-# 
-```
 
 # Experiment 1: Sorites Statements
 
@@ -955,39 +901,17 @@ inductive_cor_alpha = dfmfit_alpha %>% select(-c(ymax, ymin)) %>%
   with(cor(Model, `Sorites Experiment`)^2 %>% round(3))
 ```
 
-There are 11 parameters necessary for modeling Experiment 2 (5 mean and 5 variance parameters for the object categories and one variance parameter for the slider responses) and only one parameter necessary for modeling Experiment 1. Since the fit for Experiment 1 is our primary interest, we want to check how much the Experiment 2 parameters are being used to fit Experiment 1's data. We therefore set the optimality parameter to the the maximum a posteriori estimate under the full Bayesian data analysis ($\lambda = `r map_alpha`$), and directly compute responses to Experiment 1, fitting the object distribution parameters to Experiment 2's data only. This gives similar correlations with the empirical responses in Experiment 1 ($R^2=`r inductive_cor_alpha`$ for inductive and $R^2 = `r concrete_cor_alpha`$ for concrete).
+There are 11 parameters necessary for modeling Experiment 2 (5 mean and 5 variance parameters for the object categories and one variance parameter for the slider responses) and only one additional parameter necessary for modeling Experiment 1 (the speaker optimality parameter). Since the fit for Experiment 1 is our primary interest, we want to check how much the Experiment 2 parameters are being changed to fit Experiment 1's data. We therefore set the optimality parameter to the the maximum a posteriori estimate under the full Bayesian data analysis ($\lambda = `r map_alpha`$), and directly compute responses to Experiment 1, fitting the object category price prior distribution parameters to Experiment 2's data only. This gives similar correlations with the empirical responses in Experiment 1 ($R^2=`r inductive_cor_alpha`$ for inductive and $R^2 = `r concrete_cor_alpha`$ for concrete). This indicates that the model is not overfitting.
 
-## Discussion
+# Discussion
 
-{{WHY ARE WATCHES WEIRD?}}
+We show a close fit to the empirical responses, except in the case of watches, where participants' endorsements are higher than the model's endorsements for the statement that a watch of a particular price is expensive. This may have to do with the long tail in the distribution of watch prices. Luxury watches can be extremely expensive relative to regular watches, and might be thought of as categorically different from typical watches. When primed with a range of prices that are very high, as in our priors experiment, participants might think more about high-end watches, but when considering whether a watch of a particular price is expensive, the contrast class might be more typical watches.
 
-{{DISCUSS FREE PARAMS}}
+Given the within-subjecs design of each experiment, there could be a concern about task demands within each experiment. The fact that people had to answer many similar questions with different prices may have encouraged participants to use the full range of the scale even if their natural responses tended more towards the endpoints, resulting in the qualitative finding of graded judgements for the sorites premises. However, Experiments 1 and 2 involved a completely separate set of participants, but using the prior data from Experiment 2 and a single optimality parameter was sufficient to quantiatively model the data from Experiment 1. The fact that this model captures the relationship between the prior distributions and the sorites judgements is not explained by task demands.
 
-{{SUMMARIZE TAKE-AWAYS}}
+This model of the sorites premises as speech acts predicts the paradox that participants endorse both premises at certain values of the price (in the concrete premise) and price difference (in the inductive premise). We show that the model also quantiatively predicts the graded judgements that people actually give for the premises as we vary those values.
 
-# General Discussion
-
-* point
-    * point
-    * point
-
-* point
-    * point
-    * point
-
-* point
-    * point
-    * point
-
-* point
-    * point
-    * point
-
-* point
-    * point
-    * point
-
-# References
+Using a sensible choice for the speech act for each sorites premise and uninformative priors over hyperparameters, we are able to use the data from Experiment 2 to fit the prior price distributions.
 
 \appendix
 
@@ -1064,3 +988,6 @@ bins %>%
   geom_vline(aes(xintercept=lower), alpha=0.2) +
   geom_ribbon(data=theta_bins, aes(x=theta, ymin=0, ymax=theta_prob), alpha=0.2)
 ```
+
+
+# References
